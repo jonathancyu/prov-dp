@@ -7,14 +7,21 @@ from enum import Enum
 from pydantic import BaseModel, Field, root_validator, Extra
 from collections import defaultdict
 from typing import Callable, TypeVar
+from icecream import ic
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+
 class GraphsonObject(BaseModel):
     @root_validator(pre=True)
     def extract_values(cls, values):
-        return {
-            key: (value if key.startswith('_') else value['value']) 
-            for key, value in values.items()
-            }
+        result = {}
+        for key, value in values.items():
+            if key.startswith('_') or not isinstance(value, dict):
+                result[key] = value
+            else:
+                result[key] = value['value']
+        return result
     class Config:
         extra = 'allow'
 
@@ -26,12 +33,24 @@ class Node(GraphsonObject):
     id: int = Field(..., alias='_id')
     type: NodeType = Field(..., alias='TYPE')
 
-edge_id_counter = 0
+    def __repr__(self):
+        return f'{id}: {self.type}'
+
+edge_id_sequence = 5000
 class Edge(GraphsonObject):
-    id: int = Field(..., alias='_id') # TODO: May be edge ID conflicts when we export the graph
+    id: int = Field(alias='_id') # TODO: May be edge ID conflicts when we export the graph
     srcid: int = Field(..., alias='_inV')
     dstid: int = Field(..., alias='_outV')
-    optype: str = Field(alias='OPTYPE')
+    optype: str = Field(..., alias='OPTYPE')
+
+    def __repr__(self):
+        return f'{self.srcid}-{self.optype}-{self.dstid}'
+    
+    def of(srcid: int, dstid: int, optype: str, id:int=edge_id_sequence):
+        global edge_id_sequence
+        if id == edge_id_sequence:
+            edge_id_sequence += 1
+        return Edge(_id=id, _inV=srcid, _outV=dstid, OPTYPE=optype)
 
 class Graph(BaseModel):
     nodes: list[Node] = Field(..., alias='vertices')
@@ -51,26 +70,55 @@ def group_by_lambda(
 
     return grouped
 
+def node_type_tuple(
+        edge: Edge, 
+        node_lookup: dict[int, Node]
+        ) -> tuple[NodeType, NodeType]:
+    src_node = node_lookup[edge.srcid]
+    dst_node = node_lookup[edge.dstid]
+    return (src_node.type, dst_node.type)
+
+class GraphProcessor:
+    graph: Graph
+    node_lookup:        dict[int, Node]
+    edge_lookup:        dict[list[int, int], Edge]
+
+    node_groups:        dict[NodeType, list[Node]]
+    edge_type_groups:   dict[str, list[Node]]
+    edge_type_groups:   dict[tuple[NodeType, NodeType], list[Node]]
+
+
+    def __init__(self, path_to_json: str):
+        with open(path_to_json) as input_file:
+            input_json = json.load(input_file)
+            self.graph = Graph(**input_json)
+        ic(len(self.graph.nodes))
+        ic(len(self.graph.edges))
+        self.node_lookup = {node.id: node for node in self.graph.nodes}
+        self.edge_lookup = {(edge.srcid, edge.dstid): edge for edge in self.graph.edges}
+
+        self.node_groups = group_by_lambda(self.graph.nodes, lambda node: node.type)
+        self.edge_type_groups = group_by_lambda(self.graph.edges, lambda edge: edge.optype)
+        self.edge_node_type_groups = group_by_lambda(self.graph.edges, lambda edge: node_type_tuple(edge, self.node_lookup))
+        ic(self.edge_node_type_groups.keys())
+
+    def process(self):
+        process_to_process_edges = self.edge_node_type_groups[(NodeType.ProcessLet, NodeType.ProcessLet)]
+        ic(len(process_to_process_edges))
+        process_to_process_edges_perturbed = perturb(self.graph.nodes, process_to_process_edges, 'Start_Processlet')
+        ic(process_to_process_edges_perturbed)
+
     
 def main(args: dict) -> None:
-    with open(args.input) as input_file:
-        input_graph = json.load(input_file)
-    
-    graph = Graph(**input_graph)
-    node_lookup = {node.id: node for node in graph.nodes }
-    node_groups: dict[NodeType, Node] = group_by_lambda(graph.nodes, lambda node: node.type)
+    processor = GraphProcessor(args.input)
 
-    edge_lookup = {(edge.srcid, edge.dstid): edge for edge in graph.edges}
-    edge_groups: dict[str, Edge] = group_by_lambda(graph.edges, lambda edge: edge.optype)
+    processor.process()
 
 
     
-
-
-    
-def perturb(nodes: list[Node], edges: list[Edge]) -> (list[Node], list[Edge]):
+def perturb(nodes: list[Node], edges: list[Edge], optype: str) -> (list[Node], list[Edge]):
     # https://web.archive.org/web/20170921192428id_/https://hal.inria.fr/hal-01179528/document
-    epsilon_1: float
+    epsilon_1 = 0.5
     epsilon_2 = 1
     n: int = len(nodes)
     m: int = len(edges)
@@ -87,21 +135,25 @@ def perturb(nodes: list[Node], edges: list[Edge]) -> (list[Node], list[Edge]):
                 )
     n_1 = 0
 
-    new_edges: list(tuple(int, int)) = []
+    new_edge_tuples: list(tuple(int, int)) = []
     for edge in edges:
         weight = 1 + np.random.laplace(0, 1.0/epsilon_1)
         if weight > theta:
-            new_edges.append(edge)
+            new_edge_tuples.append((edge.srcid, edge.dstid))
             n_1 += 1
     
     while n_1 < (m_perturbed-1):
         src = np.random.choice(nodes)
         dst = np.random.choice(nodes)
-        edge = (src, dst)
-        if edge not in new_edges:
-            new_edges.append(edge)
+        edge = (src.id, dst.id)
+        if edge not in new_edge_tuples:
+            new_edge_tuples.append(edge)
             n_1 += 1
     
+    return [
+        Edge.of(srcid = edge_tuple[0], dstid = edge_tuple[1], optype=optype)
+        for edge_tuple in new_edge_tuples
+    ]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Graph perturber')
