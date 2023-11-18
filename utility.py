@@ -4,7 +4,7 @@ from typing import Callable
 import numpy as np
 from graphviz import Digraph
 
-from graphson import Node, Edge, GraphsonObject
+from graphson import Graph, Node, Edge, GraphsonObject
 
 
 def group_by_lambda[T](objects: list[GraphsonObject], 
@@ -31,22 +31,13 @@ def uniform_generator(edges: list[Edge]) -> Callable[[],int]:
 
     return lambda: int(np.round(np.random.uniform(min_time, max_time)))
 
-def create_edge(src_node: Node, dst_node: Node,
-                optype: str,
-                time_func: Callable[[], int]):
-    edge_time = time_func() # TODO: what should this value be?
-    # I was thinking it'd be the avg of src_node and dst_node times, but nodes dont have time attributes
-    return Edge.of(
-        src_id=src_node.id, dst_id=dst_node.id, 
-        optype=optype,
-        time=edge_time
-    )
-
-def save_dot(dot_graph: Digraph, folder_name: str, file_path: Path, pdf: bool=False) -> None:
-    output_path = (Path(folder_name) / file_path.stem).with_suffix('.dot')
-    dot_graph.save(output_path)
+def save_dot(dot_graph: Digraph, file_path: Path, 
+             dot=True, pdf=False) -> None:
+    file_path = file_path.with_suffix('.dot')
+    file_path.parent.mkdir(exist_ok=True, parents=True)
+    dot_graph.save(file_path)
     if pdf:
-        dot_graph.render(output_path, format='pdf')
+        dot_graph.render(file_path, format='pdf')
 
 def get_stats(stat: str, data: list[int]) -> dict:
     result = {
@@ -56,3 +47,10 @@ def get_stats(stat: str, data: list[int]) -> dict:
         'max': max(data)
     }
     return { f'{stat} {key}': value for key, value in result.items() }
+
+def count_disconnected_nodes(graph: Graph) -> float:
+    included_nodes: set[Node] = set()
+    for edge in graph.edges:
+        included_nodes.add(graph.get_node(edge.src_id))
+        included_nodes.add(graph.get_node(edge.dst_id))
+    return len(set(graph.nodes) - included_nodes)

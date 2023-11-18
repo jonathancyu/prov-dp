@@ -1,14 +1,12 @@
-import warnings
-import argparse
 import math
 from collections import Counter
-from pathlib import Path
+from typing import Callable
 
 import numpy as np
-import pandas as pd
 from icecream import ic 
+
 from graphson import Node, NodeType, Edge, EdgeType, Graph
-from utility import group_by_lambda, create_edge, uniform_generator, save_dot
+from utility import group_by_lambda, uniform_generator
 
 def perturb_graph(graph: Graph, epsilon_1: float) -> Graph:
     node_groups = group_by_lambda(graph.nodes, lambda node: node.type)
@@ -42,6 +40,16 @@ TIME_FILTERED = 'time filtered'
 etmf_stats = Stats([PROCESSED, SELF_REFERRING, TIME_FILTERED])
 
 
+def create_edge(src_node: Node, dst_node: Node,
+                optype: str,
+                time_func: Callable[[], int]):
+    edge_time = time_func() # TODO: what should this value be?
+    # I was thinking it'd be the avg of src_node and dst_node times, but nodes dont have time attributes
+    return Edge.of(
+        src_id=src_node.id, dst_id=dst_node.id, 
+        optype=optype,
+        time=edge_time
+    )
 def extended_top_m_filter(src_nodes: list[Node], dst_nodes: list[Node], 
                           existing_edges: list[Edge], 
                           edge_type: EdgeType,
@@ -87,7 +95,7 @@ def extended_top_m_filter(src_nodes: list[Node], dst_nodes: list[Node],
         if src_node.type == NodeType.PROCESS_LET \
             and dst_node.type == NodeType.PROCESS_LET \
             and src_node.time >= dst_node.time:
-            etmf_stats.increment(edge_type, SELF_REFERRING)
+            etmf_stats.increment(edge_type, TIME_FILTERED)
             continue
         
         new_edge = create_edge(src_node, dst_node, edge_type.optype, uniform_time)

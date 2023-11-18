@@ -231,5 +231,4 @@ class Graph(BaseModel):
             if node not in included_nodes:
                 disconnected_nodes += 1
                 add_to_graph(node)
-        ic(disconnected_nodes)
         return dot_graph
