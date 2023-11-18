@@ -40,16 +40,11 @@ class GraphProcessor:
     edge_type_groups:   dict[tuple[NodeType, NodeType], list[Node]]
 
 
-    def __init__(self, path_to_json: str):
-        with open(path_to_json, 'r', encoding='utf-8') as input_file:
-            input_json = json.load(input_file)
-            self.graph = Graph(**input_json)
-        ic(len(self.graph.nodes))
-        ic(len(self.graph.edges))
-
-        self.node_groups = group_by_lambda(self.graph.nodes, lambda node: node.type)
-        self.edge_type_groups = group_by_lambda(self.graph.edges, lambda edge: edge.optype)
-        self.edge_node_type_groups = group_by_lambda(self.graph.edges, lambda edge: node_type_tuple(edge, self.graph._node_lookup))
+    def __init__(self, graph: Graph):
+        self.graph = graph
+        self.node_groups = group_by_lambda(graph.nodes, lambda node: node.type)
+        self.edge_type_groups = group_by_lambda(graph.edges, lambda edge: edge.optype)
+        self.edge_node_type_groups = group_by_lambda(graph.edges, lambda edge: node_type_tuple(edge, graph._node_lookup))
         ic(self.edge_node_type_groups.keys())
 
 
@@ -63,11 +58,9 @@ class GraphProcessor:
 
     
 def main(args: dict) -> None:
-    processor = GraphProcessor(args.input)
-    # with open(args.output, 'w', encoding='utf-8') as f:
-    #     json.dump(processor.graph.to_dict(), f)
-    processor.graph.to_dot(args.output)
-    # processor.process()
+    input_graph = Graph.load(args.input)
+    input_graph.to_dot(args.output, pdf=True)
+    processor = GraphProcessor(input_graph)
 
 
 def perturb(nodes: list[Node], edges: list[Edge], optype: str) -> (list[Node], list[Edge]):
