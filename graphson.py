@@ -141,6 +141,14 @@ class Edge(GraphsonObject):
     def __hash__(self):
         return hash((self.src_id, self.dst_id))
 
+class EdgeType:
+    src_type: NodeType
+    dst_type: NodeType
+    optype: str
+    def __init__(self, edge: Edge, node_lookup: dict[int, Node]):
+        self.src_type = node_lookup[edge.src_id].type
+        self.dst_type = node_lookup[edge.dst_id].type
+        self.optype = edge.optype
 
 class Graph(BaseModel):
     nodes:              list[Node] = Field(alias='vertices', default_factory=list)
@@ -180,7 +188,7 @@ class Graph(BaseModel):
             node = self._node_lookup[node_id]
             digraph.node(str(node_id), **node.to_dot_args())
 
-    def to_dot(self, output_path: str, pdf: bool=False) -> None:
+    def to_dot(self) -> Digraph:
         dot_graph = Digraph()
         dot_graph.attr(rankdir='LR')
         included_nodes: set[int] = set()
@@ -193,7 +201,5 @@ class Graph(BaseModel):
         for node in self.nodes:
             if node.id not in included_nodes:
                 ic(f'skipped node {node.id}')
-        dot_graph.save(output_path)
-        if pdf:
-            dot_graph.render(output_path, format='pdf')
+        return dot_graph
         

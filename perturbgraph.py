@@ -3,21 +3,12 @@ import argparse
 from pathlib import Path
 
 from icecream import ic 
+from graphviz import Digraph
 
-from graphson import Node, NodeType, Edge, Graph, GraphsonObject
+from graphson import Edge, EdgeType, Graph
 from utility import group_by_lambda, extended_top_m_filter
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-
-class EdgeType:
-    src_type: NodeType
-    dst_type: NodeType
-    optype: str
-    def __init__(self, edge: Edge, node_lookup: dict[int, Node]):
-        self.src_type = node_lookup[edge.src_id].type
-        self.dst_type = node_lookup[edge.dst_id].type
-        self.optype = edge.optype
 
 
 class GraphProcessor:
@@ -38,23 +29,26 @@ class GraphProcessor:
 
         return Graph(vertices=graph.nodes, edges=new_edges)
 
+def save_dot(dot_graph: Digraph, folder_name: str, file_path: Path, pdf: bool=False) -> None:
+    output_path = (Path(folder_name) / file_path.stem).with_suffix('.dot')
+    dot_graph.save(output_path)
+    if pdf:
+        dot_graph.render(output_path, format='pdf')
+
     
 def main(args: dict) -> None:
     input_graph = Graph.load_file(args.input_path)
-    input_graph.to_dot('input-' + args.input_path.stem + '.dot', pdf=True)
+    save_dot(input_graph.to_dot(), 'input', args.input_path, pdf=True)
 
     processor = GraphProcessor()
     output_graph = processor.process(input_graph)
-    output_graph.to_dot(args.output_path.stem + '.dot', pdf=True)
-
+    save_dot(output_graph.to_dot(), 'output', args.input_path, pdf=True)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Graph perturber')
     parser.add_argument('-i', '--input_path', type=Path, 
                         required=True, help='Path to input graph')
-    parser.add_argument('-o', '--output_path', type=Path, 
-                        required=True, help='Path to output graph')
     parser.add_argument('-n', '--num-graphs', type=int, 
                         help='Number of perturbed graphs to generate')
     parser.add_argument('-e', '--epsilon', type=float)

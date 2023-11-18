@@ -3,7 +3,7 @@ from typing import Callable
 
 import numpy as np
 
-from graphson import Node, Edge, GraphsonObject
+from graphson import Node, NodeType, Edge, GraphsonObject
 
 
 def group_by_lambda[T](objects: list[GraphsonObject], 
@@ -46,6 +46,7 @@ def extended_top_m_filter(src_nodes: list[Node], dst_nodes: list[Node],
                           optype: str,
                           epsilon_1: float, epsilon_2: float=1
                           ) -> list[Edge]:
+    """Compute constants"""
     n_s, n_d = len(src_nodes), len(dst_nodes)
     m = len(existing_edges)
     m_perturbed = m + int(np.round(np.random.laplace(0, 1.0/epsilon_2)))
@@ -63,18 +64,28 @@ def extended_top_m_filter(src_nodes: list[Node], dst_nodes: list[Node],
             (num_possible_edges / (2*m_perturbed))
             + (math.exp(epsilon_1)-1)/2
         ) / epsilon_1
-    
+
+    """Execute Extended Top-m Filter"""    
     new_edges: set[Edge] = set()
     for edge in existing_edges:
-        # TODO: could we tweak this initial weight based on time?
-        weight = 1 + np.random.laplace(0, 1.0/epsilon_1) # add to 1 b/c A_ij = 1 for this edge
+        weight = 1 + np.random.laplace(0, 1.0/epsilon_1)
         if weight > theta:
             new_edges.add(edge)
-    # at this point, len(edge_tuples) = n_1
+            
     uniform_time = uniform_generator(existing_edges)
     while len(new_edges) < m_perturbed:
-        src_node = np.random.choice(src_nodes)
-        dst_node = np.random.choice(dst_nodes)
+        src_node: Node = np.random.choice(src_nodes)
+        dst_node: Node = np.random.choice(dst_nodes)
+
+        # Provenance-specific constraints
+        # This filtering DEFINITELY affects our selection of theta
+        if src_node == dst_node:
+            continue
+        if src_node.type == NodeType.PROCESS_LET \
+            and dst_node.type == NodeType.PROCESS_LET \
+            and src_node.time >= dst_node.time:
+            continue
+        
         new_edge = create_edge(src_node, dst_node, optype, uniform_time)
         if new_edge not in new_edges: # TODO: Also filter self-referential edges?
             new_edges.add(new_edge)
