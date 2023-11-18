@@ -1,12 +1,17 @@
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from time import time_ns
+from typing import Callable
 import json
 
 from pydantic import BaseModel, Field, root_validator
 from icecream import ic
 from graphviz import Digraph
 
+
+def format_timestamp(timestamp: int) -> str:
+    return datetime.fromtimestamp(int(timestamp/1e9)).strftime('%Y-%m-%d %H:%M:%S')
 
 def string_to_field(value: str):
     try:
@@ -45,14 +50,12 @@ class GraphsonObject(BaseModel):
     def to_dict(self):
         new_dict = {}
         model = self.model_dump(by_alias=True)
-        ic(model)
         for key, value in model.items():
             str_value = str(value)
             if key.startswith('_'):
                 new_dict[key] = str_value
             else:
                 new_dict[key] = string_to_field(str_value)
-        ic(new_dict)
         return new_dict
 
 
@@ -68,12 +71,19 @@ class NodeType(Enum):
 class Node(GraphsonObject):
     id: int = Field(..., alias='_id')
     type: NodeType = Field(..., alias='TYPE')
+    _time: int
 
-    def __repr__(self):
-        return f'{id}: {self.type}'
+    def get_time(self) -> int:
+        return self._time
+    
+    def set_time(self, new_time: int) -> None:
+        self.time = new_time
+
+    def __hash__(self):
+        return self.id
 
     def to_dot_args(self) -> dict[str, any]:
-        model = self.model_dump(by_alias=True)
+        model = self.model_dump(by_alias=True, exclude=['time'])
         args = {}
         match self.type:
             case NodeType.PROCESS_LET:
@@ -84,7 +94,7 @@ class Node(GraphsonObject):
                     'label': format_label(model, [
                         ('exe_name', 'EXE_NAME'),
                         ('cmd', 'CMD')
-                    ])
+                    ]) + f'\nfirst_event: {format_timestamp(self.time)}'
                 }
             case NodeType.FILE:
                 args = {
@@ -134,8 +144,7 @@ class Edge(GraphsonObject):
             'color': 'black'
         }
         if self.time is not None:
-            timestamp = self.time/1e9
-            args['label'] = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+            args['label'] = format_timestamp(self.time)
         return args
     
     def __hash__(self):
@@ -150,6 +159,11 @@ class EdgeType:
         self.dst_type = node_lookup[edge.dst_id].type
         self.optype = edge.optype
 
+    def __hash__(self):
+        return hash((self.src_type, self.dst_type))
+
+    def __str__(self):
+        return f'[{self.src_type.name}]-{self.optype}-[{self.dst_type.name}]'
 class Graph(BaseModel):
     nodes:              list[Node] = Field(alias='vertices', default_factory=list)
     edges:              list[Edge] = Field(alias='edges', default_factory=list)
@@ -167,7 +181,26 @@ class Graph(BaseModel):
         super().__init__(*args, **kwargs)
         self._node_lookup = {node.id: node for node in self.nodes}
         self._edge_lookup = {(edge.src_id, edge.dst_id): edge for edge in self.edges}
+        self._init_node_times()
 
+    def _add_node(self, 
+                  node_id: int, included_nodes: set[Node], 
+                  callback: Callable[[Node],None]
+                  ) -> None:
+        if node_id not in included_nodes:
+            included_nodes.add(node_id)
+            node = self._node_lookup[node_id]
+            callback(node)
+    
+    def _init_node_times(self) -> None:
+        included_nodes: set[int] = set()
+        sorted_edges = sorted(self.edges, key=lambda e: e.time)
+        for edge in sorted_edges:
+            self._add_node(edge.src_id, included_nodes, lambda node: node.set_time(edge.time))
+            self._add_node(edge.dst_id, included_nodes, lambda node: node.set_time(edge.time))
+
+
+        
     def get_node(self, node_id: int) -> Node:
         return self._node_lookup[node_id]
     
@@ -179,27 +212,23 @@ class Graph(BaseModel):
         model['mode'] = 'EXTENDED'
         model['vertices'] = [ node.to_dict() for node in self.nodes ]
         model['edges'] = [ edge.to_dict() for edge in self.edges ]
-
         return model
-
-    def _add_node(self, node_id: int, digraph: Digraph, included_nodes: set[Node]) -> None:
-        if node_id not in included_nodes:
-            included_nodes.add(node_id)
-            node = self._node_lookup[node_id]
-            digraph.node(str(node_id), **node.to_dot_args())
 
     def to_dot(self) -> Digraph:
         dot_graph = Digraph()
         dot_graph.attr(rankdir='LR')
-        included_nodes: set[int] = set()
+        included_nodes: set[Node] = set()
         sorted_edges = sorted(self.edges, key=lambda e: e.time)
+        add_to_graph = lambda node: dot_graph.node(str(node.id), **node.to_dot_args())
         for edge in sorted_edges:
-            self._add_node(edge.src_id, dot_graph, included_nodes)
+            self._add_node(edge.src_id, included_nodes, add_to_graph)
             dot_graph.edge(str(edge.src_id), str(edge.dst_id), **edge.to_dot_args())
-            self._add_node(edge.dst_id, dot_graph, included_nodes)
+            self._add_node(edge.dst_id, included_nodes, add_to_graph)
 
+        disconnected_nodes = 0
         for node in self.nodes:
-            if node.id not in included_nodes:
-                ic(f'skipped node {node.id}')
+            if node not in included_nodes:
+                disconnected_nodes += 1
+                add_to_graph(node)
+        ic(disconnected_nodes)
         return dot_graph
-        

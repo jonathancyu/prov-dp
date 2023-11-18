@@ -1,9 +1,10 @@
 import math
+from collections import Counter
 from typing import Callable
 
 import numpy as np
 
-from graphson import Node, NodeType, Edge, GraphsonObject
+from graphson import Node, NodeType, Edge, EdgeType, GraphsonObject
 
 
 def group_by_lambda[T](objects: list[GraphsonObject], 
@@ -41,9 +42,35 @@ def create_edge(src_node: Node, dst_node: Node,
         time=edge_time
     )
 
+class Stats:
+    stats: dict[str, Counter[EdgeType,int]] = {}
+    def __init__(self, stats: list[str]):
+        for stat in stats:
+            self.stats[stat] = Counter()
+
+    def increment(self, edge_type: EdgeType, stat: str) -> None:
+        self.stats[stat].update([str(edge_type)])
+
+    # def __str__(self):
+    #     return '\n'.join([
+    #         f'{stat}: {', '.join([ 
+    #             f'{edge_type}: {count}' 
+    #             for edge_type, count in value.items()
+    #             ])
+    #         }'
+    #         for stat, value in self.stats.items()
+    #     ])
+
+
+PROCESSED = 'total processed'
+SELF_REFERRING = 'self referring'
+TIME_FILTERED = 'time filtered'
+etmf_stats = Stats([PROCESSED, SELF_REFERRING, TIME_FILTERED])
+
+
 def extended_top_m_filter(src_nodes: list[Node], dst_nodes: list[Node], 
                           existing_edges: list[Edge], 
-                          optype: str,
+                          edge_type: EdgeType,
                           epsilon_1: float, epsilon_2: float=1
                           ) -> list[Edge]:
     """Compute constants"""
@@ -76,18 +103,20 @@ def extended_top_m_filter(src_nodes: list[Node], dst_nodes: list[Node],
     while len(new_edges) < m_perturbed:
         src_node: Node = np.random.choice(src_nodes)
         dst_node: Node = np.random.choice(dst_nodes)
+        etmf_stats.increment(edge_type, PROCESSED)
 
         # Provenance-specific constraints
         # This filtering DEFINITELY affects our selection of theta
         if src_node == dst_node:
+            etmf_stats.increment(edge_type, SELF_REFERRING)
             continue
         if src_node.type == NodeType.PROCESS_LET \
             and dst_node.type == NodeType.PROCESS_LET \
             and src_node.time >= dst_node.time:
+            etmf_stats.increment(edge_type, SELF_REFERRING)
             continue
         
-        new_edge = create_edge(src_node, dst_node, optype, uniform_time)
+        new_edge = create_edge(src_node, dst_node, edge_type.optype, uniform_time)
         if new_edge not in new_edges: # TODO: Also filter self-referential edges?
             new_edges.add(new_edge)
-
     return new_edges

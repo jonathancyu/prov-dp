@@ -2,11 +2,13 @@ import warnings
 import argparse
 from pathlib import Path
 
+import numpy as np
 from icecream import ic 
 from graphviz import Digraph
+from tqdm import tqdm
 
-from graphson import Edge, EdgeType, Graph
-from utility import group_by_lambda, extended_top_m_filter
+from graphson import Node, Edge, EdgeType, Graph
+from utility import group_by_lambda, extended_top_m_filter, etmf_stats
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -22,7 +24,7 @@ class GraphProcessor:
                 src_nodes=node_groups[edge_type.src_type],
                 dst_nodes=node_groups[edge_type.dst_type],
                 existing_edges=edges,
-                optype=edge_type.optype,
+                edge_type=edge_type,
                 epsilon_1=5
             )
             new_edges.extend(perturbed_edges)
@@ -39,10 +41,31 @@ def save_dot(dot_graph: Digraph, folder_name: str, file_path: Path, pdf: bool=Fa
 def main(args: dict) -> None:
     input_graph = Graph.load_file(args.input_path)
     save_dot(input_graph.to_dot(), 'input', args.input_path, pdf=True)
+    evaluate()
 
+def evaluate(processor: GraphProcessor, input_graph: Graph) -> None:
     processor = GraphProcessor()
-    output_graph = processor.process(input_graph)
-    save_dot(output_graph.to_dot(), 'output', args.input_path, pdf=True)
+    num_excluded = []
+    num_edges = []
+    for i in tqdm(range(100)):
+        graph = processor.process(input_graph)
+        included_nodes: set[Node] = set()
+        for edge in graph.edges:
+            included_nodes.add(graph.get_node(edge.src_id))
+            included_nodes.add(graph.get_node(edge.dst_id))
+        num_excluded.append(len(set(graph.nodes) - included_nodes))
+        num_edges.append(len(graph.edges))
+    print('STATS')
+    ic(etmf_stats.stats)
+    print('EDGES')
+    ic(np.average(num_edges))
+    ic(np.std(num_edges))
+    ic(min(num_edges), max(num_edges))
+    print('NODES')
+    ic(len(input_graph.nodes))
+    ic(np.average(num_excluded))
+    ic(np.std(num_excluded))
+    ic(min(num_excluded), max(num_excluded))
 
 
 if __name__ == '__main__':
