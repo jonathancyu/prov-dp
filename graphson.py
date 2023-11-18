@@ -1,9 +1,10 @@
+import json
+import warnings; warnings.filterwarnings('ignore', category=DeprecationWarning)
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from time import time_ns
 from typing import Callable
-import json
 
 from pydantic import BaseModel, Field, root_validator
 from icecream import ic

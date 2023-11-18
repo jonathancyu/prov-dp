@@ -1,10 +1,10 @@
-import math
-from collections import Counter
+from pathlib import Path
 from typing import Callable
 
 import numpy as np
+from graphviz import Digraph
 
-from graphson import Node, NodeType, Edge, EdgeType, GraphsonObject
+from graphson import Node, Edge, GraphsonObject
 
 
 def group_by_lambda[T](objects: list[GraphsonObject], 
@@ -42,81 +42,17 @@ def create_edge(src_node: Node, dst_node: Node,
         time=edge_time
     )
 
-class Stats:
-    stats: dict[str, Counter[EdgeType,int]] = {}
-    def __init__(self, stats: list[str]):
-        for stat in stats:
-            self.stats[stat] = Counter()
+def save_dot(dot_graph: Digraph, folder_name: str, file_path: Path, pdf: bool=False) -> None:
+    output_path = (Path(folder_name) / file_path.stem).with_suffix('.dot')
+    dot_graph.save(output_path)
+    if pdf:
+        dot_graph.render(output_path, format='pdf')
 
-    def increment(self, edge_type: EdgeType, stat: str) -> None:
-        self.stats[stat].update([str(edge_type)])
-
-    # def __str__(self):
-    #     return '\n'.join([
-    #         f'{stat}: {', '.join([ 
-    #             f'{edge_type}: {count}' 
-    #             for edge_type, count in value.items()
-    #             ])
-    #         }'
-    #         for stat, value in self.stats.items()
-    #     ])
-
-
-PROCESSED = 'total processed'
-SELF_REFERRING = 'self referring'
-TIME_FILTERED = 'time filtered'
-etmf_stats = Stats([PROCESSED, SELF_REFERRING, TIME_FILTERED])
-
-
-def extended_top_m_filter(src_nodes: list[Node], dst_nodes: list[Node], 
-                          existing_edges: list[Edge], 
-                          edge_type: EdgeType,
-                          epsilon_1: float, epsilon_2: float=1
-                          ) -> list[Edge]:
-    """Compute constants"""
-    n_s, n_d = len(src_nodes), len(dst_nodes)
-    m = len(existing_edges)
-    m_perturbed = m + int(np.round(np.random.laplace(0, 1.0/epsilon_2)))
-    if m_perturbed <= 0:
-        return []
-    
-    num_possible_edges = n_s*n_d
-    epsilon_t = math.log(
-        (num_possible_edges/m) - 1
-        )
-    if epsilon_1 < epsilon_t:
-        theta = epsilon_t / (2*epsilon_1)
-    else:
-        theta = math.log(
-            (num_possible_edges / (2*m_perturbed))
-            + (math.exp(epsilon_1)-1)/2
-        ) / epsilon_1
-
-    """Execute Extended Top-m Filter"""    
-    new_edges: set[Edge] = set()
-    for edge in existing_edges:
-        weight = 1 + np.random.laplace(0, 1.0/epsilon_1)
-        if weight > theta:
-            new_edges.add(edge)
-            
-    uniform_time = uniform_generator(existing_edges)
-    while len(new_edges) < m_perturbed:
-        src_node: Node = np.random.choice(src_nodes)
-        dst_node: Node = np.random.choice(dst_nodes)
-        etmf_stats.increment(edge_type, PROCESSED)
-
-        # Provenance-specific constraints
-        # This filtering DEFINITELY affects our selection of theta
-        if src_node == dst_node:
-            etmf_stats.increment(edge_type, SELF_REFERRING)
-            continue
-        if src_node.type == NodeType.PROCESS_LET \
-            and dst_node.type == NodeType.PROCESS_LET \
-            and src_node.time >= dst_node.time:
-            etmf_stats.increment(edge_type, SELF_REFERRING)
-            continue
-        
-        new_edge = create_edge(src_node, dst_node, edge_type.optype, uniform_time)
-        if new_edge not in new_edges: # TODO: Also filter self-referential edges?
-            new_edges.add(new_edge)
-    return new_edges
+def get_stats(stat: str, data: list[int]) -> dict:
+    result = {
+        'avg': np.average(data),
+        'stdev': np.std(data),
+        'min': min(data),
+        'max': max(data)
+    }
+    return { f'{stat} {key}': value for key, value in result.items() }
