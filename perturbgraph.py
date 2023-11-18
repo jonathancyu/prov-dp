@@ -2,6 +2,7 @@ import math
 import warnings
 import argparse
 import json
+from pathlib import Path
 from typing import Callable
 
 import numpy as np
@@ -58,8 +59,9 @@ class GraphProcessor:
 
     
 def main(args: dict) -> None:
-    input_graph = Graph.load(args.input)
-    input_graph.to_dot(args.output, pdf=True)
+    input_path = Path(args.input)
+    input_graph = Graph.load_file(input_path)
+    input_graph.to_dot(input_path.stem + '.dot', pdf=True)
     processor = GraphProcessor(input_graph)
 
 
