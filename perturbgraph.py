@@ -1,112 +1,27 @@
-import argparse
-import json
-import numpy as np
 import math
 import warnings
-from enum import Enum
-from pydantic import BaseModel, Field, root_validator, Extra
-from collections import defaultdict
-from typing import Callable, TypeVar
-from icecream import ic
+import argparse
+import json
+from typing import Callable
+
+import numpy as np
+from icecream import ic 
+
+from graphson import Node, NodeType, Edge, Graph, GraphsonObject
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
-def string_to_field(value: str):
-    try:
-        return {
-            'type': 'long',
-            'value': int(value)
-        }
-    except ValueError:
-        return {
-            'type': 'string',
-            'value': value
-        }
 
 
-class GraphsonObject(BaseModel):
-    @root_validator(pre=True)
-    def extract_values(cls, values):
-        result = {}
-        for key, value in values.items():
-            if key.startswith('_') or not isinstance(value, dict):
-                result[key] = value
-            else:
-                result[key] = value['value']
-        return result
-    class Config:
-        extra = 'allow'
-    
-    def to_dict(self):
-        new_dict = {}
-        model = self.model_dump(by_alias=True)
-        ic(model)
-        for key, value in model.items():
-            str_value = str(value)
-            if key.startswith('_'):
-                new_dict[key] = str_value
-            else:
-                new_dict[key] = string_to_field(str_value)
-        ic(new_dict)
-        return new_dict
-
-class NodeType(Enum):
-    ProcessLet = 'ProcessNode'
-    File = 'FileNode'
-    IpChannel = 'SocketChannelNode'
-
-    def __str__(self):
-        return self.name
-    def __int__(self):
-        raise ValueError
-class Node(GraphsonObject):
-    id: int = Field(..., alias='_id')
-    type: NodeType = Field(..., alias='TYPE')
-
-    def __repr__(self):
-        return f'{id}: {self.type}'
-
-edge_id_sequence = 5000
-class Edge(GraphsonObject):
-    id: int = Field(alias='_id') # TODO: May be edge ID conflicts when we export the graph
-    srcid: int = Field(..., alias='_inV')
-    dstid: int = Field(..., alias='_outV')
-    optype: str = Field(..., alias='OPTYPE')
-
-    def __repr__(self):
-        return f'{self.srcid}-{self.optype}-{self.dstid}'
-    
-    def of(srcid: int, dstid: int, optype: str, id:int=edge_id_sequence):
-        global edge_id_sequence
-        if id == edge_id_sequence:
-            edge_id_sequence += 1
-        return Edge(_id=id, _inV=srcid, _outV=dstid, OPTYPE=optype)
-
-class Graph(BaseModel):
-    nodes: list[Node] = Field(..., alias='vertices')
-    edges: list[Edge] = Field(..., alias='edges')
-
-    def to_dict(self) -> dict:
-        model = self.model_dump(by_alias=True)
-        model['mode'] = 'EXTENDED'
-        model['vertices'] = [ node.to_dict() for node in self.nodes ]
-        model['edges'] = [ edge.to_dict() for edge in self.edges ]
-
-            
-        return model
-
-
-T = TypeVar('T')
-def group_by_lambda(
-        objects: list[GraphsonObject], 
-        get_attribute: Callable[[GraphsonObject], T]
-        ) -> dict[T, list[GraphsonObject]]:
+def group_by_lambda[T](objects: list[GraphsonObject], 
+                       get_attribute: Callable[[GraphsonObject], T]
+                       ) -> dict[T, list[GraphsonObject]]:
     grouped = {}
-    for object in objects:
-        key = get_attribute(object)
+    for obj in objects:
+        key = get_attribute(obj)
         if not key in grouped:
             grouped[key] = []
-        grouped[key].append(object)
+        grouped[key].append(obj)
 
     return grouped
 
@@ -120,33 +35,28 @@ def node_type_tuple(
 
 class GraphProcessor:
     graph: Graph
-    node_lookup:        dict[int, Node]
-    edge_lookup:        dict[list[int, int], Edge]
-
     node_groups:        dict[NodeType, list[Node]]
     edge_type_groups:   dict[str, list[Node]]
     edge_type_groups:   dict[tuple[NodeType, NodeType], list[Node]]
 
 
     def __init__(self, path_to_json: str):
-        with open(path_to_json, 'r') as input_file:
+        with open(path_to_json, 'r', encoding='utf-8') as input_file:
             input_json = json.load(input_file)
             self.graph = Graph(**input_json)
         ic(len(self.graph.nodes))
         ic(len(self.graph.edges))
-        self.node_lookup = {node.id: node for node in self.graph.nodes}
-        self.edge_lookup = {(edge.srcid, edge.dstid): edge for edge in self.graph.edges}
 
         self.node_groups = group_by_lambda(self.graph.nodes, lambda node: node.type)
         self.edge_type_groups = group_by_lambda(self.graph.edges, lambda edge: edge.optype)
-        self.edge_node_type_groups = group_by_lambda(self.graph.edges, lambda edge: node_type_tuple(edge, self.node_lookup))
+        self.edge_node_type_groups = group_by_lambda(self.graph.edges, lambda edge: node_type_tuple(edge, self.graph._node_lookup))
         ic(self.edge_node_type_groups.keys())
 
 
-
-
     def process(self) -> None:
-        process_to_process_edges = self.edge_node_type_groups[(NodeType.ProcessLet, NodeType.ProcessLet)]
+        process_to_process_edges = self.edge_node_type_groups[
+            (NodeType.PROCESS_LET, NodeType.PROCESS_LET)
+            ]
         ic(len(process_to_process_edges))
         process_to_process_edges_perturbed = perturb(self.graph.nodes, process_to_process_edges, 'Start_Processlet')
         ic(process_to_process_edges_perturbed)
@@ -154,8 +64,9 @@ class GraphProcessor:
     
 def main(args: dict) -> None:
     processor = GraphProcessor(args.input)
-    with open(args.output, 'w') as f:
-        json.dump(processor.graph.to_dict(), f)
+    # with open(args.output, 'w', encoding='utf-8') as f:
+    #     json.dump(processor.graph.to_dict(), f)
+    processor.graph.to_dot(args.output)
     # processor.process()
 
 
@@ -202,11 +113,12 @@ def perturb(nodes: list[Node], edges: list[Edge], optype: str) -> (list[Node], l
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Graph perturber')
-    parser.add_argument('-i', '--input', type=str, required=True, help='Path to input graph')
-    parser.add_argument('-o', '--output', type=str, required=True, help='Path to output graph')
-    parser.add_argument('-n', '--num-graphs', type=int, help='Number of perturbed graphs to generate')
+    parser.add_argument('-i', '--input', type=str, 
+                        required=True, help='Path to input graph')
+    parser.add_argument('-o', '--output', type=str, 
+                        required=True, help='Path to output graph')
+    parser.add_argument('-n', '--num-graphs', type=int, 
+                        help='Number of perturbed graphs to generate')
     parser.add_argument('-e', '--epsilon', type=float)
 
     main(parser.parse_args())
-
-
