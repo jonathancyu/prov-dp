@@ -46,7 +46,6 @@ class GraphProcessor:
         self.node_groups = group_by_lambda(graph.nodes, lambda node: node.type)
         self.edge_type_groups = group_by_lambda(graph.edges, lambda edge: edge.optype)
         self.edge_node_type_groups = group_by_lambda(graph.edges, lambda edge: node_type_tuple(edge, graph._node_lookup))
-        ic(self.edge_node_type_groups.keys())
 
 
     def process(self) -> None:
@@ -62,7 +61,30 @@ def main(args: dict) -> None:
     input_path = Path(args.input)
     input_graph = Graph.load_file(input_path)
     input_graph.to_dot(input_path.stem + '.dot', pdf=True)
+
     processor = GraphProcessor(input_graph)
+
+def extended_top_m_filter(
+        src_nodes: list[Node], dst_nodes: list[Node], 
+        edges: list[Edge], 
+        optype: str,
+        epsilon_1: float, epsilon_2: float=1) -> (list[Node], list[Edge]):
+    n_s, n_d = len(src_nodes), len(dst_nodes)
+    m = len(edges)
+    m_perturbed = m + int(np.round(np.random.laplace(0, 1.0/epsilon_2)))
+    num_possible_edges = n_s*n_d
+    epsilon_t = math.log(
+        (num_possible_edges/m) - 1
+        )
+    if epsilon_1 < epsilon_t:
+        theta = (1/(2*epsilon_1)) * epsilon_t
+    else:
+        theta = (1/epsilon_1) * math.log(
+            (num_possible_edges / (2*m_perturbed))
+            + (math.exp(epsilon_1)-1)/2
+        )
+
+
 
 
 def perturb(nodes: list[Node], edges: list[Edge], optype: str) -> (list[Node], list[Edge]):
