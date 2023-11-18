@@ -11,6 +11,18 @@ from icecream import ic
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
+def string_to_field(value: str):
+    try:
+        return {
+            'type': 'long',
+            'value': int(value)
+        }
+    except ValueError:
+        return {
+            'type': 'string',
+            'value': value
+        }
+
 
 class GraphsonObject(BaseModel):
     @root_validator(pre=True)
@@ -24,11 +36,29 @@ class GraphsonObject(BaseModel):
         return result
     class Config:
         extra = 'allow'
+    
+    def to_dict(self):
+        new_dict = {}
+        model = self.model_dump(by_alias=True)
+        ic(model)
+        for key, value in model.items():
+            str_value = str(value)
+            if key.startswith('_'):
+                new_dict[key] = str_value
+            else:
+                new_dict[key] = string_to_field(str_value)
+        ic(new_dict)
+        return new_dict
 
 class NodeType(Enum):
     ProcessLet = 'ProcessNode'
     File = 'FileNode'
     IpChannel = 'SocketChannelNode'
+
+    def __str__(self):
+        return self.name
+    def __int__(self):
+        raise ValueError
 class Node(GraphsonObject):
     id: int = Field(..., alias='_id')
     type: NodeType = Field(..., alias='TYPE')
@@ -56,22 +86,16 @@ class Graph(BaseModel):
     nodes: list[Node] = Field(..., alias='vertices')
     edges: list[Edge] = Field(..., alias='edges')
 
-    def save(self, file_name: str) -> None:
-        result  = {}
-        model_dict = self.model_dump(by_alias=True)
-        ic(model_dict)
-        for node in model_dict.get('vertices'):
-            ic(node.keys())
-            ic(node['TYPE'])
-            ic(model_dict)
-            node['TYPE'] = node.get('TYPE').value
-        with open(file_name, 'w') as f:
-            ic(model_dict.keys())
-            f.write(json.dumps(model_dict))
-            # json.dumps(model_dict)
-        f.close()
+    def to_dict(self) -> dict:
+        model = self.model_dump(by_alias=True)
+        model['mode'] = 'EXTENDED'
+        model['vertices'] = [ node.to_dict() for node in self.nodes ]
+        model['edges'] = [ edge.to_dict() for edge in self.edges ]
 
-    
+            
+        return model
+
+
 T = TypeVar('T')
 def group_by_lambda(
         objects: list[GraphsonObject], 
@@ -108,7 +132,6 @@ class GraphProcessor:
         with open(path_to_json, 'r') as input_file:
             input_json = json.load(input_file)
             self.graph = Graph(**input_json)
-        self.graph.save('out.json')
         ic(len(self.graph.nodes))
         ic(len(self.graph.edges))
         self.node_lookup = {node.id: node for node in self.graph.nodes}
@@ -131,8 +154,9 @@ class GraphProcessor:
     
 def main(args: dict) -> None:
     processor = GraphProcessor(args.input)
-
-    processor.process()
+    with open(args.output, 'w') as f:
+        json.dump(processor.graph.to_dict(), f)
+    # processor.process()
 
 
 def perturb(nodes: list[Node], edges: list[Edge], optype: str) -> (list[Node], list[Edge]):
@@ -179,7 +203,7 @@ def perturb(nodes: list[Node], edges: list[Edge], optype: str) -> (list[Node], l
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Graph perturber')
     parser.add_argument('-i', '--input', type=str, required=True, help='Path to input graph')
-    parser.add_argument('-o', '--output', type=str, help='Path to output graph')
+    parser.add_argument('-o', '--output', type=str, required=True, help='Path to output graph')
     parser.add_argument('-n', '--num-graphs', type=int, help='Number of perturbed graphs to generate')
     parser.add_argument('-e', '--epsilon', type=float)
 
