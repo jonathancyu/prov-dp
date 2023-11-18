@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from icecream import ic 
 from graphviz import Digraph
 from tqdm import tqdm
@@ -13,23 +14,22 @@ from utility import group_by_lambda, extended_top_m_filter, etmf_stats
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 
-class GraphProcessor:
-    def process(self, graph: Graph) -> Graph:
-        node_groups = group_by_lambda(graph.nodes, lambda node: node.type)
-        edge_type_groups = group_by_lambda(graph.edges, lambda edge: EdgeType(edge, graph._node_lookup))
+def perturb_graph(graph: Graph, epsilon_1=1) -> Graph:
+    node_groups = group_by_lambda(graph.nodes, lambda node: node.type)
+    edge_type_groups = group_by_lambda(graph.edges, lambda edge: EdgeType(edge, graph._node_lookup))
 
-        new_edges: list[Edge] = []
-        for edge_type, edges in edge_type_groups.items():
-            perturbed_edges = extended_top_m_filter(
-                src_nodes=node_groups[edge_type.src_type],
-                dst_nodes=node_groups[edge_type.dst_type],
-                existing_edges=edges,
-                edge_type=edge_type,
-                epsilon_1=5
-            )
-            new_edges.extend(perturbed_edges)
+    new_edges: list[Edge] = []
+    for edge_type, edges in edge_type_groups.items():
+        perturbed_edges = extended_top_m_filter(
+            src_nodes=node_groups[edge_type.src_type],
+            dst_nodes=node_groups[edge_type.dst_type],
+            existing_edges=edges,
+            edge_type=edge_type,
+            epsilon_1=epsilon_1
+        )
+        new_edges.extend(perturbed_edges)
 
-        return Graph(vertices=graph.nodes, edges=new_edges)
+    return Graph(vertices=graph.nodes, edges=new_edges)
 
 def save_dot(dot_graph: Digraph, folder_name: str, file_path: Path, pdf: bool=False) -> None:
     output_path = (Path(folder_name) / file_path.stem).with_suffix('.dot')
@@ -41,32 +41,48 @@ def save_dot(dot_graph: Digraph, folder_name: str, file_path: Path, pdf: bool=Fa
 def main(args: dict) -> None:
     input_graph = Graph.load_file(args.input_path)
     save_dot(input_graph.to_dot(), 'input', args.input_path, pdf=True)
-    evaluate()
 
-def evaluate(processor: GraphProcessor, input_graph: Graph) -> None:
-    processor = GraphProcessor()
-    num_excluded = []
+    results: list[pd.Series] = []
+    N = 100
+    epsilons = [0.5, 1, 5, 10]
+    for epsilon_1 in epsilons:
+        result: pd.Series = evaluate(N, input_graph, epsilon_1)
+        ic(result)
+        results.append(result)
+
+    df = pd.concat(results, axis=1).T
+    print(df)
+    df.to_csv('output.csv', index=False)
+
+def get_stats(stat: str, data: list[int]) -> dict:
+    result = {
+        'avg': np.average(data),
+        'stdev': np.std(data),
+        'min': min(data),
+        'max': max(data)
+    }
+    return { f'{stat} {key}': value for key, value in result.items() }
+
+def evaluate(num_samples: int, input_graph: Graph, epsilon_1: float) -> pd.Series:
     num_edges = []
-    for i in tqdm(range(100)):
-        graph = processor.process(input_graph)
+    num_edges_kept = []
+    num_disconnected_nodes = []
+    for i in tqdm(range(num_samples)):
+        output_graph = perturb_graph(input_graph, epsilon_1=epsilon_1)
         included_nodes: set[Node] = set()
-        for edge in graph.edges:
-            included_nodes.add(graph.get_node(edge.src_id))
-            included_nodes.add(graph.get_node(edge.dst_id))
-        num_excluded.append(len(set(graph.nodes) - included_nodes))
-        num_edges.append(len(graph.edges))
-    print('STATS')
-    ic(etmf_stats.stats)
-    print('EDGES')
-    ic(np.average(num_edges))
-    ic(np.std(num_edges))
-    ic(min(num_edges), max(num_edges))
-    print('NODES')
-    ic(len(input_graph.nodes))
-    ic(np.average(num_excluded))
-    ic(np.std(num_excluded))
-    ic(min(num_excluded), max(num_excluded))
-
+        for edge in output_graph.edges:
+            included_nodes.add(output_graph.get_node(edge.src_id))
+            included_nodes.add(output_graph.get_node(edge.dst_id))
+        num_disconnected_nodes.append(len(set(output_graph.nodes) - included_nodes))
+        num_edges_kept.append(len(set(input_graph.edges).intersection(output_graph.edges)))
+        num_edges.append(len(output_graph.edges))
+    data = {
+        'epsilon': epsilon_1,
+        **get_stats('#edges', num_edges),
+        **get_stats('#edges kept', num_edges_kept),
+        **get_stats('#disconnected nodes', num_disconnected_nodes)
+    }
+    return pd.Series(data=data, index=data.keys())
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Graph perturber')
