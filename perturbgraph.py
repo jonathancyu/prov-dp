@@ -9,7 +9,7 @@ from collections import defaultdict
 from typing import Callable, TypeVar
 from icecream import ic
 
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 
 class GraphsonObject(BaseModel):
@@ -26,9 +26,9 @@ class GraphsonObject(BaseModel):
         extra = 'allow'
 
 class NodeType(Enum):
-    ProcessLet = "ProcessNode"
-    File = "FileNode"
-    IpChannel = "SocketChannelNode"
+    ProcessLet = 'ProcessNode'
+    File = 'FileNode'
+    IpChannel = 'SocketChannelNode'
 class Node(GraphsonObject):
     id: int = Field(..., alias='_id')
     type: NodeType = Field(..., alias='TYPE')
@@ -55,6 +55,22 @@ class Edge(GraphsonObject):
 class Graph(BaseModel):
     nodes: list[Node] = Field(..., alias='vertices')
     edges: list[Edge] = Field(..., alias='edges')
+
+    def save(self, file_name: str) -> None:
+        result  = {}
+        model_dict = self.model_dump(by_alias=True)
+        ic(model_dict)
+        for node in model_dict.get('vertices'):
+            ic(node.keys())
+            ic(node['TYPE'])
+            ic(model_dict)
+            node['TYPE'] = node.get('TYPE').value
+        with open(file_name, 'w') as f:
+            ic(model_dict.keys())
+            f.write(json.dumps(model_dict))
+            # json.dumps(model_dict)
+        f.close()
+
     
 T = TypeVar('T')
 def group_by_lambda(
@@ -89,9 +105,10 @@ class GraphProcessor:
 
 
     def __init__(self, path_to_json: str):
-        with open(path_to_json) as input_file:
+        with open(path_to_json, 'r') as input_file:
             input_json = json.load(input_file)
             self.graph = Graph(**input_json)
+        self.graph.save('out.json')
         ic(len(self.graph.nodes))
         ic(len(self.graph.edges))
         self.node_lookup = {node.id: node for node in self.graph.nodes}
@@ -102,7 +119,10 @@ class GraphProcessor:
         self.edge_node_type_groups = group_by_lambda(self.graph.edges, lambda edge: node_type_tuple(edge, self.node_lookup))
         ic(self.edge_node_type_groups.keys())
 
-    def process(self):
+
+
+
+    def process(self) -> None:
         process_to_process_edges = self.edge_node_type_groups[(NodeType.ProcessLet, NodeType.ProcessLet)]
         ic(len(process_to_process_edges))
         process_to_process_edges_perturbed = perturb(self.graph.nodes, process_to_process_edges, 'Start_Processlet')
@@ -115,7 +135,6 @@ def main(args: dict) -> None:
     processor.process()
 
 
-    
 def perturb(nodes: list[Node], edges: list[Edge], optype: str) -> (list[Node], list[Edge]):
     # https://web.archive.org/web/20170921192428id_/https://hal.inria.fr/hal-01179528/document
     epsilon_1 = 0.5
@@ -143,6 +162,8 @@ def perturb(nodes: list[Node], edges: list[Edge], optype: str) -> (list[Node], l
             n_1 += 1
     
     while n_1 < (m_perturbed-1):
+    
+        # TODO: What if we sample from two different lists here? This will definitely change the calculations
         src = np.random.choice(nodes)
         dst = np.random.choice(nodes)
         edge = (src.id, dst.id)
