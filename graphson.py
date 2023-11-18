@@ -109,21 +109,24 @@ class Node(GraphsonObject):
 EDGE_ID_SEQUENCE = 5000
 class Edge(GraphsonObject):
     id: int = Field(alias='_id') # TODO: May be edge ID conflicts when we export the graph
-    srcid: int = Field(..., alias='_outV')
-    dstid: int = Field(..., alias='_inV')
+    src_id: int = Field(..., alias='_outV')
+    dst_id: int = Field(..., alias='_inV')
     optype: str = Field(..., alias='OPTYPE')
     time: int = Field(..., alias='EVENT_START')
 
     def __repr__(self):
-        return f'{self.srcid}-{self.optype}-{self.dstid}'
+        return f'{self.src_id}-{self.optype}-{self.dst_id}'
     
     @staticmethod
-    def of(srcid: int, dstid: int, optype: str, new_id: int = None):
+    def of(src_id: int, dst_id: int, 
+           optype: str,
+           time: int,
+           new_id: int = None,) :
         global EDGE_ID_SEQUENCE
         if new_id is None:
             new_id = EDGE_ID_SEQUENCE
             EDGE_ID_SEQUENCE += 1
-        return Edge(_id=new_id, _inV=srcid, _outV=dstid, OPTYPE=optype)
+        return Edge(_id=new_id, _inV=src_id, _outV=dst_id, OPTYPE=optype, EVENT_START=time)
     
     def to_dot_args(self) -> dict[str, any]: 
         model = self.model_dump(by_alias=True)
@@ -134,11 +137,14 @@ class Edge(GraphsonObject):
             timestamp = self.time/1e9
             args['label'] = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
         return args
+    
+    def __hash__(self):
+        return hash((self.src_id, self.dst_id))
 
 
 class Graph(BaseModel):
-    nodes:              list[Node] = Field(..., alias='vertices')
-    edges:              list[Edge] = Field(..., alias='edges')
+    nodes:              list[Node] = Field(alias='vertices', default_factory=list)
+    edges:              list[Edge] = Field(alias='edges', default_factory=list)
 
     _node_lookup:        dict[int, Node]
     _edge_lookup:        dict[list[int, int], Edge]
@@ -149,10 +155,10 @@ class Graph(BaseModel):
             input_json = json.load(input_file)
             return Graph(**input_json)
 
-    def __init__(self, **data):
-        super().__init__(**data)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._node_lookup = {node.id: node for node in self.nodes}
-        self._edge_lookup = {(edge.srcid, edge.dstid): edge for edge in self.edges}
+        self._edge_lookup = {(edge.src_id, edge.dst_id): edge for edge in self.edges}
 
     def get_node(self, node_id: int) -> Node:
         return self._node_lookup[node_id]
@@ -180,9 +186,9 @@ class Graph(BaseModel):
         included_nodes: set[int] = set()
         sorted_edges = sorted(self.edges, key=lambda e: e.time)
         for edge in sorted_edges:
-            self._add_node(edge.srcid, dot_graph, included_nodes)
-            dot_graph.edge(str(edge.srcid), str(edge.dstid), **edge.to_dot_args())
-            self._add_node(edge.dstid, dot_graph, included_nodes)
+            self._add_node(edge.src_id, dot_graph, included_nodes)
+            dot_graph.edge(str(edge.src_id), str(edge.dst_id), **edge.to_dot_args())
+            self._add_node(edge.dst_id, dot_graph, included_nodes)
 
         for node in self.nodes:
             if node.id not in included_nodes:

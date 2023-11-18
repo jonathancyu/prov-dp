@@ -1,138 +1,59 @@
-import math
 import warnings
 import argparse
-import json
 from pathlib import Path
-from typing import Callable
 
-import numpy as np
 from icecream import ic 
 
 from graphson import Node, NodeType, Edge, Graph, GraphsonObject
+from utility import group_by_lambda, extended_top_m_filter
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 
+class EdgeType:
+    src_type: NodeType
+    dst_type: NodeType
+    optype: str
+    def __init__(self, edge: Edge, node_lookup: dict[int, Node]):
+        self.src_type = node_lookup[edge.src_id].type
+        self.dst_type = node_lookup[edge.dst_id].type
+        self.optype = edge.optype
 
-def group_by_lambda[T](objects: list[GraphsonObject], 
-                       get_attribute: Callable[[GraphsonObject], T]
-                       ) -> dict[T, list[GraphsonObject]]:
-    grouped = {}
-    for obj in objects:
-        key = get_attribute(obj)
-        if not key in grouped:
-            grouped[key] = []
-        grouped[key].append(obj)
-
-    return grouped
-
-def node_type_tuple(
-        edge: Edge, 
-        node_lookup: dict[int, Node]
-        ) -> tuple[NodeType, NodeType]:
-    src_node = node_lookup[edge.srcid]
-    dst_node = node_lookup[edge.dstid]
-    return (src_node.type, dst_node.type)
 
 class GraphProcessor:
-    graph: Graph
-    node_groups:        dict[NodeType, list[Node]]
-    edge_type_groups:   dict[str, list[Node]]
-    edge_type_groups:   dict[tuple[NodeType, NodeType], list[Node]]
+    def process(self, graph: Graph) -> Graph:
+        node_groups = group_by_lambda(graph.nodes, lambda node: node.type)
+        edge_type_groups = group_by_lambda(graph.edges, lambda edge: EdgeType(edge, graph._node_lookup))
 
+        new_edges: list[Edge] = []
+        for edge_type, edges in edge_type_groups.items():
+            perturbed_edges = extended_top_m_filter(
+                src_nodes=node_groups[edge_type.src_type],
+                dst_nodes=node_groups[edge_type.dst_type],
+                existing_edges=edges,
+                optype=edge_type.optype,
+                epsilon_1=5
+            )
+            new_edges.extend(perturbed_edges)
 
-    def __init__(self, graph: Graph):
-        self.graph = graph
-        self.node_groups = group_by_lambda(graph.nodes, lambda node: node.type)
-        self.edge_type_groups = group_by_lambda(graph.edges, lambda edge: edge.optype)
-        self.edge_node_type_groups = group_by_lambda(graph.edges, lambda edge: node_type_tuple(edge, graph._node_lookup))
-
-
-    def process(self) -> None:
-        process_to_process_edges = self.edge_node_type_groups[
-            (NodeType.PROCESS_LET, NodeType.PROCESS_LET)
-            ]
-        ic(len(process_to_process_edges))
-        process_to_process_edges_perturbed = perturb(self.graph.nodes, process_to_process_edges, 'Start_Processlet')
-        ic(process_to_process_edges_perturbed)
+        return Graph(vertices=graph.nodes, edges=new_edges)
 
     
 def main(args: dict) -> None:
-    input_path = Path(args.input)
-    input_graph = Graph.load_file(input_path)
-    input_graph.to_dot(input_path.stem + '.dot', pdf=True)
+    input_graph = Graph.load_file(args.input_path)
+    input_graph.to_dot('input-' + args.input_path.stem + '.dot', pdf=True)
 
-    processor = GraphProcessor(input_graph)
-
-def extended_top_m_filter(
-        src_nodes: list[Node], dst_nodes: list[Node], 
-        edges: list[Edge], 
-        optype: str,
-        epsilon_1: float, epsilon_2: float=1) -> (list[Node], list[Edge]):
-    n_s, n_d = len(src_nodes), len(dst_nodes)
-    m = len(edges)
-    m_perturbed = m + int(np.round(np.random.laplace(0, 1.0/epsilon_2)))
-    num_possible_edges = n_s*n_d
-    epsilon_t = math.log(
-        (num_possible_edges/m) - 1
-        )
-    if epsilon_1 < epsilon_t:
-        theta = (1/(2*epsilon_1)) * epsilon_t
-    else:
-        theta = (1/epsilon_1) * math.log(
-            (num_possible_edges / (2*m_perturbed))
-            + (math.exp(epsilon_1)-1)/2
-        )
+    processor = GraphProcessor()
+    output_graph = processor.process(input_graph)
+    output_graph.to_dot(args.output_path.stem + '.dot', pdf=True)
 
 
-
-
-def perturb(nodes: list[Node], edges: list[Edge], optype: str) -> (list[Node], list[Edge]):
-    # https://web.archive.org/web/20170921192428id_/https://hal.inria.fr/hal-01179528/document
-    epsilon_1 = 0.5
-    epsilon_2 = 1
-    n: int = len(nodes)
-    m: int = len(edges)
-
-    m_perturbed: int = m + int(np.round(np.random.laplace(0, 1.0/epsilon_2)))
-    epsilon_t: float = math.log( ((n*(n-1))/(2*m_perturbed)) - 1)
-
-    if epsilon_1 < epsilon_t:
-        theta = (1/(2*epsilon_1)) * epsilon_t
-    else:
-        theta = (1/epsilon_1) \
-              * math.log(
-                  (n*(n-1)/(4*m_perturbed)) + (1/2)*(math.exp(epsilon_1)-1)
-                )
-    n_1 = 0
-
-    new_edge_tuples: list(tuple(int, int)) = []
-    for edge in edges:
-        weight = 1 + np.random.laplace(0, 1.0/epsilon_1)
-        if weight > theta:
-            new_edge_tuples.append((edge.srcid, edge.dstid))
-            n_1 += 1
-    
-    while n_1 < (m_perturbed-1):
-    
-        # TODO: What if we sample from two different lists here? This will definitely change the calculations
-        src = np.random.choice(nodes)
-        dst = np.random.choice(nodes)
-        edge = (src.id, dst.id)
-        if edge not in new_edge_tuples:
-            new_edge_tuples.append(edge)
-            n_1 += 1
-    
-    return [
-        Edge.of(srcid = edge_tuple[0], dstid = edge_tuple[1], optype=optype)
-        for edge_tuple in new_edge_tuples
-    ]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Graph perturber')
-    parser.add_argument('-i', '--input', type=str, 
+    parser.add_argument('-i', '--input_path', type=Path, 
                         required=True, help='Path to input graph')
-    parser.add_argument('-o', '--output', type=str, 
+    parser.add_argument('-o', '--output_path', type=Path, 
                         required=True, help='Path to output graph')
     parser.add_argument('-n', '--num-graphs', type=int, 
                         help='Number of perturbed graphs to generate')
