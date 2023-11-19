@@ -71,7 +71,8 @@ def main(args: dict) -> None:
                                     num_samples    = args.num_samples,
                                     epsilons       = [ float(e) for e in args.epsilons.split(',') ]
                                     ).sort_values('epsilon')
-    result.to_csv('output.csv', index=False)
+    stats_path = args.output_dir / args.input_path.stem / 'stats.csv'
+    result.to_csv(stats_path, index=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Provenance Graph ')

@@ -3,7 +3,7 @@ from enum import Enum
 from pydantic import Field
 
 from .graphsonobject import GraphsonObject
-from .utility import format_label, format_timestamp
+from .utility import format_label, format_timestamp, sanitize
 
 
     
@@ -40,10 +40,9 @@ class Node(GraphsonObject):
                     'color': 'black',
                     'shape': 'box',
                     'style': 'solid',
-                    'label': format_label(model, [
-                        ('exe_name', 'EXE_NAME'),
-                        ('cmd', 'CMD')
-                    ]) + f'\nfirst_event: {format_timestamp(self.time)}'
+                    'label': format_label(model, [('exe_name', 'EXE_NAME'),
+                                                  ('cmd', 'CMD')])
+                        + f'\nfirst_event: {format_timestamp(self.time)}'
                 }
             case NodeType.FILE:
                 args = {
@@ -63,4 +62,4 @@ class Node(GraphsonObject):
                         ('type', 'CHANEL_STATE')
                     ])
                 }
-        return args
+        return { key: sanitize(value) for key, value in args.items() }
