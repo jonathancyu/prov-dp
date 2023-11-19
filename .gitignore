@@ -1,9 +1,10 @@
+# Directories
 logs/
 input/
 output/
 __pycache__/
-nd_creator.sh
-ScoreMerger.jar
+
+# File types
 *.dot
 *.json
 *.pdf

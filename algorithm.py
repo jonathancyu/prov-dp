@@ -8,14 +8,17 @@ from icecream import ic
 from graphson import Node, NodeType, Edge, EdgeType, Graph
 from utility import group_by_lambda, uniform_generator
 
-PROCESSED = '#edges processed'
+
+
+EDGES_PROCESSED = '#edges processed'
 SELF_REFERRING = '#self referring edges pruned'
 TIME_FILTERED = '#edges pruned by time'
+
 
 class GraphProcessor:
     stats: dict[str, Counter[EdgeType,int]] = {}
     def __init__(self):
-        for stat in [PROCESSED, SELF_REFERRING, TIME_FILTERED]:
+        for stat in [EDGES_PROCESSED, SELF_REFERRING, TIME_FILTERED]:
             self.stats[stat] = Counter()
 
     def perturb_graph(self, input_graph: Graph, epsilon_1: float) -> Graph:
@@ -85,7 +88,7 @@ class GraphProcessor:
         while len(new_edges) < m_perturbed:
             src_node: Node = np.random.choice(src_nodes)
             dst_node: Node = np.random.choice(dst_nodes)
-            self.increment(PROCESSED, edge_type)
+            self.increment(EDGES_PROCESSED, edge_type)
 
             # Provenance-specific constraints
             # This filtering DEFINITELY affects our selection of theta

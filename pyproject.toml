@@ -1,2 +1,0 @@
-[tool.pylint.MASTER]
-load-plugins = "pylint_pydantic"

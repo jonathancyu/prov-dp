@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 import shutil
 from collections import OrderedDict
@@ -16,20 +15,18 @@ from graphson import Graph
 from utility import save_dot, get_stats, count_disconnected_nodes
 
 
+
 def evaluate(input_path: Path, output_dir: Path,
              num_samples: int, epsilons: list[float]
              ) -> pd.DataFrame:
     results: list[pd.Series] = []
 
     configurations = [(input_path, output_dir, num_samples, epsilon) for epsilon in epsilons]
-    # results = [evaluate_for_epsilon(*configuration)
-    #            for configuration in configurations ]
     with Pool(processes=8) as pool:
         results = pool.starmap(evaluate_for_epsilon, configurations)
-        pool.close()
-        pool.join()
 
     return pd.concat(results, axis=1).T
+
 
 def evaluate_for_epsilon(input_path: Path, output_dir: Path, 
                          num_samples: int, epsilon_1: float
@@ -55,7 +52,6 @@ def evaluate_for_epsilon(input_path: Path, output_dir: Path,
                  graph_output_dir / f'{input_path.stem}_{i}',
                  dot=False, pdf=True)
 
-
     with open(graph_output_dir / 'pruning-stats.txt', 'w', encoding='utf-8') as f:
         f.write(processor.get_stats_str())
         f.close()
@@ -70,20 +66,15 @@ def evaluate_for_epsilon(input_path: Path, output_dir: Path,
 
 
 def main(args: dict) -> None:
-    original_graph = Graph.load_file(args.input_path)
-    save_dot(original_graph.to_dot(), 
-             Path('input') / args.input_path.stem, 
-             pdf=True)
-
-    evaluate(input_path     = args.input_path,
-             output_dir     = args.output_dir,
-             num_samples    = args.num_samples,
-             epsilons       = [ float(e) for e in args.epsilons.split(',') ]
-            ).sort_values('epsilon').to_csv('output.csv', index=False)
-
+    result: pd.DataFrame = evaluate(input_path     = args.input_path,
+                                    output_dir     = args.output_dir,
+                                    num_samples    = args.num_samples,
+                                    epsilons       = [ float(e) for e in args.epsilons.split(',') ]
+                                    ).sort_values('epsilon')
+    result.to_csv('output.csv', index=False)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Graph perturber')
+    parser = argparse.ArgumentParser('Provenance Graph ')
     parser.add_argument('-i', '--input_path', type=Path, 
                         required=True, help='Path to input graph')
     parser.add_argument('-o', '--output_dir', type=Path,

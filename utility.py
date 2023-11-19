@@ -4,7 +4,7 @@ from typing import Callable
 import numpy as np
 from graphviz import Digraph
 
-from graphson import Graph, Node, Edge, GraphsonObject
+from graphson import GraphsonObject, Node, Edge, Graph
 
 
 def group_by_lambda[T](objects: list[GraphsonObject], 
