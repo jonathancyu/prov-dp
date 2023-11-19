@@ -4,3 +4,7 @@ output/
 __pycache__/
 nd_creator.sh
 ScoreMerger.jar
+*.dot
+*.json
+*.pdf
+*.zip
