@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 import pandas as pd
+import yaml
 from icecream import ic
 from tqdm import tqdm
 
@@ -16,48 +17,62 @@ from utility import save_dot, get_stats, count_disconnected_nodes
 
 
 
-def evaluate(input_path: Path, output_dir: Path,
-             num_samples: int, epsilons: list[float]
+def evaluate(input_directory: Path, output_directory: Path,
+             graph_name: str,
+             num_samples: int, epsilon_values: list[list[float]]
              ) -> pd.DataFrame:
     results: list[pd.Series] = []
 
-    configurations = [(input_path, output_dir, num_samples, epsilon) for epsilon in epsilons]
+    input_file_path = (input_directory / graph_name / graph_name).with_suffix('.dot')
+
+    configurations = [
+        (input_file_path, output_directory, num_samples, epsilon[0], epsilon[1])
+        for epsilon in epsilon_values
+        ]
     with Pool(processes=8) as pool:
         results = pool.starmap(evaluate_for_epsilon, configurations)
 
     return pd.concat(results, axis=1).T
 
 
-def evaluate_for_epsilon(input_path: Path, output_dir: Path, 
-                         num_samples: int, epsilon_1: float
-                         ) -> pd.Series:
-    graph_output_dir = output_dir / input_path.stem / f'epsilon-{epsilon_1}'
+def evaluate_for_epsilon(
+        input_path: Path, output_dir: Path, 
+        num_samples: int, 
+        epsilon_1: float, epsilon_2: float
+        ) -> pd.Series:
+    
+    graph_output_dir = output_dir / input_path.stem / f'epsilon-{epsilon_1}_{epsilon_2}'
     if os.path.isdir(graph_output_dir):
         shutil.rmtree(graph_output_dir)
+
+
     metrics: dict[str, Callable[[Graph,Graph],float]] = {
         '#edges': lambda _, output_graph: len(output_graph.edges),
         '#edges kept': lambda input_graph, output_graph: len(set(input_graph.edges).intersection(output_graph.edges)),
         '#disconnected nodes': lambda _, output_graph: count_disconnected_nodes(output_graph)
     }
     metric_data = { key: [] for key, _ in metrics.items() }
+
+
     processor = GraphProcessor()
-    for i in tqdm(range(num_samples)):
+    for i in tqdm(range(num_samples), desc=f'({epsilon_1},{epsilon_2})'):
         input_graph = Graph.load_file(input_path)
-        output_graph = processor.perturb_graph(input_graph, epsilon_1=epsilon_1)
+        output_graph = processor.perturb_graph(input_graph, epsilon_1, epsilon_2)
 
         for metric, func in metrics.items():
             metric_data[metric].append(func(input_graph, output_graph))
 
         save_dot(output_graph.to_dot(), 
                  graph_output_dir / f'{input_path.stem}_{i}',
-                 dot=False, pdf=True)
+                 dot=True, pdf=True)
+
 
     with open(graph_output_dir / 'pruning-stats.txt', 'w', encoding='utf-8') as f:
         f.write(processor.get_stats_str())
-        f.close()
 
     series_dict = OrderedDict()
-    series_dict['epsilon'] = epsilon_1
+    series_dict['epsilon_1'] = epsilon_1
+    series_dict['epsilon_2'] = epsilon_2
     for metric, data in metric_data.items():
         for key, value in get_stats(metric, data).items():
             series_dict[key] = value
@@ -66,23 +81,22 @@ def evaluate_for_epsilon(input_path: Path, output_dir: Path,
 
 
 def main(args: dict) -> None:
-    result: pd.DataFrame = evaluate(input_path     = args.input_path,
-                                    output_dir     = args.output_dir,
-                                    num_samples    = args.num_samples,
-                                    epsilons       = [ float(e) for e in args.epsilons.split(',') ]
-                                    ).sort_values('epsilon')
-    stats_path = args.output_dir / args.input_path.stem / 'stats.csv'
-    result.to_csv(stats_path, index=False)
+    result: pd.DataFrame = evaluate(
+        input_directory  = args.input_directory,
+        output_directory = args.output_directory,
+        num_samples      = args.num_samples,
+        epsilon_values  = map(lambda e: map(float, e), 
+                               args.epsilon_values)
+    )
+    result = result.sort_values('epsilon_1', 'epsilon_2')
+    result.to_csv(args.output_dir / args.input_path.stem / 'stats.csv', index=False)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Provenance Graph ')
-    parser.add_argument('-i', '--input_path', type=Path, 
-                        required=True, help='Path to input graph')
-    parser.add_argument('-o', '--output_dir', type=Path,
-                        required=True, help='Path to output graph directory')
-    parser.add_argument('-n', '--num_samples', type=int, 
-                        required=True, help='Number of perturbed graphs to generate')
-    parser.add_argument('-e', '--epsilons', type=str,
-                        required=True, help='Comma separated list of float values for epsilon')
+    parser = argparse.ArgumentParser('Provenance Graph')
+    parser.add_argument('-c', '--config', type=Path,
+                        required=True, help='Path to config yaml file')
+    args = parser.parse_args()
 
-    main(parser.parse_args())
+    with open(args.config, 'r') as config_file:
+        config = yaml.load(config_file, Loader=yaml.Loader)
+    main(argparse.Namespace(**config))

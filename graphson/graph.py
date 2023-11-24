@@ -25,7 +25,6 @@ class Graph(BaseModel):
         super().__init__(*args, **kwargs)
         self._node_lookup = {node.id: node for node in self.nodes}
         self._edge_lookup = {(edge.src_id, edge.dst_id): edge for edge in self.edges}
-        self._init_node_times()
 
     def _add_node(self, 
                   node_id: int, included_nodes: set[Node], 
@@ -35,14 +34,7 @@ class Graph(BaseModel):
             included_nodes.add(node_id)
             node = self._node_lookup[node_id]
             callback(node)
-    
-    def _init_node_times(self) -> None:
-        included_nodes: set[int] = set()
-        sorted_edges = sorted(self.edges, key=lambda e: e.time)
-        for edge in sorted_edges:
-            self._add_node(edge.src_id, included_nodes, lambda node: node.set_time(edge.time))
-            self._add_node(edge.dst_id, included_nodes, lambda node: node.set_time(edge.time))
-        
+
     def get_node(self, node_id: int) -> Node:
         return self._node_lookup[node_id]
     
