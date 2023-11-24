@@ -3,9 +3,11 @@ logs/
 input/
 output/
 __pycache__/
+.idea/
 
 # File types
 *.dot
 *.json
 *.pdf
 *.zip
+*.DS_STORE

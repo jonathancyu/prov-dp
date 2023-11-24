@@ -1,0 +1,11 @@
+input_directory: '~/workspace/SyssecLab/differential-privacy/data/input'
+output_directory: '~/workspace/SyssecLab/differential-privacy/data/output'
+
+graph_name: nd-134204506-processletevent 
+
+num_samples: 10
+epsilon_values: # [epsilon_1, epsilon_2]
+  - [1.0, 1.0]
+  - [1.0, 5.0]
+  - [5.0, 1.0]
+  - [5.0, 5.0]
