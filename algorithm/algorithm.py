@@ -8,6 +8,9 @@ from graphviz import Digraph
 from icecream import ic
 from pydantic import Field
 
+from .node_wrapper import NodeWrapper
+from .edge_wrapper import EdgeWrapper
+from .graph_wrapper import GraphWrapper
 from graphson import Node, NodeType, Edge, EdgeType, Graph
 from utility import group_by_lambda, uniform_generator
 
@@ -17,109 +20,6 @@ EDGES_PROCESSED = '#edges processed'
 EDGES_FILTERED = '#edges filtered'
 SELF_REFERRING = '#self referring edges pruned'
 TIME_FILTERED = '#edges pruned by time'
-
-class NodeWrapper:
-    node: Node
-
-    _time: int
-    _in_degree: int = 0
-    _out_degree: int = 0
-
-    def __init__(self, node: Node):
-        self.node = node
-
-    def add_incoming(self) -> None:
-        self._in_degree += 1
-
-    def add_outgoing(self) -> None:
-        self._out_degree += 1
-
-    def get_time(self) -> int:
-        return self._time
-
-    def set_time(self, time: int) -> None:
-        self._time = time
-
-    def get_in_degree(self) -> int:
-        return self._in_degree
-
-    def get_out_degree(self) -> int:
-        return self._out_degree
-
-    def get_id(self):
-        return self.node.id
-
-    def get_type(self):
-        return self.node.type
-
-class EdgeWrapper:
-    edge: Edge
-    def __init__(self, edge: Edge):
-        self.edge = edge
-    def get_src_id(self):
-        return self.edge.src_id
-
-    def get_dst_id(self):
-        return self.edge.dst_id
-
-    def get_time(self):
-        return self.edge.time
-
-    def get_op_type(self):
-        return self.edge.optype
-
-    def __hash__(self):
-        return hash(self.edge)
-
-class GraphWrapper:
-    graph: Graph
-    nodes: list[NodeWrapper]
-    edges: list[EdgeWrapper]
-
-    _node_lookup: dict[int, NodeWrapper]
-    _edge_lookup: dict[tuple[int,int], Edge]
-    def __init__(self, graph: Graph):
-        self.graph = graph
-        self.nodes = [ NodeWrapper(node) for node in self.graph.nodes ]
-        self.edges = [ EdgeWrapper(edge) for edge in self.graph.edges ]
-        self._node_lookup = { node.get_id(): node for node in self.nodes }
-        self._edge_lookup = {
-            (edge.get_src_id(), edge.get_dst_id()): edge
-            for edge in self.edges}
-        self._set_node_times()
-
-    def _set_node_times(self) -> None:
-        included_nodes: set[int] = set()
-        sorted_edges = sorted(self.edges, key=lambda e: e.get_time(), reverse=True)
-        for edge in sorted_edges:
-            src_node = self.get_node(edge.get_src_id())
-            dst_node = self.get_node(edge.get_dst_id())
-            if src_node is None or dst_node is None:
-                continue
-            src_node.add_outgoing()
-            dst_node.add_incoming()
-
-            # TODO: Is this how we should set time?
-            for node_id in [edge.get_src_id(), edge.get_dst_id()]:
-                if node_id in included_nodes:
-                    continue
-                node = self.get_node(node_id)
-                node.set_time(edge.get_time())
-    def get_node(self, id: int) -> NodeWrapper:
-        return self._node_lookup.get(id)
-
-    def get_edge(self, id: int) -> EdgeWrapper:
-        return self._edge_lookup.get(id)
-
-    def get_node_type(self, id: int) -> NodeType:
-        return self.get_node(id)
-
-    def get_edge_type(self, edge: EdgeWrapper) -> EdgeType:
-        return EdgeType(
-            edge = edge.edge,
-            src_type = self.get_node(edge.get_src_id()).get_type(),
-            dst_type = self.get_node(edge.get_dst_id()).get_type()
-        )
 
 class GraphProcessor:
     stats: dict[str, Counter[EdgeType,int]] = {}
@@ -147,8 +47,6 @@ class GraphProcessor:
         for edge in graph.edges:
             edge_type = graph.get_edge_type(edge)
             edge_type_frequence[edge_type] = (len(edge_type_groups[edge_type]) / len(graph.edges))
-
-
 
         new_edges: list[EdgeWrapper] = []
         for edge_type, edges in edge_type_groups.items():
