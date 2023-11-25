@@ -1,5 +1,5 @@
-input_directory: '~/workspace/SyssecLab/differential-privacy/data/input'
-output_directory: '~/workspace/SyssecLab/differential-privacy/data/output'
+input_directory: '../data/input'
+output_directory: '../data/output'
 
 graph_name: nd-134204506-processletevent 
 

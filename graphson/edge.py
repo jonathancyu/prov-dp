@@ -44,13 +44,24 @@ class EdgeType:
     src_type: NodeType
     dst_type: NodeType
     optype: str
-    def __init__(self, edge: Edge, node_lookup: dict[int, Node]):
-        self.src_type = node_lookup[edge.src_id].type
-        self.dst_type = node_lookup[edge.dst_id].type
+    def __init__(self,
+                 edge: Edge,
+                 src_type: NodeType,
+                 dst_type: NodeType
+                 ):
+        self.src_type = src_type
+        self.dst_type = dst_type
         self.optype = edge.optype
 
     def __hash__(self):
-        return hash((self.src_type, self.dst_type))
+        return hash((self.src_type,
+                     self.optype,
+                     self.dst_type))
+
+    def __eq__(self, other):
+        return self.src_type == other.src_type \
+            and self.optype == other.optype \
+            and self.dst_type == other.dst_type
 
     def __str__(self):
         return f'[{self.src_type.name}]-{self.optype}-[{self.dst_type.name}]'

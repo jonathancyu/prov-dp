@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Callable
 import json
 
+from icecream import ic
 from graphviz import Digraph
 from pydantic import BaseModel, Field
 
@@ -12,8 +13,8 @@ class Graph(BaseModel):
     nodes:              list[Node] = Field(alias='vertices', default_factory=list)
     edges:              list[Edge] = Field(alias='edges', default_factory=list)
 
-    _node_lookup:        dict[int, Node]
-    _edge_lookup:        dict[list[int, int], Edge]
+    _included_nodes:    set[Node]
+    _node_lookup:       dict[int, Node]
 
     @staticmethod
     def load_file(path_to_json: Path):
@@ -23,23 +24,11 @@ class Graph(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._node_lookup = {node.id: node for node in self.nodes}
-        self._edge_lookup = {(edge.src_id, edge.dst_id): edge for edge in self.edges}
+        self._node_lookup = {
+            node.id: node
+            for node in self.nodes
+        }
 
-    def _add_node(self, 
-                  node_id: int, included_nodes: set[Node], 
-                  callback: Callable[[Node],None]
-                  ) -> None:
-        if node_id not in included_nodes:
-            included_nodes.add(node_id)
-            node = self._node_lookup[node_id]
-            callback(node)
-
-    def get_node(self, node_id: int) -> Node:
-        return self._node_lookup[node_id]
-    
-    def get_edge(self, edge_id: int) -> Edge:
-        return self._node_lookup[edge_id]
 
     def to_dict(self) -> dict:
         model = self.model_dump(by_alias=True)
@@ -52,16 +41,26 @@ class Graph(BaseModel):
         dot_graph = Digraph()
         dot_graph.attr(rankdir='LR')
         included_nodes: set[Node] = set()
+        ic(type(self.edges[0]))
         sorted_edges = sorted(self.edges, key=lambda e: e.time)
         add_to_graph = lambda node: dot_graph.node(str(node.id), **node.to_dot_args())
         for edge in sorted_edges:
-            self._add_node(edge.src_id, included_nodes, add_to_graph)
+            # ic(type(edge.src_id))
+            # ic(edge.src_id)
+            add_to_graph(self.get_node(edge.src_id))
             dot_graph.edge(str(edge.src_id), str(edge.dst_id), **edge.to_dot_args())
-            self._add_node(edge.dst_id, included_nodes, add_to_graph)
+            add_to_graph(self.get_node(edge.dst_id))
 
-        disconnected_nodes = 0
         for node in self.nodes:
             if node not in included_nodes:
-                disconnected_nodes += 1
                 add_to_graph(node)
         return dot_graph
+    def get_node(self, node_id: int):
+        return self._node_lookup[node_id]
+    def _add_node(self,
+                  node_id: int,
+                  callback: Callable[[Node],None]):
+        node = self._node_lookup.get(node_id)
+        if node not in self._included_nodes:
+            self._included_nodes.add(node)
+            callback(node)

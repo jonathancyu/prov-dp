@@ -11,26 +11,28 @@ import yaml
 from icecream import ic
 from tqdm import tqdm
 
-from algorithm import GraphProcessor
+from algorithm import GraphProcessor, GraphWrapper, count_disconnected_nodes
 from graphson import Graph
-from utility import save_dot, get_stats, count_disconnected_nodes
+from utility import save_dot, get_stats
 
 
 
 def evaluate(input_directory: Path, output_directory: Path,
              graph_name: str,
-             num_samples: int, epsilon_values: list[list[float]]
+             num_samples: int, epsilon_values: dict[int, dict[int, float]]
              ) -> pd.DataFrame:
     results: list[pd.Series] = []
 
-    input_file_path = (input_directory / graph_name / graph_name).with_suffix('.dot')
-
+    input_file_path = (input_directory / graph_name / graph_name).with_suffix('.json')
     configurations = [
         (input_file_path, output_directory, num_samples, epsilon[0], epsilon[1])
         for epsilon in epsilon_values
         ]
-    with Pool(processes=8) as pool:
-        results = pool.starmap(evaluate_for_epsilon, configurations)
+    ic(configurations)
+    results = [evaluate_for_epsilon(*configuration)
+               for configuration in configurations]
+    # with Pool(processes=8) as pool:
+    #     results = pool.starmap(evaluate_for_epsilon, configurations)
 
     return pd.concat(results, axis=1).T
 
@@ -49,7 +51,7 @@ def evaluate_for_epsilon(
     metrics: dict[str, Callable[[Graph,Graph],float]] = {
         '#edges': lambda _, output_graph: len(output_graph.edges),
         '#edges kept': lambda input_graph, output_graph: len(set(input_graph.edges).intersection(output_graph.edges)),
-        '#disconnected nodes': lambda _, output_graph: count_disconnected_nodes(output_graph)
+        '#disconnected nodes': lambda _, output_graph: count_disconnected_nodes(GraphWrapper(output_graph))
     }
     metric_data = { key: [] for key, _ in metrics.items() }
 
@@ -81,20 +83,24 @@ def evaluate_for_epsilon(
 
 
 def main(args: dict) -> None:
+    ic(args.input_directory)
+    ic(os.getcwd())
     result: pd.DataFrame = evaluate(
-        input_directory  = args.input_directory,
-        output_directory = args.output_directory,
+        input_directory  = Path(args.input_directory),
+        output_directory = Path(args.output_directory),
+        graph_name       = args.graph_name,
         num_samples      = args.num_samples,
-        epsilon_values  = map(lambda e: map(float, e), 
-                               args.epsilon_values)
+        epsilon_values   = [
+            [e for e in pair]
+            for pair in args.epsilon_values
+        ]
     )
     result = result.sort_values('epsilon_1', 'epsilon_2')
     result.to_csv(args.output_dir / args.input_path.stem / 'stats.csv', index=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Provenance Graph')
-    parser.add_argument('-c', '--config', type=Path,
-                        required=True, help='Path to config yaml file')
+    parser.add_argument('-c', '--config', type=Path, help='Path to config yaml file')
     args = parser.parse_args()
 
     with open(args.config, 'r') as config_file:

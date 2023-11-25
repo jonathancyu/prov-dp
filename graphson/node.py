@@ -21,26 +21,6 @@ class Node(GraphsonObject):
     id: int = Field(..., alias='_id')
     type: NodeType = Field(..., alias='TYPE')
 
-    # Algorithm-specific fields
-    _time: int
-    _in_degree: int = 0
-    _out_degree: int = 0
-
-    def get_time(self) -> int:
-        return self._time
-    
-    def set_time(self, new_time: int) -> None:
-        self.time = new_time
-    
-    def add_incoming(self) -> None:
-        self._in_degree += 1
-
-    def add_outgoing(self) -> None:
-        self._out_degree += 1
-
-    def get_degree(self) -> tuple[int,int]:
-        return self._in_degree, self._out_degree
-
     def __hash__(self) -> int:
         return hash(self.id)
 

@@ -26,7 +26,7 @@ def node_from_list(node_id: int, node_list: list[Node]) -> Node:
     return candidates[0]
 
 def uniform_generator(edges: list[Edge]) -> Callable[[],int]:
-    times = list(map(lambda x: x.time, edges))
+    times = list(map(lambda x: x.get_time(), edges))
     min_time, max_time = min(times), max(times)
 
     return lambda: int(np.round(np.random.uniform(min_time, max_time)))
@@ -47,10 +47,3 @@ def get_stats(stat: str, data: list[int]) -> dict:
         'max': max(data)
     }
     return { f'{stat} {key}': value for key, value in result.items() }
-
-def count_disconnected_nodes(graph: Graph) -> float:
-    included_nodes: set[Node] = set()
-    for edge in graph.edges:
-        included_nodes.add(graph.get_node(edge.src_id))
-        included_nodes.add(graph.get_node(edge.dst_id))
-    return len(set(graph.nodes) - included_nodes)
