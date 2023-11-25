@@ -24,10 +24,11 @@ class GraphWrapper:
         for edge in sorted_edges:
             src_node = self.get_node(edge.get_src_id())
             dst_node = self.get_node(edge.get_dst_id())
-            if src_node is None or dst_node is None:
+            if src_node is None or dst_node is None: # TODO why does this occur?
                 continue
-            src_node.add_outgoing()
-            dst_node.add_incoming()
+            edge_type = self.get_edge_type(edge)
+            src_node.add_outgoing(edge_type)
+            dst_node.add_incoming(edge_type)
 
             # TODO: Is this how we should set time?
             for node_id in [edge.get_src_id(), edge.get_dst_id()]:
@@ -35,6 +36,7 @@ class GraphWrapper:
                     continue
                 node = self.get_node(node_id)
                 node.set_time(edge.get_time())
+
     def get_node(self, id: int) -> NodeWrapper:
         return self._node_lookup.get(id)
 

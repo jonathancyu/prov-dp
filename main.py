@@ -11,7 +11,7 @@ import yaml
 from icecream import ic
 from tqdm import tqdm
 
-from algorithm import GraphProcessor, GraphWrapper, count_disconnected_nodes
+from algorithm import ExtendedTopMFilter, GraphWrapper, count_disconnected_nodes
 from graphson import Graph
 from utility import save_dot, get_stats
 
@@ -55,7 +55,7 @@ def evaluate_for_epsilon(
     metric_data = { key: [] for key, _ in metrics.items() }
 
 
-    processor = GraphProcessor()
+    processor = ExtendedTopMFilter()
     for i in tqdm(range(num_samples), desc=f'({epsilon_1},{epsilon_2})'):
         input_graph = Graph.load_file(input_path)
         output_graph: Graph = processor.perturb_graph(input_graph, epsilon_1, epsilon_2)
