@@ -3,7 +3,7 @@ output_directory: '../data/output'
 
 graph_name: nd-134204506-processletevent 
 
-num_samples: 10
+num_samples: 1
 epsilon_values: # [epsilon_1, epsilon_2]
   - [1.0, 1.0]
   - [1.0, 5.0]

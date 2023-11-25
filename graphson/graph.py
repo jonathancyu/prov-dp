@@ -41,12 +41,9 @@ class Graph(BaseModel):
         dot_graph = Digraph()
         dot_graph.attr(rankdir='LR')
         included_nodes: set[Node] = set()
-        ic(type(self.edges[0]))
         sorted_edges = sorted(self.edges, key=lambda e: e.time)
         add_to_graph = lambda node: dot_graph.node(str(node.id), **node.to_dot_args())
         for edge in sorted_edges:
-            # ic(type(edge.src_id))
-            # ic(edge.src_id)
             add_to_graph(self.get_node(edge.src_id))
             dot_graph.edge(str(edge.src_id), str(edge.dst_id), **edge.to_dot_args())
             add_to_graph(self.get_node(edge.dst_id))

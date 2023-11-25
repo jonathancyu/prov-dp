@@ -17,33 +17,32 @@ from utility import save_dot, get_stats
 
 
 
-def evaluate(input_directory: Path, output_directory: Path,
+def evaluate(input_path: Path, output_path: Path,
              graph_name: str,
              num_samples: int, epsilon_values: dict[int, dict[int, float]]
              ) -> pd.DataFrame:
     results: list[pd.Series] = []
 
-    input_file_path = (input_directory / graph_name / graph_name).with_suffix('.json')
+    input_file_path = (input_path / graph_name / graph_name).with_suffix('.json')
     configurations = [
-        (input_file_path, output_directory, num_samples, epsilon[0], epsilon[1])
+        (input_file_path, output_path, num_samples, epsilon[0], epsilon[1])
         for epsilon in epsilon_values
         ]
-    ic(configurations)
-    results = [evaluate_for_epsilon(*configuration)
-               for configuration in configurations]
-    # with Pool(processes=8) as pool:
-    #     results = pool.starmap(evaluate_for_epsilon, configurations)
+    # results = [evaluate_for_epsilon(*configuration)
+    #            for configuration in configurations]
+    with Pool(processes=8) as pool:
+        results = pool.starmap(evaluate_for_epsilon, configurations)
 
     return pd.concat(results, axis=1).T
 
 
 def evaluate_for_epsilon(
-        input_path: Path, output_dir: Path, 
+        input_path: Path, output_path: Path,
         num_samples: int, 
         epsilon_1: float, epsilon_2: float
         ) -> pd.Series:
     
-    graph_output_dir = output_dir / input_path.stem / f'epsilon-{epsilon_1}_{epsilon_2}'
+    graph_output_dir = output_path / input_path.stem / f'epsilon-{epsilon_1}_{epsilon_2}'
     if os.path.isdir(graph_output_dir):
         shutil.rmtree(graph_output_dir)
 
@@ -59,12 +58,12 @@ def evaluate_for_epsilon(
     processor = GraphProcessor()
     for i in tqdm(range(num_samples), desc=f'({epsilon_1},{epsilon_2})'):
         input_graph = Graph.load_file(input_path)
-        output_graph = processor.perturb_graph(input_graph, epsilon_1, epsilon_2)
+        output_graph: Graph = processor.perturb_graph(input_graph, epsilon_1, epsilon_2)
 
         for metric, func in metrics.items():
             metric_data[metric].append(func(input_graph, output_graph))
 
-        save_dot(output_graph.to_dot(), 
+        save_dot(output_graph.to_dot(),
                  graph_output_dir / f'{input_path.stem}_{i}',
                  dot=True, pdf=True)
 
@@ -83,11 +82,12 @@ def evaluate_for_epsilon(
 
 
 def main(args: dict) -> None:
-    ic(args.input_directory)
-    ic(os.getcwd())
+    input_path = Path(args.input_directory)
+    output_path = Path(args.output_directory)
+
     result: pd.DataFrame = evaluate(
-        input_directory  = Path(args.input_directory),
-        output_directory = Path(args.output_directory),
+        input_path       = input_path,
+        output_path      = output_path,
         graph_name       = args.graph_name,
         num_samples      = args.num_samples,
         epsilon_values   = [
@@ -95,8 +95,10 @@ def main(args: dict) -> None:
             for pair in args.epsilon_values
         ]
     )
-    result = result.sort_values('epsilon_1', 'epsilon_2')
-    result.to_csv(args.output_dir / args.input_path.stem / 'stats.csv', index=False)
+    result = result.sort_values(['epsilon_1', 'epsilon_2'])
+    output_file_path = output_path / input_path.stem / 'stats.csv'
+    output_file_path.parent.mkdir(exist_ok=True, parents=True)
+    result.to_csv(output_path / input_path.stem / 'stats.csv', index=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Provenance Graph')

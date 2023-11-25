@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Callable
 
 import numpy as np
+from graphviz import Digraph
 from icecream import ic
 from pydantic import Field
 
@@ -94,7 +95,6 @@ class GraphWrapper:
             src_node = self.get_node(edge.get_src_id())
             dst_node = self.get_node(edge.get_dst_id())
             if src_node is None or dst_node is None:
-                ic((src_node, dst_node))
                 continue
             src_node.add_outgoing()
             dst_node.add_incoming()
@@ -195,7 +195,6 @@ class GraphProcessor:
                               edge_type: EdgeType,
                               epsilon_1: float, epsilon_2: float
                               ) -> list[EdgeWrapper]:
-        """Lines 1-8: Compute constants"""
         # 1
         new_edges: set[EdgeWrapper] = set()
         # 2-3
@@ -218,7 +217,6 @@ class GraphProcessor:
                 + (math.exp(epsilon_1)-1)/2
             ) / epsilon_1
 
-        """Line"""
         # 9-15
         for edge in existing_edges:
             weight = 1 + np.random.laplace(0, 1.0/epsilon_1)
@@ -275,7 +273,7 @@ def create_edge(src_node: NodeWrapper, dst_node: NodeWrapper,
     return EdgeWrapper(
         Edge.of(
             src_id=src_node.get_id(),
-            dst_id=dst_node.get_type(),
+            dst_id=dst_node.get_id(),
             optype=optype,
             time=edge_time
         )
