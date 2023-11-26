@@ -1,3 +1,5 @@
+from collections import deque
+
 from icecream import ic
 
 from graphson import Graph, Edge, NodeType, EdgeType
@@ -9,13 +11,15 @@ class GraphWrapper:
     edges: list[EdgeWrapper]
 
     _node_lookup: dict[int, NodeWrapper]
-    _edge_lookup: dict[tuple[int,int], Edge]
+    _edge_lookup: dict[tuple[int,int], EdgeWrapper]
+
+    _edge_id_lookup: dict[int, EdgeWrapper]
+
+    _subtree_size_lookup: dict[int, int]
     def __init__(self, graph: Graph):
         self.graph = graph
         self.nodes = [ NodeWrapper(node) for node in self.graph.nodes ]
         self.edges = [ EdgeWrapper(edge) for edge in self.graph.edges ]
-
-        self._edge_id_lookup = { edge.get_ref_id(): edge for edge in self.edges}
 
         self._node_lookup = { node.get_id(): node for node in self.nodes }
         self._edge_lookup = {
@@ -23,6 +27,11 @@ class GraphWrapper:
             for edge in self.edges}
         self._set_node_times()
 
+        self._edge_id_lookup = { edge.get_ref_id(): edge for edge in self.edges}
+
+        self._subtree_size_lookup = {}
+
+    # TODO: split this func, too many responsibilities
     def _set_node_times(self) -> None:
         included_nodes: set[int] = set()
         sorted_edges = sorted(self.edges, key=lambda e: e.get_time(), reverse=True)
@@ -60,3 +69,24 @@ class GraphWrapper:
             src_type = self.get_node(edge.get_src_id()).get_type(),
             dst_type = self.get_node(edge.get_dst_id()).get_type()
         )
+
+    def get_tree_size(self, root_edge_id: int, direction: str) -> int:
+        tree_size = self._subtree_size_lookup.get(root_edge_id)
+        if tree_size is not None:
+            return tree_size
+
+        # size = 1 including current edge
+        tree_size: int = 1
+        root_edge = self.get_edge_by_id(root_edge_id)
+        root_node_id = root_edge.node_ids[direction]
+        root_node = self.get_node(root_node_id)
+        for subtree_root_edge_id in root_node.edge_ids[direction]:
+            subtree_root_edge = self.get_edge_by_id(subtree_root_edge_id)
+            if subtree_root_edge_id == root_edge_id or subtree_root_edge.visited[direction]:
+                continue
+
+            subtree_root_edge.visited[direction] = True
+            tree_size += self.get_tree_size(subtree_root_edge_id, direction)
+
+        self._subtree_size_lookup[root_edge_id] = tree_size
+        return tree_size

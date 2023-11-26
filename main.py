@@ -98,9 +98,10 @@ def main(args: dict) -> None:
         ]
     )
     result = result.sort_values(['epsilon_1', 'epsilon_2'])
-    output_file_path = output_path / input_path.stem / 'stats.csv'
+    output_file_path = output_path / args.graph_name / 'stats.csv'
+    ic(output_file_path)
     output_file_path.parent.mkdir(exist_ok=True, parents=True)
-    result.to_csv(output_path / input_path.stem / 'stats.csv', index=False)
+    result.to_csv(output_file_path, index=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Provenance Graph')

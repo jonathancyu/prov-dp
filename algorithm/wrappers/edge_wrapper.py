@@ -11,7 +11,8 @@ class EdgeWrapper:
             OUT: edge.dst_id
         }
         self.visited = {
-            IN: False, OUT: False
+            IN: False,
+            OUT: False
         }
 
     def get_ref_id(self) -> int:

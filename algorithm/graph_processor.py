@@ -19,7 +19,7 @@ class GraphProcessor:
     TIME_FILTERED = '#edges pruned by time'
 
     def __init__(self):
-        for stat in [self.EDGES_PROCESSED, self.SELF_REFERRING, self.TIME_FILTERED]:
+        for stat in [self.EDGES_PROCESSED, self.EDGES_FILTERED, self.SELF_REFERRING, self.TIME_FILTERED]:
             self.stats[stat] = Counter()
             self.runtimes = []
 

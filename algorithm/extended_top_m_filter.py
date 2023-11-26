@@ -11,6 +11,8 @@ from algorithm.wrappers.graph_wrapper import GraphWrapper
 from .graph_processor import GraphProcessor
 
 class ExtendedTopMFilter(GraphProcessor):
+    def __init__(self):
+        super().__init__()
     def perturb_graph(self,
                       input_graph_object: Graph,
                       epsilon_1: float,
