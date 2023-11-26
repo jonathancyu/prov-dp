@@ -18,16 +18,14 @@ class TreeShaker(GraphProcessor):
                       input_graph_object: Graph,
                       source_edge_id: int,
                       epsilon_1: float,
-                      epsilon_2: float
+                      epsilon_2: float,
+                      alpha: float
                       ):
         start_time = datetime.now()
 
         graph = GraphWrapper(input_graph_object)
         source_edge = graph.get_edge_by_id(source_edge_id)
         assert source_edge is not None
-
-        # https://par.nsf.gov/servlets/purl/10191952 Relaxed Indistinguishability of Neighbors
-        alpha: float = 2.0  # They use 0.5, 1, 2
 
         in_edges: list[EdgeWrapper] = self.perturb_tree(
             graph=graph,
@@ -43,7 +41,6 @@ class TreeShaker(GraphProcessor):
             alpha=alpha)
         new_edges: list[EdgeWrapper] = list(set(in_edges + out_edges))
         self.runtimes.append((datetime.now() - start_time).total_seconds())
-        print(f'Original # edges: {len(graph.edges)}, new # edges: {len(new_edges)}')
         return Graph(
             vertices=[node.node for node in graph.nodes],
             edges=[edge.edge for edge in new_edges]
@@ -68,6 +65,7 @@ class TreeShaker(GraphProcessor):
             edge_type = graph.get_edge_type(edge)
             self.increment_counter(EDGES_PROCESSED + f' ({direction})', edge_type)
 
+            # https://par.nsf.gov/servlets/purl/10191952 Relaxed Indistinguishability of Neighbors
             # Higher distance -> high epsilon_prime -> p is lower
             subtree_size = graph.get_tree_size(edge_id, direction)
             distance = alpha * subtree_size
