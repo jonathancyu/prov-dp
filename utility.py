@@ -5,12 +5,13 @@ import numpy as np
 from graphviz import Digraph
 
 from graphson import GraphsonObject, Node, Edge, Graph
+from algorithm.wrappers import EdgeWrapper
 
 
 def group_by_lambda[T](objects: list[GraphsonObject], 
                        get_attribute: Callable[[GraphsonObject], T]
                        ) -> dict[T, list[GraphsonObject]]:
-    grouped = {}
+    grouped: dict[T, list[GraphsonObject]] = {}
     for obj in objects:
         key = get_attribute(obj)
         if not key in grouped:
@@ -25,7 +26,7 @@ def node_from_list(node_id: int, node_list: list[Node]) -> Node:
     assert len(candidates) == 1
     return candidates[0]
 
-def uniform_generator(edges: list[Edge]) -> Callable[[],int]:
+def uniform_generator(edges: list[EdgeWrapper]) -> Callable[[],int]:
     times = list(map(lambda x: x.get_time(), edges))
     min_time, max_time = min(times), max(times)
 
@@ -47,3 +48,11 @@ def get_stats(stat: str, data: list[int]) -> dict:
         'max': max(data)
     }
     return { f'{stat} {key}': value for key, value in result.items() }
+
+def get_edge_id(graph_name: str) -> int:
+    split = graph_name.split('-')
+    try:
+        assert len(split) == 3
+        return int(split[1])
+    except:
+        return ''

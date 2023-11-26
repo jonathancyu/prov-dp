@@ -5,9 +5,9 @@ import math
 
 from utility import group_by_lambda, uniform_generator
 from graphson import Graph, NodeType, Edge, EdgeType
-from .node_wrapper import NodeWrapper
-from .edge_wrapper import EdgeWrapper
-from .graph_wrapper import GraphWrapper
+from algorithm.wrappers.node_wrapper import NodeWrapper
+from algorithm.wrappers.edge_wrapper import EdgeWrapper
+from algorithm.wrappers.graph_wrapper import GraphWrapper
 from .graph_processor import GraphProcessor
 
 class ExtendedTopMFilter(GraphProcessor):
@@ -19,11 +19,10 @@ class ExtendedTopMFilter(GraphProcessor):
         graph = GraphWrapper(input_graph_object)
         start_time = datetime.now()
 
-        node_groups: dict[NodeType, list[NodeWrapper]] = group_by_lambda(graph.nodes, lambda node: node.get_type())
-        edge_type_groups: dict[EdgeType, list[EdgeWrapper]] = group_by_lambda(graph.edges,
-                                                                              lambda edge: graph.get_edge_type(edge))
-        for edge in graph.edges:
-            edge_type: EdgeType = graph.get_edge_type(edge)
+        node_groups: dict[NodeType, list[NodeWrapper]] \
+            = group_by_lambda(graph.nodes, lambda node: node.get_type())
+        edge_type_groups: dict[EdgeType, list[EdgeWrapper]] \
+            = group_by_lambda(graph.edges, lambda edge: graph.get_edge_type(edge))
 
         new_edges: list[EdgeWrapper] = []
         for edge_type, edges in edge_type_groups.items():
@@ -37,8 +36,10 @@ class ExtendedTopMFilter(GraphProcessor):
             )
             new_edges.extend(perturbed_edges)
         self.runtimes.append((datetime.now() - start_time).total_seconds())
-        return Graph(vertices=[node_wrapper.node for node_wrapper in graph.nodes],
-                     edges=[edge_wrapper.edge for edge_wrapper in new_edges])
+        return Graph(
+            vertices   = [node.node for node in graph.nodes],
+            edges      = [edge.edge for edge in new_edges]
+        )
 
     def filter(self,
                src_node: NodeWrapper,
@@ -50,7 +51,7 @@ class ExtendedTopMFilter(GraphProcessor):
             return True
         elif src_node.get_type() == NodeType.PROCESS_LET \
                 and dst_node.get_type() == NodeType.PROCESS_LET \
-                and src_node.get_time() >= dst_node.get_time():
+                and src_node.time >= dst_node.time:
             self.increment_counter(self.TIME_FILTERED, edge_type)
             return True
         return False

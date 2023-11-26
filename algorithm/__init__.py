@@ -1,5 +1,4 @@
-from .node_wrapper import NodeWrapper
-from .edge_wrapper import EdgeWrapper
-from .graph_wrapper import GraphWrapper
+from .wrappers import NodeWrapper, EdgeWrapper, GraphWrapper
 from .graph_processor import GraphProcessor, count_disconnected_nodes
 from .extended_top_m_filter import ExtendedTopMFilter
+from .tree_shaker import TreeShaker

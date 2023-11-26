@@ -11,9 +11,9 @@ import yaml
 from icecream import ic
 from tqdm import tqdm
 
-from algorithm import ExtendedTopMFilter, GraphWrapper, count_disconnected_nodes
+from algorithm import ExtendedTopMFilter, TreeShaker, GraphWrapper, count_disconnected_nodes
 from graphson import Graph
-from utility import save_dot, get_stats
+from utility import save_dot, get_stats, get_edge_id
 
 
 
@@ -28,10 +28,10 @@ def evaluate(input_path: Path, output_path: Path,
         (input_file_path, output_path, num_samples, epsilon[0], epsilon[1])
         for epsilon in epsilon_values
         ]
-    # results = [evaluate_for_epsilon(*configuration)
-    #            for configuration in configurations]
-    with Pool(processes=8) as pool:
-        results = pool.starmap(evaluate_for_epsilon, configurations)
+    results = [evaluate_for_epsilon(*configuration)
+               for configuration in configurations]
+    # with Pool(processes=8) as pool:
+    #     results = pool.starmap(evaluate_for_epsilon, configurations)
 
     return pd.concat(results, axis=1).T
 
@@ -41,11 +41,12 @@ def evaluate_for_epsilon(
         num_samples: int, 
         epsilon_1: float, epsilon_2: float
         ) -> pd.Series:
-    
-    graph_output_dir = output_path / input_path.stem / f'epsilon-{epsilon_1}_{epsilon_2}'
+
+    graph_name = input_path.stem
+    edge_id = get_edge_id(graph_name)
+    graph_output_dir = output_path / graph_name / f'epsilon-{epsilon_1}_{epsilon_2}'
     if os.path.isdir(graph_output_dir):
         shutil.rmtree(graph_output_dir)
-
 
     metrics: dict[str, Callable[[Graph,Graph],float]] = {
         '#edges': lambda _, output_graph: len(output_graph.edges),
@@ -54,17 +55,18 @@ def evaluate_for_epsilon(
     }
     metric_data = { key: [] for key, _ in metrics.items() }
 
-
-    processor = ExtendedTopMFilter()
+    # processor = ExtendedTopMFilter()
+    processor = TreeShaker()
     for i in tqdm(range(num_samples), desc=f'({epsilon_1},{epsilon_2})'):
         input_graph = Graph.load_file(input_path)
-        output_graph: Graph = processor.perturb_graph(input_graph, epsilon_1, epsilon_2)
+        # output_graph: Graph = processor.perturb_graph(input_graph, epsilon_1, epsilon_2)
+        output_graph: Graph = processor.perturb_graph(input_graph, edge_id, epsilon_1, epsilon_2)
 
         for metric, func in metrics.items():
             metric_data[metric].append(func(input_graph, output_graph))
 
         save_dot(output_graph.to_dot(),
-                 graph_output_dir / f'{input_path.stem}_{i}',
+                 graph_output_dir / f'{graph_name}_{i}',
                  dot=True, pdf=True)
 
 
