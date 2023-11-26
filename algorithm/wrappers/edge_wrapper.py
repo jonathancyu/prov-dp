@@ -1,9 +1,12 @@
 from graphson import Edge
 
 from .node_wrapper import IN, OUT
+
+
 class EdgeWrapper:
     edge: Edge
     visited: dict[str, bool]
+
     def __init__(self, edge: Edge):
         self.edge = edge
         self.node_ids = {
@@ -17,6 +20,7 @@ class EdgeWrapper:
 
     def get_ref_id(self) -> int:
         return int(self.edge.model_extra['REF_ID'])
+
     def get_src_id(self) -> int:
         return self.edge.src_id
 

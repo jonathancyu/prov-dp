@@ -4,6 +4,8 @@ from graphson import Node, NodeType, EdgeType
 
 IN = 'IN'
 OUT = 'OUT'
+
+
 class NodeWrapper:
     node: Node
     edge_ids: dict[str, list[int]]
@@ -20,13 +22,6 @@ class NodeWrapper:
         self.edge_ids = {
             IN: [], OUT: []
         }
-
-
-    def get_time(self) -> int:
-        return self._time
-
-    def set_time(self, time: int) -> None:
-        self._time = time
 
     def add_incoming(self, edge_id: int, edge_type: EdgeType) -> None:
         self._degree_by_type[IN].update([edge_type])

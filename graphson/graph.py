@@ -1,20 +1,21 @@
+import json
 from pathlib import Path
 from typing import Callable
-import json
 
-from icecream import ic
 from graphviz import Digraph
 from pydantic import BaseModel, Field
 
-from .node import Node
 from .edge import Edge
+from .node import Node
 
+
+# noinspection PyArgumentList
 class Graph(BaseModel):
-    nodes:              list[Node] = Field(alias='vertices', default_factory=list)
-    edges:              list[Edge] = Field(alias='edges', default_factory=list)
+    nodes: list[Node] = Field(alias='vertices', default_factory=list)
+    edges: list[Edge] = Field(alias='edges', default_factory=list)
 
-    _included_nodes:    set[Node]
-    _node_lookup:       dict[int, Node]
+    _included_nodes: set[Node]
+    _node_lookup: dict[int, Node]
 
     @staticmethod
     def load_file(path_to_json: Path):
@@ -29,12 +30,11 @@ class Graph(BaseModel):
             for node in self.nodes
         }
 
-
     def to_dict(self) -> dict:
         model = self.model_dump(by_alias=True)
         model['mode'] = 'EXTENDED'
-        model['vertices'] = [ node.to_dict() for node in self.nodes ]
-        model['edges'] = [ edge.to_dict() for edge in self.edges ]
+        model['vertices'] = [node.to_dict() for node in self.nodes]
+        model['edges'] = [edge.to_dict() for edge in self.edges]
         return model
 
     def to_dot(self) -> Digraph:
@@ -42,7 +42,10 @@ class Graph(BaseModel):
         dot_graph.attr(rankdir='LR')
         included_nodes: set[Node] = set()
         sorted_edges = sorted(self.edges, key=lambda e: e.time)
-        add_to_graph = lambda node: dot_graph.node(str(node.id), **node.to_dot_args())
+
+        def add_to_graph(node: Node):
+            dot_graph.node(str(node.id), **node.to_dot_args())
+
         for edge in sorted_edges:
             add_to_graph(self.get_node(edge.src_id))
             dot_graph.edge(str(edge.src_id), str(edge.dst_id), **edge.to_dot_args())
@@ -52,11 +55,13 @@ class Graph(BaseModel):
             if node not in included_nodes:
                 add_to_graph(node)
         return dot_graph
+
     def get_node(self, node_id: int):
         return self._node_lookup[node_id]
+
     def _add_node(self,
                   node_id: int,
-                  callback: Callable[[Node],None]):
+                  callback: Callable[[Node], None]):
         node = self._node_lookup.get(node_id)
         if node not in self._included_nodes:
             self._included_nodes.add(node)

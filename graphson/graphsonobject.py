@@ -3,7 +3,9 @@ from pydantic import BaseModel, root_validator
 from .utility import string_to_field
 
 
+# noinspection PyMethodParameters
 class GraphsonObject(BaseModel):
+    # noinspection PyDeprecation
     @root_validator(pre=True)
     def extract_values(cls, values):
         result = {}
@@ -16,9 +18,10 @@ class GraphsonObject(BaseModel):
             else:
                 result[key] = value['value']
         return result
+
     class Config:
         extra = 'allow'
-    
+
     def to_dict(self):
         new_dict = {}
         model = self.model_dump(by_alias=True)

@@ -1,18 +1,20 @@
+import math
 from datetime import datetime
 
 import numpy as np
-import math
 
-from utility import group_by_lambda, uniform_generator
-from graphson import Graph, NodeType, Edge, EdgeType
-from algorithm.wrappers.node_wrapper import NodeWrapper
 from algorithm.wrappers.edge_wrapper import EdgeWrapper
 from algorithm.wrappers.graph_wrapper import GraphWrapper
+from algorithm.wrappers.node_wrapper import NodeWrapper
+from graphson import Graph, NodeType, EdgeType
+from utility import group_by_lambda, uniform_generator
 from .graph_processor import GraphProcessor
+
 
 class ExtendedTopMFilter(GraphProcessor):
     def __init__(self):
         super().__init__()
+
     def perturb_graph(self,
                       input_graph_object: Graph,
                       epsilon_1: float,
@@ -39,8 +41,8 @@ class ExtendedTopMFilter(GraphProcessor):
             new_edges.extend(perturbed_edges)
         self.runtimes.append((datetime.now() - start_time).total_seconds())
         return Graph(
-            vertices   = [node.node for node in graph.nodes],
-            edges      = [edge.edge for edge in new_edges]
+            vertices=[node.node for node in graph.nodes],
+            edges=[edge.edge for edge in new_edges]
         )
 
     def filter(self,
@@ -58,18 +60,20 @@ class ExtendedTopMFilter(GraphProcessor):
             return True
         return False
 
-    def pick_random_node(self, nodes: list[NodeWrapper], weights: list[float] = None) -> NodeWrapper:
+    @staticmethod
+    def pick_random_node(nodes: list[NodeWrapper], weights: list[float] = None) -> NodeWrapper:
         if weights is None or sum(weights) == 0:
-            weights = [1.0 for node in nodes]
+            weights = [1.0 for _ in nodes]
         total_weight = sum(weights)
         weights = [weight / total_weight for weight in weights]
-        return np.random.choice(nodes, 1, p=weights)[0]
+        choice = np.random.choice(nodes, 1, p=weights)
+        return choice[0]
 
     # Top-M Filter: https://doi.org/10.1145/2808797.2809385
     # Line numbers correspond to Algorithm 1
     def extended_top_m_filter(self,
                               src_nodes: list[NodeWrapper], dst_nodes: list[NodeWrapper],
-                              existing_edges: list[Edge],
+                              existing_edges: list[EdgeWrapper],
                               edge_type: EdgeType,
                               epsilon_1: float, epsilon_2: float
                               ) -> list[EdgeWrapper]:
@@ -116,4 +120,4 @@ class ExtendedTopMFilter(GraphProcessor):
             new_edge = self.create_edge(src_node, dst_node, edge_type.optype, uniform_time)
             if new_edge not in new_edges:
                 new_edges.add(new_edge)
-        return new_edges
+        return list(new_edges)
