@@ -10,6 +10,7 @@ from graphson import Edge, EdgeType
 
 EDGES_PROCESSED = '#edges processed'
 EDGES_FILTERED = '#edges filtered'
+PRUNED_AT_DEPTH = '#pruned at depth'
 SELF_REFERRING = '#self referring edges pruned'
 TIME_FILTERED = '#edges pruned by time'
 

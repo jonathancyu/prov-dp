@@ -6,7 +6,7 @@ from icecream import ic
 
 from graphson import Graph
 from utility import logistic_function
-from .graph_processor import GraphProcessor, EDGES_PROCESSED, EDGES_FILTERED, SELF_REFERRING, TIME_FILTERED
+from .graph_processor import GraphProcessor, EDGES_PROCESSED, EDGES_FILTERED, SELF_REFERRING, TIME_FILTERED, PRUNED_AT_DEPTH
 from .wrappers import GraphWrapper, EdgeWrapper, NodeWrapper, IN, OUT
 
 
@@ -27,15 +27,16 @@ class TreeShaker(GraphProcessor):
         source_edge = graph.get_edge_by_id(source_edge_id)
         assert source_edge is not None
 
+        # TODO: make alpha larger for backward b/c startup sequence is often the same
         in_edges: list[EdgeWrapper] = self.perturb_tree(
             graph=graph,
-            source_edge_ids=[source_edge_id],
+            source_edge_id=source_edge_id,
             direction=IN,
             epsilon=epsilon_1,
             alpha=alpha)
         out_edges: list[EdgeWrapper] = self.perturb_tree(
             graph=graph,
-            source_edge_ids=[source_edge_id],
+            source_edge_id=source_edge_id,
             direction=OUT,
             epsilon=epsilon_2,
             alpha=alpha)
@@ -48,19 +49,19 @@ class TreeShaker(GraphProcessor):
 
     def perturb_tree(self,
                      graph: GraphWrapper,
-                     source_edge_ids: list[int],
+                     source_edge_id: int,
                      direction: str,
                      epsilon: float,
                      alpha: float
                      ) -> list[EdgeWrapper]:
         visited_edges: set[EdgeWrapper] = set()
-        queue = deque(source_edge_ids)
+        queue = deque([(0, source_edge_id)])
         local_sensitivity: float = 1 / alpha
 
         new_edges: list[EdgeWrapper] = []
         while len(queue) > 0:
             # BFS, so FIFO. Append to back, pop from front (left).
-            edge_id: int = queue.popleft()
+            depth, edge_id = queue.popleft()
             edge: EdgeWrapper = graph.get_edge_by_id(edge_id)
             edge_type = graph.get_edge_type(edge)
             self.increment_counter(EDGES_PROCESSED + f' ({direction})', edge_type)
@@ -74,6 +75,7 @@ class TreeShaker(GraphProcessor):
             prune_edge = np.random.choice([True, False], p=[p, 1 - p])
             if edge in visited_edges or prune_edge:
                 if prune_edge:
+                    self.increment_counter(PRUNED_AT_DEPTH + f'={depth}', edge_type)
                     self.increment_counter(EDGES_FILTERED + f' ({direction})', edge_type)
                 continue
             visited_edges.add(edge)
@@ -83,6 +85,6 @@ class TreeShaker(GraphProcessor):
 
             new_edges.append(edge)
             next_edge_ids: list[int] = node.edge_ids[direction]
-            queue.extend(next_edge_ids)
+            queue.extend([(depth + 1, next_edge_id) for next_edge_id in next_edge_ids])
 
         return new_edges

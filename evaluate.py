@@ -12,7 +12,7 @@ import yaml
 from icecream import ic
 from tqdm import tqdm
 
-from algorithm import TreeShaker, GraphWrapper, count_disconnected_nodes
+from algorithm import TreeShaker, GraphWrapper, count_disconnected_nodes, PRUNED_AT_DEPTH
 from graphson import Graph
 from utility import save_dot, get_stats, get_edge_id
 
@@ -24,14 +24,15 @@ class Parameters:
                  epsilon_1: float,
                  epsilon_2: float,
                  alpha: float):
-        self.epsilon_1 = epsilon_1
-        self.epsilon_2 = epsilon_2
-        self.alpha = alpha
+        self.epsilon_1 = float(epsilon_1)
+        self.epsilon_2 = float(epsilon_2)
+        self.alpha = float(alpha)
 
 def evaluate(input_path: Path, output_path: Path,
              graph_name: str,
              num_samples: int,
-             parameter_list: list[Parameters]
+             parameter_list: list[Parameters],
+             parallel: bool
              ) -> pd.DataFrame:
 
     input_file_path = (input_path / graph_name / graph_name).with_suffix('.json')
@@ -40,19 +41,20 @@ def evaluate(input_path: Path, output_path: Path,
         (input_file_path, output_path, num_samples, parameters.epsilon_1, parameters.epsilon_2, parameters.alpha)
         for parameters in parameter_list
     ]
-    # results = [evaluate_for_epsilon(*configuration)
-    #            for configuration in configurations]
-    with Pool(processes=8) as pool:
-        results = pool.starmap(evaluate_for_epsilon, configurations)
+    if parallel:
+        with Pool(processes=8) as pool:
+            results = pool.starmap(evaluate_for_epsilon, configurations)
+    else:
+        results = [evaluate_for_epsilon(*configuration)
+                   for configuration in configurations]
 
     return pd.concat(results, axis=1).T
 
 
-def evaluate_for_epsilon(
-        input_path: Path, output_path: Path,
-        num_samples: int,
-        epsilon_1: float, epsilon_2: float, alpha: float
-) -> pd.Series:
+def evaluate_for_epsilon(input_path: Path, output_path: Path,
+                         num_samples: int,
+                         epsilon_1: float, epsilon_2: float, alpha: float
+                         ) -> pd.Series:
     graph_name = input_path.stem
     edge_id = get_edge_id(graph_name)
     graph_output_dir = output_path / graph_name / f'epsilon_{epsilon_1}_{epsilon_2}-alpha_{alpha}'
@@ -88,6 +90,9 @@ def evaluate_for_epsilon(
     series_dict['epsilon_1'] = epsilon_1
     series_dict['epsilon_2'] = epsilon_2
     series_dict['alpha'] = alpha
+    for stat, count in processor.stats.items():
+        if stat.startswith(PRUNED_AT_DEPTH):
+            series_dict[stat] = count
     for metric, data in metric_data.items():
         for key, value in get_stats(metric, data).items():
             series_dict[key] = value
@@ -96,28 +101,32 @@ def evaluate_for_epsilon(
 
 
 # noinspection PyUnresolvedReferences
-def main(args: argparse.Namespace) -> None:
-    input_path = Path(args.input_directory)
-    output_path = Path(args.output_directory)
+def main(input_directory: str,
+         output_directory: str,
+         graph_name: str,
+         epsilon_1_values: list[float],
+         epsilon_2_values: list[float],
+         alpha_values: list[float],
+         num_samples: int,
+         parallel: bool) -> pd.DataFrame:
+    input_path = Path(input_directory)
+    output_path = Path(output_directory)
 
     parameter_combinations = itertools.product(
-        args.epsilon_1_values,
-        args.epsilon_2_values,
-        args.alpha_values
+        epsilon_1_values,
+        epsilon_2_values,
+        alpha_values
     )
     result: pd.DataFrame = evaluate(
         input_path=input_path,
         output_path=output_path,
-        graph_name=args.graph_name,
-        num_samples=args.num_samples,
+        graph_name=graph_name,
         parameter_list=[Parameters(*combination)
-                        for combination in parameter_combinations]
+                        for combination in parameter_combinations],
+        num_samples=num_samples,
+        parallel=parallel
     )
-    result = result.sort_values(['epsilon_1', 'epsilon_2'])
-    output_file_path = output_path / args.graph_name / 'stats.csv'
-    output_file_path.parent.mkdir(exist_ok=True, parents=True)
-    result.to_csv(output_file_path, index=False)
-
+    return result.sort_values(['epsilon_1', 'epsilon_2'])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Provenance Graph')
@@ -126,4 +135,7 @@ if __name__ == '__main__':
 
     with open(args.config, 'r') as config_file:
         config = yaml.load(config_file, Loader=yaml.Loader)
-    main(argparse.Namespace(**config))
+    result = main(**config)
+    output_file_path = Path(config['output_directory']) / config['graph_name'] / 'stats.csv'
+    output_file_path.parent.mkdir(exist_ok=True, parents=True)
+    result.to_csv(output_file_path, index=False)
