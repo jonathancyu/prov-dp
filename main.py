@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 from collections import OrderedDict
+from multiprocessing import Pool
 from pathlib import Path
 from typing import Callable
 
@@ -25,10 +26,10 @@ def evaluate(input_path: Path, output_path: Path,
         (input_file_path, output_path, num_samples, epsilon[0], epsilon[1])
         for epsilon in epsilon_values
     ]
-    results = [evaluate_for_epsilon(*configuration)
-               for configuration in configurations]
-    # with Pool(processes=8) as pool:
-    #     results = pool.starmap(evaluate_for_epsilon, configurations)
+    # results = [evaluate_for_epsilon(*configuration)
+    #            for configuration in configurations]
+    with Pool(processes=8) as pool:
+        results = pool.starmap(evaluate_for_epsilon, configurations)
 
     return pd.concat(results, axis=1).T
 
@@ -66,7 +67,9 @@ def evaluate_for_epsilon(
                  dot=True, pdf=True)
 
     with open(graph_output_dir / 'pruning-stats.txt', 'w', encoding='utf-8') as f:
-        f.write(processor.get_stats_str())
+        stats_str = processor.get_stats_str()
+        print(stats_str)
+        f.write(stats_str)
 
     series_dict = OrderedDict()
     series_dict['epsilon_1'] = epsilon_1

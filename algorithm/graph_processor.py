@@ -8,23 +8,23 @@ from algorithm.wrappers.graph_wrapper import GraphWrapper
 from algorithm.wrappers.node_wrapper import NodeWrapper
 from graphson import Edge, EdgeType
 
+EDGES_PROCESSED = '#edges processed'
+EDGES_FILTERED = '#edges filtered'
+SELF_REFERRING = '#self referring edges pruned'
+TIME_FILTERED = '#edges pruned by time'
 
 class GraphProcessor:
-    stats: dict[str, Counter[EdgeType, int]] = {}
+    stats: dict[str, Counter[EdgeType, int]]
     runtimes: list[float]
 
-    EDGES_PROCESSED = '#edges processed'
-    EDGES_FILTERED = '#edges filtered'
-    SELF_REFERRING = '#self referring edges pruned'
-    TIME_FILTERED = '#edges pruned by time'
-
     def __init__(self):
-        for stat in [self.EDGES_PROCESSED, self.EDGES_FILTERED, self.SELF_REFERRING, self.TIME_FILTERED]:
-            self.stats[stat] = Counter()
-            self.runtimes = []
+        self.stats = {}
+        self.runtimes = []
 
-    def increment_counter(self, stat: str, edge_type: EdgeType) -> None:
-        self.stats[stat].update([str(edge_type)])
+    def increment_counter(self, key: str, edge_type: EdgeType) -> None:
+        if self.stats.get(key) is None:
+            self.stats[key] = Counter()
+        self.stats[key].update([str(edge_type)])
 
     def get_stats_str(self) -> str:
         lines = [f'runtime avg: {np.average(self.runtimes)}',

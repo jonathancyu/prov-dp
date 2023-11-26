@@ -1,8 +1,12 @@
 input_directory: '../data/input'
 output_directory: '../data/output'
 
-graph_name: nd-135438120-processletevent
+graph_name: nd-134204506-processletevent
 
 num_samples: 2
 epsilon_values: # [epsilon_1, epsilon_2]
+  - [0.1, 1.0]
+  - [0.5, 1.0]
   - [1.0, 1.0]
+  - [2.0, 1.0]
+  - [5.0, 1.0]

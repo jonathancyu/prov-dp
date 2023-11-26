@@ -6,7 +6,7 @@ from icecream import ic
 
 from graphson import Graph
 from utility import logistic_function
-from .graph_processor import GraphProcessor
+from .graph_processor import GraphProcessor, EDGES_PROCESSED, EDGES_FILTERED, SELF_REFERRING, TIME_FILTERED
 from .wrappers import GraphWrapper, EdgeWrapper, NodeWrapper, IN, OUT
 
 
@@ -41,9 +41,9 @@ class TreeShaker(GraphProcessor):
             direction=OUT,
             epsilon=epsilon_2,
             alpha=alpha)
-        new_edges: list[EdgeWrapper] = [source_edge] + in_edges + out_edges
+        new_edges: list[EdgeWrapper] = list(set(in_edges + out_edges))
         self.runtimes.append((datetime.now() - start_time).total_seconds())
-        print(f'Pruned {len(graph.edges) - len(new_edges)} edges')
+        print(f'Original # edges: {len(graph.edges)}, new # edges: {len(new_edges)}')
         return Graph(
             vertices=[node.node for node in graph.nodes],
             edges=[edge.edge for edge in new_edges]
@@ -66,7 +66,7 @@ class TreeShaker(GraphProcessor):
             edge_id: int = queue.popleft()
             edge: EdgeWrapper = graph.get_edge_by_id(edge_id)
             edge_type = graph.get_edge_type(edge)
-            self.increment_counter(self.EDGES_PROCESSED, edge_type)
+            self.increment_counter(EDGES_PROCESSED + f' ({direction})', edge_type)
 
             # Higher distance -> high epsilon_prime -> p is lower
             subtree_size = graph.get_tree_size(edge_id, direction)
@@ -74,10 +74,9 @@ class TreeShaker(GraphProcessor):
             epsilon_prime = epsilon * distance
             p = logistic_function(epsilon_prime / local_sensitivity)
             prune_edge = np.random.choice([True, False], p=[p, 1 - p])
-            ic(distance, p)
             if edge in visited_edges or prune_edge:
                 if prune_edge:
-                    self.increment_counter(self.EDGES_FILTERED, edge_type)
+                    self.increment_counter(EDGES_FILTERED + f' ({direction})', edge_type)
                 continue
             visited_edges.add(edge)
 
