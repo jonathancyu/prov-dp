@@ -39,11 +39,14 @@ class Node(GraphsonObject):
                     # + f'\nfirst_event: {format_timestamp(self.time)}'
                 }
             case NodeType.FILE:
+                filename = 'no file name'
+                if model.get('FILENAME_SET') is not None:
+                    filename = model['FILENAME_SET'][0]['value']
                 args = {
                     'color': 'pink',
                     'shape': 'oval',
                     'style': 'filled',
-                    'label': 'path: ' + model['FILENAME_SET'][0]['value']
+                    'label': 'path: ' + filename
                 }
             case NodeType.IP_CHANNEL:
                 args = {

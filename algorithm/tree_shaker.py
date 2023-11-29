@@ -6,13 +6,14 @@ from icecream import ic
 
 from graphson import Graph
 from utility import logistic_function
-from .graph_processor import GraphProcessor, EDGES_PROCESSED, EDGES_FILTERED, SELF_REFERRING, TIME_FILTERED, PRUNED_AT_DEPTH
+from .graph_processor import GraphProcessor, EDGES_PROCESSED, EDGES_FILTERED, PRUNED_SUBTREE_SIZES, PRUNED_AT_DEPTH
 from .wrappers import GraphWrapper, EdgeWrapper, NodeWrapper, IN, OUT
 
 
 class TreeShaker(GraphProcessor):
     def __init__(self):
         super().__init__()
+        self.lists[PRUNED_SUBTREE_SIZES] = []
 
     def perturb_graph(self,
                       input_graph_object: Graph,
@@ -41,7 +42,7 @@ class TreeShaker(GraphProcessor):
             epsilon=epsilon_2,
             alpha=alpha)
         new_edges: list[EdgeWrapper] = list(set(in_edges + out_edges))
-        self.runtimes.append((datetime.now() - start_time).total_seconds())
+        self.lists['runtimes'].append((datetime.now() - start_time).total_seconds())
         return Graph(
             vertices=[node.node for node in graph.nodes],
             edges=[edge.edge for edge in new_edges]
@@ -75,6 +76,7 @@ class TreeShaker(GraphProcessor):
             prune_edge = np.random.choice([True, False], p=[p, 1 - p])
             if edge in visited_edges or prune_edge:
                 if prune_edge:
+                    self.lists[PRUNED_SUBTREE_SIZES].append(subtree_size)
                     self.increment_counter(PRUNED_AT_DEPTH + f'={depth}', edge_type)
                     self.increment_counter(EDGES_FILTERED + f' ({direction})', edge_type)
                 continue

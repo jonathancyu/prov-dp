@@ -12,7 +12,7 @@ import yaml
 from icecream import ic
 from tqdm import tqdm
 
-from algorithm import TreeShaker, GraphWrapper, count_disconnected_nodes, PRUNED_AT_DEPTH
+from algorithm import TreeShaker, GraphWrapper, count_disconnected_nodes, PRUNED_AT_DEPTH, PRUNED_SUBTREE_SIZES
 from graphson import Graph
 from utility import save_dot, get_stats, get_edge_id
 
@@ -62,6 +62,7 @@ def evaluate_for_epsilon(input_path: Path, output_path: Path,
         shutil.rmtree(graph_output_dir)
 
     metrics: dict[str, Callable[[Graph, Graph], float]] = {
+        '#edges input': lambda input_graph, _: len(set(input_graph.edges)),
         '#edges': lambda _, output_graph: len(output_graph.edges),
         '#edges kept': lambda input_graph, output_graph: len(set(input_graph.edges).intersection(output_graph.edges)),
         '#disconnected nodes': lambda _, output_graph: count_disconnected_nodes(GraphWrapper(output_graph))
@@ -90,6 +91,8 @@ def evaluate_for_epsilon(input_path: Path, output_path: Path,
     series_dict['epsilon_1'] = epsilon_1
     series_dict['epsilon_2'] = epsilon_2
     series_dict['alpha'] = alpha
+    for key, value in get_stats(PRUNED_SUBTREE_SIZES, processor.lists[PRUNED_SUBTREE_SIZES]).items():
+        series_dict[key] = value
     for stat, count in processor.stats.items():
         if stat.startswith(PRUNED_AT_DEPTH):
             series_dict[stat] = count

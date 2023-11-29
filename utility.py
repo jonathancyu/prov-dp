@@ -46,6 +46,8 @@ def save_dot(dot_graph: Digraph, file_path: Path,
 
 
 def get_stats(stat: str, data: list[int]) -> dict:
+    if len(data) == 0:
+        data = [0]
     result = {
         'avg': np.average(data),
         'stdev': np.std(data),
@@ -61,7 +63,7 @@ def get_edge_id(graph_name: str) -> int:
         assert len(split) == 3
         return int(split[1])
     except AssertionError:
-        return ''
+        return -1
 
 
 def logistic_function(x: float) -> float:

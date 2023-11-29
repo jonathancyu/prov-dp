@@ -1,8 +1,8 @@
 input_directory: '../data/input'
 output_directory: '../data/output'
-graph_name: nd-134204506-processletevent
+graph_name: nd-94840900-processletevent
 
-epsilon_1_values: [0.001]
+epsilon_1_values: [0.025]
 epsilon_2_values: [1.0]
 alpha_values: [0.025]
 

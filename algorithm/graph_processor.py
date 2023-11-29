@@ -13,14 +13,16 @@ EDGES_FILTERED = '#edges filtered'
 PRUNED_AT_DEPTH = '#pruned at depth'
 SELF_REFERRING = '#self referring edges pruned'
 TIME_FILTERED = '#edges pruned by time'
+PRUNED_SUBTREE_SIZES = 'sizes of subtree pruned'
+
 
 class GraphProcessor:
     stats: dict[str, Counter[EdgeType, int]]
-    runtimes: list[float]
+    lists: dict[str, list[any]]
 
     def __init__(self):
         self.stats = {}
-        self.runtimes = []
+        self.lists = {'runtimes': []}
 
     def increment_counter(self, key: str, edge_type: EdgeType) -> None:
         if self.stats.get(key) is None:
@@ -28,9 +30,9 @@ class GraphProcessor:
         self.stats[key].update([str(edge_type)])
 
     def get_stats_str(self) -> str:
-        lines = [f'runtime avg: {np.average(self.runtimes)}',
-                 f'runtime stdev: {np.std(self.runtimes)}',
-                 f'runtime (min, max): ({min(self.runtimes), max(self.runtimes)})']
+        lines = [f'runtime avg: {np.average(self.lists['runtimes'])}',
+                 f'runtime stdev: {np.std(self.lists['runtimes'])}',
+                 f'runtime (min, max): ({min(self.lists['runtimes']), max(self.lists['runtimes'])})']
         for stat, counter in self.stats.items():
             lines.append(stat)
             for edge_type, value in counter.items():

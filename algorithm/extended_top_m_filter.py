@@ -8,7 +8,7 @@ from algorithm.wrappers.graph_wrapper import GraphWrapper
 from algorithm.wrappers.node_wrapper import NodeWrapper
 from graphson import Graph, NodeType, EdgeType
 from utility import group_by_lambda, uniform_generator
-from .graph_processor import GraphProcessor
+from .graph_processor import GraphProcessor, EDGES_PROCESSED, SELF_REFERRING, TIME_FILTERED
 
 
 class ExtendedTopMFilter(GraphProcessor):
@@ -18,7 +18,8 @@ class ExtendedTopMFilter(GraphProcessor):
     def perturb_graph(self,
                       input_graph_object: Graph,
                       epsilon_1: float,
-                      epsilon_2: float
+                      epsilon_2: float,
+                      alpha: float
                       ) -> Graph:
         graph = GraphWrapper(input_graph_object)
         start_time = datetime.now()
@@ -39,7 +40,7 @@ class ExtendedTopMFilter(GraphProcessor):
                 epsilon_2=epsilon_2
             )
             new_edges.extend(perturbed_edges)
-        self.runtimes.append((datetime.now() - start_time).total_seconds())
+        self.lists['runtimes'].append((datetime.now() - start_time).total_seconds())
         return Graph(
             vertices=[node.node for node in graph.nodes],
             edges=[edge.edge for edge in new_edges]
@@ -49,14 +50,14 @@ class ExtendedTopMFilter(GraphProcessor):
                src_node: NodeWrapper,
                dst_node: NodeWrapper,
                edge_type: EdgeType) -> bool:
-        self.increment_counter(self.EDGES_PROCESSED, edge_type)
+        self.increment_counter(EDGES_PROCESSED, edge_type)
         if src_node == dst_node:
-            self.increment_counter(self.SELF_REFERRING, edge_type)
+            self.increment_counter(SELF_REFERRING, edge_type)
             return True
         elif src_node.get_type() == NodeType.PROCESS_LET \
                 and dst_node.get_type() == NodeType.PROCESS_LET \
                 and src_node.time >= dst_node.time:
-            self.increment_counter(self.TIME_FILTERED, edge_type)
+            self.increment_counter(TIME_FILTERED, edge_type)
             return True
         return False
 
