@@ -1,4 +1,4 @@
-from graphson import Graph, NodeType, EdgeType
+from graphson import Graph, NodeType, Node, EdgeType, Edge
 from .node_wrapper import NodeWrapper, IN, OUT
 from .edge_wrapper import EdgeWrapper
 
@@ -7,15 +7,20 @@ class GraphWrapper:
     graph: Graph
     nodes: list[NodeWrapper]
     edges: list[EdgeWrapper]
+    source_edge_id: int
 
     _node_lookup: dict[int, NodeWrapper]
     _edge_lookup: dict[EdgeWrapper, EdgeWrapper]
 
     _edge_id_lookup: dict[int, EdgeWrapper]
 
-    _subtree_size_lookup: dict[str, dict[int, int]]
+    _subtree_lookup: dict[str, dict[int, list[EdgeWrapper]]]
 
-    def __init__(self, graph: Graph):
+    def __init__(self,
+                 graph: Graph = None
+                 ):
+        if graph is None:
+            graph = Graph()
         self.graph = graph
         self.nodes = [NodeWrapper(node) for node in self.graph.nodes]
         self.edges = [EdgeWrapper(edge) for edge in self.graph.edges]
@@ -28,7 +33,7 @@ class GraphWrapper:
 
         self._edge_id_lookup = {edge.get_ref_id(): edge for edge in self.edges}
 
-        self._subtree_size_lookup = {
+        self._subtree_lookup = {
             IN: {}, OUT: {}
         }
 
@@ -72,23 +77,28 @@ class GraphWrapper:
             dst_type=self.get_node(edge.get_dst_id()).get_type()
         )
 
-    def get_tree_size(self, root_edge_id: int, direction: str) -> int:
-        tree_size = self._subtree_size_lookup[direction].get(root_edge_id)
-        if tree_size is not None:
-            return tree_size
+    def get_subtree(self, root_edge_id: int, direction: str) -> list[EdgeWrapper]:
+        subtree = self._subtree_lookup[direction].get(root_edge_id)
+        if subtree is not None:
+            return subtree
 
-        # size = 1 including current edge
-        tree_size: int = 1
         root_edge = self.get_edge_by_id(root_edge_id)
+        subtree: list[EdgeWrapper] = [root_edge]
+
         root_node_id = root_edge.node_ids[direction]
         root_node = self.get_node(root_node_id)
-        for subtree_root_edge_id in root_node.edge_ids[direction]:
-            subtree_root_edge = self.get_edge_by_id(subtree_root_edge_id)
-            if subtree_root_edge_id == root_edge_id or subtree_root_edge.visited[direction]:
-                continue
+        #  Base case: no outgoing edges, assuming we don't have a cycle (famous last words)
+        for edge_id in root_node.edge_ids[direction]:
+            subtree.extend(self.get_subtree(edge_id, direction))
 
-            subtree_root_edge.visited[direction] = True
-            tree_size += self.get_tree_size(subtree_root_edge_id, direction)
+        self._subtree_lookup[direction][root_edge_id] = subtree
+        return subtree
 
-        self._subtree_size_lookup[direction][root_edge_id] = tree_size
-        return tree_size
+    def get_tree_size(self, root_edge_id: int, direction: str) -> int:
+        return len(self.get_subtree(root_edge_id, direction))
+
+    def add_edge(self, edge: EdgeWrapper) -> None:
+        self.edges.append(edge)
+
+    def add_node(self, node: NodeWrapper) -> None:
+        self.nodes.append(node)
