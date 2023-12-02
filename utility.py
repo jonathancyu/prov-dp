@@ -36,8 +36,9 @@ def uniform_generator(edges: list[EdgeWrapper]) -> Callable[[], int]:
     return lambda: int(np.round(np.random.uniform(min_time, max_time)))
 
 
-def save_dot(dot_graph: Digraph, file_path: Path,
-             dot=True, pdf=False) -> None:
+def save_dot(dot_graph: Digraph,
+             file_path: Path,
+             pdf=False) -> None:
     file_path = file_path.with_suffix('.dot')
     file_path.parent.mkdir(exist_ok=True, parents=True)
     dot_graph.save(file_path)

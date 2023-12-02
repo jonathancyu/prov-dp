@@ -1,10 +1,8 @@
-input_directory: '../data/input'
-output_directory: '../data/output'
-graph_name: nd-94840900-processletevent
+input_directory: '../benign_graphs/tc3-theia/firefox/nd'
+output_directory: '../data/output/tc3-theia/firefox'
 
-epsilon_1_values: [0.025]
-epsilon_2_values: [1.0]
+epsilon_values: [0.025]
 alpha_values: [0.025]
 
 num_samples: 1
-parallel: true
+parallel: false

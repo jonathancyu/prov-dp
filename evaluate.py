@@ -12,33 +12,29 @@ import yaml
 from icecream import ic
 from tqdm import tqdm
 
-from algorithm import TreeShaker, GraphWrapper, count_disconnected_nodes, PRUNED_AT_DEPTH, PRUNED_SUBTREE_SIZES
-from graphson import Graph
-from utility import save_dot, get_stats, get_edge_id
+from algorithm import TreeShaker, GraphWrapper, count_disconnected_nodes
+from utility import save_dot, get_stats
+
 
 class Parameters:
-    epsilon_1: float
-    epsilon_2: float
+    epsilon: float
     alpha: float
+
     def __init__(self,
-                 epsilon_1: float,
-                 epsilon_2: float,
+                 epsilon: float,
                  alpha: float):
-        self.epsilon_1 = float(epsilon_1)
-        self.epsilon_2 = float(epsilon_2)
+        self.epsilon = float(epsilon)
         self.alpha = float(alpha)
 
+
 def evaluate(input_path: Path, output_path: Path,
-             graph_name: str,
              num_samples: int,
              parameter_list: list[Parameters],
              parallel: bool
              ) -> pd.DataFrame:
 
-    input_file_path = (input_path / graph_name / graph_name).with_suffix('.json')
-
     configurations = [
-        (input_file_path, output_path, num_samples, parameters.epsilon_1, parameters.epsilon_2, parameters.alpha)
+        (input_path, output_path, num_samples, parameters.epsilon, parameters.alpha)
         for parameters in parameter_list
     ]
     if parallel:
@@ -53,49 +49,45 @@ def evaluate(input_path: Path, output_path: Path,
 
 def evaluate_for_epsilon(input_path: Path, output_path: Path,
                          num_samples: int,
-                         epsilon_1: float, epsilon_2: float, alpha: float
+                         epsilon: float, alpha: float
                          ) -> pd.Series:
-    graph_name = input_path.stem
-    edge_id = get_edge_id(graph_name)
-    graph_output_dir = output_path / graph_name / f'epsilon_{epsilon_1}_{epsilon_2}-alpha_{alpha}'
-    if os.path.isdir(graph_output_dir):
-        shutil.rmtree(graph_output_dir)
-
-    metrics: dict[str, Callable[[Graph, Graph], float]] = {
+    metrics: dict[str, Callable[[GraphWrapper, GraphWrapper], float]] = {
         '#edges input': lambda input_graph, _: len(set(input_graph.edges)),
         '#edges': lambda _, output_graph: len(output_graph.edges),
         '#edges kept': lambda input_graph, output_graph: len(set(input_graph.edges).intersection(output_graph.edges)),
-        '#disconnected nodes': lambda _, output_graph: count_disconnected_nodes(GraphWrapper(output_graph))
+        '#disconnected nodes': lambda _, output_graph: count_disconnected_nodes(output_graph)
     }
     metric_data = {key: [] for key, _ in metrics.items()}
 
-    # processor = ExtendedTopMFilter()
-    processor = TreeShaker()
-    for i in tqdm(range(num_samples), desc=f'({epsilon_1},{epsilon_2},{alpha})'):
-        input_graph = Graph.load_file(input_path)
-        # output_graph: Graph = processor.perturb_graph(input_graph, epsilon_1, epsilon_2)
-        output_graph: Graph = processor.perturb_graph(input_graph, edge_id, epsilon_1, epsilon_2, alpha)
+    # Process graphs
+    input_paths = list(input_path.glob('*.json'))[:10]  # TODO remove limit
+    input_graphs = [GraphWrapper(input_path) for input_path in input_paths]
 
+    graph_output_path = output_path / f'epsilon_{epsilon}-alpha_{alpha}'
+    if os.path.isdir(graph_output_path):
+        shutil.rmtree(graph_output_path)
+
+    processor = TreeShaker(epsilon=epsilon, alpha=alpha)
+    output_graphs: list[GraphWrapper] = input_graphs  # processor.perturb_graphs(input_graphs)
+    assert len(input_graphs) == len(output_graphs)
+
+    for i in range(len(input_graphs)):
+        input_graph: GraphWrapper = input_graphs[i]
+        output_graph: GraphWrapper = output_graphs[i]
         for metric, func in metrics.items():
             metric_data[metric].append(func(input_graph, output_graph))
-
         save_dot(output_graph.to_dot(),
-                 graph_output_dir / f'{graph_name}_{i}',
-                 dot=True, pdf=True)
+                 output_path / input_graph.json_path.stem,
+                 pdf=True)
 
-    with open(graph_output_dir / 'pruning-stats.txt', 'w', encoding='utf-8') as f:
+    with open(output_path / 'processor-stats.txt', 'w', encoding='utf-8') as f:
         stats_str = processor.get_stats_str()
         f.write(stats_str)
 
     series_dict = OrderedDict()
-    series_dict['epsilon_1'] = epsilon_1
-    series_dict['epsilon_2'] = epsilon_2
+    series_dict['epsilon'] = epsilon
     series_dict['alpha'] = alpha
-    for key, value in get_stats(PRUNED_SUBTREE_SIZES, processor.lists[PRUNED_SUBTREE_SIZES]).items():
-        series_dict[key] = value
-    for stat, count in processor.stats.items():
-        if stat.startswith(PRUNED_AT_DEPTH):
-            series_dict[stat] = count
+
     for metric, data in metric_data.items():
         for key, value in get_stats(metric, data).items():
             series_dict[key] = value
@@ -106,9 +98,7 @@ def evaluate_for_epsilon(input_path: Path, output_path: Path,
 # noinspection PyUnresolvedReferences
 def main(input_directory: str,
          output_directory: str,
-         graph_name: str,
-         epsilon_1_values: list[float],
-         epsilon_2_values: list[float],
+         epsilon_values: list[float],
          alpha_values: list[float],
          num_samples: int,
          parallel: bool) -> pd.DataFrame:
@@ -116,20 +106,19 @@ def main(input_directory: str,
     output_path = Path(output_directory)
 
     parameter_combinations = itertools.product(
-        epsilon_1_values,
-        epsilon_2_values,
+        epsilon_values,
         alpha_values
     )
     result: pd.DataFrame = evaluate(
         input_path=input_path,
         output_path=output_path,
-        graph_name=graph_name,
         parameter_list=[Parameters(*combination)
                         for combination in parameter_combinations],
         num_samples=num_samples,
         parallel=parallel
     )
-    return result.sort_values(['epsilon_1', 'epsilon_2'])
+    return result.sort_values(['epsilon', 'alpha'])
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Provenance Graph')
@@ -138,7 +127,7 @@ if __name__ == '__main__':
 
     with open(args.config, 'r') as config_file:
         config = yaml.load(config_file, Loader=yaml.Loader)
-    result = main(**config)
-    output_file_path = Path(config['output_directory']) / config['graph_name'] / 'stats.csv'
+    result_df = main(**config)
+    output_file_path = Path(config['output_directory']) / 'stats.csv'
     output_file_path.parent.mkdir(exist_ok=True, parents=True)
-    result.to_csv(output_file_path, index=False)
+    result_df.to_csv(output_file_path, index=False)

@@ -30,31 +30,15 @@ class GraphProcessor:
         self.stats[key].update([str(edge_type)])
 
     def get_stats_str(self) -> str:
-        lines = [f'runtime avg: {np.average(self.lists['runtimes'])}',
-                 f'runtime stdev: {np.std(self.lists['runtimes'])}',
-                 f'runtime (min, max): ({min(self.lists['runtimes']), max(self.lists['runtimes'])})']
+        lines = []  # [f'runtime avg: {np.average(self.lists['runtimes'])}',
+        #          f'runtime stdev: {np.std(self.lists['runtimes'])}',
+        #          f'runtime (min, max): ({min(self.lists['runtimes']), max(self.lists['runtimes'])})']
         for stat, counter in self.stats.items():
             lines.append(stat)
             for edge_type, value in counter.items():
                 lines.append(f'  {edge_type}: {value}')
             lines.append('')
         return '\n'.join(lines)
-
-    @staticmethod
-    def create_edge(src_node: NodeWrapper, dst_node: NodeWrapper,
-                    optype: str,
-                    time_func: Callable[[], int]
-                    ) -> EdgeWrapper:
-        edge_time = time_func()  # TODO: what should this value be?
-        # I was thinking it'd be the avg of src_node and dst_node times, but nodes dont have time attributes
-        return EdgeWrapper(
-            Edge.of(
-                src_id=src_node.get_id(),
-                dst_id=dst_node.get_id(),
-                optype=optype,
-                time=edge_time
-            )
-        )
 
 
 def count_disconnected_nodes(graph: GraphWrapper) -> float:

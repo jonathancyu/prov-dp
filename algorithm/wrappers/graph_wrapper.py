@@ -1,4 +1,9 @@
+from pathlib import Path
+
+from graphviz import Digraph
+
 from graphson import Graph, NodeType, Node, EdgeType, Edge
+from utility import get_edge_id
 from .node_wrapper import NodeWrapper, IN, OUT
 from .edge_wrapper import EdgeWrapper
 
@@ -7,6 +12,7 @@ class GraphWrapper:
     graph: Graph
     nodes: list[NodeWrapper]
     edges: list[EdgeWrapper]
+    json_path: Path
     source_edge_id: int
 
     _node_lookup: dict[int, NodeWrapper]
@@ -16,11 +22,13 @@ class GraphWrapper:
 
     _subtree_lookup: dict[str, dict[int, list[EdgeWrapper]]]
 
-    def __init__(self,
-                 graph: Graph = None
-                 ):
-        if graph is None:
+    def __init__(self, json_path: Path = None):
+        if json_path is None:
             graph = Graph()
+        else:
+            graph = Graph.load_file(json_path)
+            self.json_path = json_path
+            self.source_edge_id = get_edge_id(str(json_path.stem))
         self.graph = graph
         self.nodes = [NodeWrapper(node) for node in self.graph.nodes]
         self.edges = [EdgeWrapper(edge) for edge in self.graph.edges]
@@ -102,3 +110,11 @@ class GraphWrapper:
 
     def add_node(self, node: NodeWrapper) -> None:
         self.nodes.append(node)
+
+    def to_dot(self) -> Digraph:
+        graph = Graph()
+
+        return Graph(
+            vertices=[node.node for node in self.nodes],
+            edges=[edge.edge for edge in self.edges]
+        ).to_dot()

@@ -38,8 +38,13 @@ class TreeShaker(GraphProcessor):
                 for subtree in subtrees_pruned:
                     size = len(subtree)
                     pruned_subtrees[direction].setdefault(size, []).append(subtree)
+            new_graphs[input_graph.source_edge_id] = new_graph
 
         # Sample from pruned subtrees to add edges back to graphs
+        x = {
+            key: np.average([len(tree) for tree in value])
+            for key, value in pruned_subtrees
+        }
         pass
 
     def prune_tree(self,
