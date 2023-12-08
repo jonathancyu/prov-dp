@@ -19,7 +19,7 @@ def extract_paths(graph: GraphWrapper):
     paths = graph.get_paths()
     with open(f'F:/data/prov_dp/tc3-theia/{graph.source_edge_id}.txt', 'w') as file:
         for path in paths:
-            file.write(path_to_string(graph=graph, path=path))
+            file.write(f'{path_to_string(graph=graph, path=path)}\n')
 
 if __name__ == '__main__':
     input_path = Path('F:\\data\\benign_graphs\\tc3-theia\\firefox\\nd')
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     input_graphs = [GraphWrapper(input_path) 
                     for input_path in tqdm(input_paths, desc='Reading graphs')]
         
-    num_processes = multiprocessing.cpu_count()
+    num_processes = multiprocessing.cpu_count() * (3/4)
     print(f'Starting to process {len(input_graphs)} graphs')
     with multiprocessing.Pool(processes=num_processes) as pool:
         try:
