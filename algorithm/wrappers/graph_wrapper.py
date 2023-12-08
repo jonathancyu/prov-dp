@@ -142,7 +142,7 @@ class GraphWrapper:
         }
         for direction in [IN, OUT]:
             paths[direction].extend(self._get_paths_in_direction(self.get_edge(self.source_edge_id), direction))
-        print(f"Got {len(paths[IN])} IN paths and {len(paths[OUT])} OUT paths")
+
         # Invert the IN (backtrack) paths
         paths[IN] = [path[::-1] for path in paths[IN]]
         # Trim source edge so that it's not included twice
