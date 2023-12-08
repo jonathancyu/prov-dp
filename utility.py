@@ -1,6 +1,6 @@
 import warnings
 from pathlib import Path
-from typing import Callable
+from typing import Callable, TypeVar
 
 import numpy as np
 from graphviz import Digraph
@@ -8,8 +8,9 @@ from graphviz import Digraph
 from algorithm.wrappers import EdgeWrapper
 from graphson import GraphsonObject, Node
 
+T = TypeVar('T')
 
-def group_by_lambda[T](objects: list[GraphsonObject],
+def group_by_lambda(objects: list[GraphsonObject],
                        get_attribute: Callable[[GraphsonObject], T]
                        ) -> dict[T, list[GraphsonObject]]:
     grouped: dict[T, list[GraphsonObject]] = {}
