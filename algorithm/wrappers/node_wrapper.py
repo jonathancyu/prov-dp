@@ -43,5 +43,18 @@ class NodeWrapper:
     def get_type(self) -> NodeType:
         return self.node.type
 
-    def get_degree(self):
-        return self._in_degree
+    def get_token(self) -> str:
+        model = self.node.model_dump()
+        token = f'{self.node.type}_'
+        if self.node.type == NodeType.PROCESS_LET:
+            token += model['EXE_NAME']
+        elif self.node.type == NodeType.FILE:
+            token += model["FILENAME_SET"][0]["value"].replace(' ', '_')
+        elif self.node.type == NodeType.IP_CHANNEL:
+            src_ip = model['LOCAL_INET_ADDR']
+            dst_ip = model['REMOTE_INET_ADDR']
+            token += f'{src_ip}_{dst_ip}'
+        else:
+            raise ValueError(f'Unknown node type: {self.node.type}')
+
+        return token

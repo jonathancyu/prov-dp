@@ -25,7 +25,7 @@ class TreeShaker(GraphProcessor):
         start_time = datetime.now()
 
         graph = GraphWrapper(input_graph_object)
-        source_edge = graph.get_edge_by_id(source_edge_id)
+        source_edge = graph.get_edge(source_edge_id)
         assert source_edge is not None
 
         # TODO: make alpha larger for backward b/c startup sequence is often the same
@@ -63,7 +63,7 @@ class TreeShaker(GraphProcessor):
         while len(queue) > 0:
             # BFS, so FIFO. Append to back, pop from front (left).
             depth, edge_id = queue.popleft()
-            edge: EdgeWrapper = graph.get_edge_by_id(edge_id)
+            edge: EdgeWrapper = graph.get_edge(edge_id)
             edge_type = graph.get_edge_type(edge)
             self.increment_counter(EDGES_PROCESSED + f' ({direction})', edge_type)
 

@@ -68,7 +68,7 @@ def evaluate_for_epsilon(input_path: Path, output_path: Path,
         shutil.rmtree(graph_output_path)
 
     processor = TreeShaker(epsilon=epsilon, alpha=alpha)
-    output_graphs: list[GraphWrapper] = input_graphs  # processor.perturb_graphs(input_graphs)
+    output_graphs: list[GraphWrapper] = processor.perturb_graphs(input_graphs)
     assert len(input_graphs) == len(output_graphs)
 
     for i in range(len(input_graphs)):

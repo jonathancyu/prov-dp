@@ -28,5 +28,9 @@ class EdgeWrapper:
     def get_op_type(self) -> str:
         return self.edge.optype
 
+    def get_token(self) -> str:
+        model = self.edge.model_dump()
+        return '_'.join([model['_label'],  self.edge.optype])
+
     def __hash__(self):
         return hash(self.edge)
