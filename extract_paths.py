@@ -28,7 +28,7 @@ if __name__ == '__main__':
     input_graphs = [GraphWrapper(input_path) 
                     for input_path in tqdm(input_paths, desc='Reading graphs')]
         
-    num_processes = multiprocessing.cpu_count() * (3/4)
+    num_processes = 8  # multiprocessing.cpu_count()
     print(f'Starting to process {len(input_graphs)} graphs')
     with multiprocessing.Pool(processes=num_processes) as pool:
         try:
