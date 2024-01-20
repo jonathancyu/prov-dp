@@ -1,6 +1,7 @@
 import itertools
 from pathlib import Path
 
+import networkx as nx
 from graphviz import Digraph
 
 from graphson import Graph, NodeType, Node, EdgeType, Edge
@@ -123,6 +124,19 @@ class GraphWrapper:
             vertices=[node.node for node in self.nodes],
             edges=[edge.edge for edge in self.edges]
         ).to_dot()
+
+    def to_nx(self) -> nx.DiGraph:
+        G: nx.DiGraph = nx.DiGraph()
+        for node in self.nodes:
+            G.add_node(node.get_id(),
+                       token=node.get_token()
+                       )
+        for edge in self.edges:
+            G.add_edge(edge.node_ids[IN],
+                       edge.node_ids[OUT],
+                       token=edge.get_token()
+                       )
+        return G
 
     def _add_nodes(self, nodes: list[Node]):
         for node in nodes:
