@@ -129,12 +129,12 @@ class GraphWrapper:
         G: nx.DiGraph = nx.DiGraph()
         for node in self.nodes:
             G.add_node(node.get_id(),
-                       token=node.get_token()
+                       feature=node.get_token()
                        )
         for edge in self.edges:
             G.add_edge(edge.node_ids[IN],
                        edge.node_ids[OUT],
-                       token=edge.get_token()
+                       feature=edge.get_token()
                        )
         return G
 
