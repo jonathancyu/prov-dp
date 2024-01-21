@@ -11,3 +11,5 @@ __pycache__/
 *.pdf
 *.zip
 *.DS_STORE
+*.pkl
+*.p
