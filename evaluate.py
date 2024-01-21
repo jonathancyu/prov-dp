@@ -18,12 +18,15 @@ from utility import save_dot, get_stats
 
 class Parameters:
     epsilon: float
+    delta: float
     alpha: float
 
     def __init__(self,
                  epsilon: float,
+                 delta: float,
                  alpha: float):
         self.epsilon = float(epsilon)
+        self.delta = float(delta)
         self.alpha = float(alpha)
 
 
@@ -34,7 +37,7 @@ def evaluate(input_path: Path, output_path: Path,
              ) -> pd.DataFrame:
 
     configurations = [
-        (input_path, output_path, num_samples, parameters.epsilon, parameters.alpha)
+        (input_path, output_path, num_samples, parameters.epsilon, parameters.delta, parameters.alpha)
         for parameters in parameter_list
     ]
     if parallel:
@@ -49,7 +52,7 @@ def evaluate(input_path: Path, output_path: Path,
 
 def evaluate_for_epsilon(input_path: Path, output_path: Path,
                          num_samples: int,
-                         epsilon: float, alpha: float
+                         epsilon: float, delta: float, alpha: float
                          ) -> pd.Series:
     metrics: dict[str, Callable[[GraphWrapper, GraphWrapper], float]] = {
         '#edges input': lambda input_graph, _: len(set(input_graph.edges)),
@@ -60,14 +63,14 @@ def evaluate_for_epsilon(input_path: Path, output_path: Path,
     metric_data = {key: [] for key, _ in metrics.items()}
 
     # Process graphs
-    input_paths = list(input_path.glob('*.json'))[:10]  # TODO remove limit
+    input_paths = list(input_path.glob('*.json'))[:200]  # TODO remove limit
     input_graphs = [GraphWrapper(input_path) for input_path in input_paths]
 
-    graph_output_path = output_path / f'epsilon_{epsilon}-alpha_{alpha}'
+    graph_output_path = output_path / f'epsilon_{epsilon}-delta_{delta}-alpha_{alpha}'
     if os.path.isdir(graph_output_path):
         shutil.rmtree(graph_output_path)
 
-    processor = TreeShaker(epsilon=epsilon, alpha=alpha)
+    processor = TreeShaker(epsilon=epsilon, delta=delta, alpha=alpha)
     output_graphs: list[GraphWrapper] = processor.perturb_graphs(input_graphs)
     assert len(input_graphs) == len(output_graphs)
 
@@ -99,6 +102,7 @@ def evaluate_for_epsilon(input_path: Path, output_path: Path,
 def main(input_directory: str,
          output_directory: str,
          epsilon_values: list[float],
+         delta_values: list[float],
          alpha_values: list[float],
          num_samples: int,
          parallel: bool) -> pd.DataFrame:
@@ -107,6 +111,7 @@ def main(input_directory: str,
 
     parameter_combinations = itertools.product(
         epsilon_values,
+        delta_values,
         alpha_values
     )
     result: pd.DataFrame = evaluate(

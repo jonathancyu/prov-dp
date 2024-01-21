@@ -2,6 +2,7 @@ input_directory: '../benign_graphs/tc3-theia/firefox/nd'
 output_directory: '../data/output/tc3-theia/firefox'
 
 epsilon_values: [0.025]
+delta_values: [1]
 alpha_values: [0.025]
 
 num_samples: 1
