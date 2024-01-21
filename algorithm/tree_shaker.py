@@ -39,7 +39,7 @@ class TreeCollection:
         edge_type_dict = self.tree_by_edge_type.get(edge_type)
         if edge_type_dict is None:
             self.tree_by_edge_type[edge_type] = {}
-        depth_list = self.tree_by_edge_type.get(depth)
+        depth_list = edge_type_dict.get(depth)
         if depth_list is None:
             edge_type_dict[depth] = []
         depth_list.append(subtree)
