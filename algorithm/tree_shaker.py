@@ -99,8 +99,7 @@ class TreeShaker(GraphProcessor):
         pruned_subgraphs = [
             Subgraph(
                 parent_graph=graph,
-                root_edge_id=pruned_edge_id,
-                direction=direction,
+                edges=graph.get_subtree(pruned_edge_id, direction),
                 depth=depth
             )
             for depth, pruned_edge_id in pruned_edges
