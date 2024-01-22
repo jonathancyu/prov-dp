@@ -125,19 +125,6 @@ class GraphWrapper:
             edges=[edge.edge for edge in self.edges]
         ).to_dot()
 
-    def to_nx(self) -> nx.DiGraph:
-        G: nx.DiGraph = nx.DiGraph()
-        for node in self.nodes:
-            G.add_node(node.get_id(),
-                       feature=node.get_token()
-                       )
-        for edge in self.edges:
-            G.add_edge(edge.node_ids[IN],
-                       edge.node_ids[OUT],
-                       feature=edge.get_token()
-                       )
-        return G
-
     def _add_nodes(self, nodes: list[Node]):
         for node in nodes:
             node_wrapper = NodeWrapper(node)

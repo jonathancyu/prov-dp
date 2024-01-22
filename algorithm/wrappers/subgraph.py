@@ -1,11 +1,12 @@
 from .edge_wrapper import EdgeWrapper
-from .node_wrapper import NodeWrapper
 from .graph_wrapper import GraphWrapper
+from .node_wrapper import NodeWrapper
 
 
 class Subgraph:
-    parent_graph: GraphWrapper
+    graph: GraphWrapper
     root_edge_id: int
+    direction: str
     edges: list[EdgeWrapper]
     nodes: list[NodeWrapper]
     depth: int
@@ -16,8 +17,9 @@ class Subgraph:
                  direction: str,
                  depth: int
                  ):
-        self.parent_graph = parent_graph
+        self.graph = parent_graph
         self.root_edge_id = root_edge_id
+        self.direction = direction
         self.edges = parent_graph.get_subtree(root_edge_id, direction)
         nodes = set()
         for edge in self.edges:

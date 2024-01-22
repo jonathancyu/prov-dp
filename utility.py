@@ -22,21 +22,6 @@ def group_by_lambda(objects: list[GraphsonObject],
 
     return grouped
 
-
-def node_from_list(node_id: int, node_list: list[Node]) -> Node:
-    candidates = [node for node in node_list
-                  if node.id == node_id]
-    assert len(candidates) == 1
-    return candidates[0]
-
-
-def uniform_generator(edges: list[EdgeWrapper]) -> Callable[[], int]:
-    times = list(map(lambda x: x.time, edges))
-    min_time, max_time = min(times), max(times)
-
-    return lambda: int(np.round(np.random.uniform(min_time, max_time)))
-
-
 def save_dot(dot_graph: Digraph,
              file_path: Path,
              pdf=False) -> None:
