@@ -10,8 +10,8 @@ class Subgraph:
 
     def __init__(self,
                  parent_graph: GraphWrapper,
-                 depth: int,
-                 edges: list[EdgeWrapper]
+                 edges: list[EdgeWrapper],
+                 depth: int=None
                  ):
         self.graph = parent_graph
         self.depth = depth
