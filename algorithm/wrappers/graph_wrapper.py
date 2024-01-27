@@ -181,3 +181,9 @@ class GraphWrapper:
             paths.extend(new_paths)
 
         return paths
+
+    def get_next_node_id(self) -> int:
+        return max([node.node.id for node in self.nodes]) + 1
+
+    def get_next_edge_id(self) -> int:
+        return max([edge.get_ref_id() for edge in self.edges]) + 1

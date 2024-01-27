@@ -10,6 +10,7 @@ class NodeType(Enum):
     PROCESS_LET = 'ProcessNode'
     FILE = 'FileNode'
     IP_CHANNEL = 'SocketChannelNode'
+    EPHEMERAL = 'EphemeralNode'
 
     def __str__(self):
         return self.name
@@ -58,5 +59,12 @@ class Node(GraphsonObject):
                         ('dstIP', 'REMOTE_INET_ADDR'),
                         ('type', 'CHANEL_STATE')
                     ])
+                }
+            case NodeType.EPHEMERAL:
+                args = {
+                    'color': 'blue',
+                    'shape': 'invtriangle',
+                    'style': 'filled',
+                    'label': 'ephemeral'
                 }
         return {key: sanitize(value) for key, value in args.items()}
