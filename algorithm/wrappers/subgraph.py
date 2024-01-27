@@ -2,6 +2,7 @@ from .edge_wrapper import EdgeWrapper
 from .graph_wrapper import GraphWrapper
 from .node_wrapper import NodeWrapper
 
+
 class Subgraph:
     graph: GraphWrapper
     edges: list[EdgeWrapper]
