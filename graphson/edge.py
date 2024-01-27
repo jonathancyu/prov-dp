@@ -12,6 +12,7 @@ class Edge(GraphsonObject):
     src_id: int = Field(..., alias='_outV')
     dst_id: int = Field(..., alias='_inV')
     optype: str = Field(..., alias='OPTYPE')
+    label: str = Field(..., alias='_label')
     time: int = Field(..., alias='EVENT_START')
 
     def __repr__(self):

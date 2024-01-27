@@ -13,6 +13,16 @@ class EdgeWrapper:
             OUT: edge.dst_id
         }
 
+    def invert(self) -> None:
+        src_id, dst_id = self.node_ids[IN], self.node_ids[OUT]
+        self.node_ids[IN] = dst_id
+        self.node_ids[OUT] = src_id
+        self.edge.src_id = dst_id
+        self.edge.dst_id = src_id
+
+    def get_id(self) -> int:
+        return self.edge.id
+
     def get_ref_id(self) -> int:
         return int(self.edge.model_extra['REF_ID'])
 

@@ -5,7 +5,7 @@ import networkx as nx
 from graphviz import Digraph
 
 from graphson import Graph, NodeType, Node, EdgeType, Edge
-from utility import get_edge_id
+from utility import get_edge_ref_id
 from .node_wrapper import NodeWrapper, IN, OUT
 from .edge_wrapper import EdgeWrapper
 
@@ -15,6 +15,7 @@ class GraphWrapper:
     nodes: list[NodeWrapper]
     edges: list[EdgeWrapper]
     json_path: Path
+    _source_edge_ref_id: int | None
     source_edge_id: int
 
     _node_lookup: dict[int, NodeWrapper]
@@ -26,10 +27,11 @@ class GraphWrapper:
     def __init__(self, json_path: Path = None):
         if json_path is None:
             graph = Graph()
+            self._source_edge_ref_id = None
         else:
             graph = Graph.load_file(json_path)
             self.json_path = json_path
-            self.source_edge_id = get_edge_id(str(json_path.stem))
+            self._source_edge_ref_id = get_edge_ref_id(str(json_path.stem))
         self.graph = graph
         self.tree_sizes = {
             IN: 0, OUT: 0
@@ -40,6 +42,11 @@ class GraphWrapper:
         self._edge_lookup = {}
         self._add_nodes(self.graph.nodes)
         self._add_edges(self.graph.edges)
+
+        if self._source_edge_ref_id is not None:
+            source_edge = [edge for edge in self.edges if edge.get_ref_id() == self._source_edge_ref_id]
+            assert len(source_edge) == 1
+            self.source_edge_id = source_edge[0].get_id()
 
         self._set_node_times()
 
@@ -56,7 +63,7 @@ class GraphWrapper:
             dst_node = self.get_node(edge.get_dst_id())
             if src_node is None or dst_node is None:  # TODO why does this occur?
                 continue
-            edge_id = edge.get_ref_id()
+            edge_id = edge.get_id()
             edge_type = self.get_edge_type(edge)
             src_node.add_outgoing(edge_id, edge_type)
             dst_node.add_incoming(edge_id, edge_type)
@@ -135,7 +142,7 @@ class GraphWrapper:
         for edge in edges:
             edge_wrapper = EdgeWrapper(edge)
             self.edges.append(edge_wrapper)
-            self._edge_lookup[edge_wrapper.get_ref_id()] = edge_wrapper
+            self._edge_lookup[edge_wrapper.get_id()] = edge_wrapper
 
     def get_paths(self) -> list[list[EdgeWrapper]]:
         paths: dict[str, list[list[EdgeWrapper]]] = {
@@ -162,10 +169,10 @@ class GraphWrapper:
         # copy current path to avoid mutation
         current_path = current_path or []
         visited_ids = visited_ids or []
-        source_id = source.get_ref_id()
-        if source in current_path or source_id in visited_ids:
+        source_ref_id = source.get_id()
+        if source in current_path or source_ref_id in visited_ids:
             return []
-        visited_ids.append(source.get_ref_id())
+        visited_ids.append(source.get_id())
         current_path = (current_path or []) + [source]
 
         node_id = source.node_ids[direction]
@@ -183,7 +190,19 @@ class GraphWrapper:
         return paths
 
     def get_next_node_id(self) -> int:
-        return max([node.node.id for node in self.nodes]) + 1
+        return max([node.get_id() for node in self.nodes]) + 1
 
     def get_next_edge_id(self) -> int:
-        return max([edge.get_ref_id() for edge in self.edges]) + 1
+        return max([edge.get_id() for edge in self.edges]) + 1
+
+    def invert_edge(self, edge_id: int) -> None:
+        edge = self.get_edge(edge_id)
+        src_id, dst_id = edge.node_ids[IN], edge.node_ids[OUT]
+        edge.invert()
+
+        src_node, dst_node = self.get_node(src_id), self.get_node(dst_id)
+        src_node.edge_ids[OUT].remove(edge_id)
+        src_node.edge_ids[IN].append(edge_id)
+        dst_node.edge_ids[IN].remove(edge_id)
+        dst_node.edge_ids[OUT].append(edge_id)
+        pass

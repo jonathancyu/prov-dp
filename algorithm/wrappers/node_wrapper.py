@@ -54,6 +54,8 @@ class NodeWrapper:
             src_ip = model['LOCAL_INET_ADDR']
             dst_ip = model['REMOTE_INET_ADDR']
             token += f'{src_ip}_{dst_ip}'
+        elif self.node.type == NodeType.EPHEMERAL:
+            token = '.'
         else:
             raise ValueError(f'Unknown node type: {self.node.type}')
 

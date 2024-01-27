@@ -44,7 +44,7 @@ def get_stats(stat: str, data: list[int]) -> dict:
     return {f'{stat} {key}': value for key, value in result.items()}
 
 
-def get_edge_id(graph_name: str) -> int:
+def get_edge_ref_id(graph_name: str) -> int:
     split = graph_name.split('-')
     try:
         assert len(split) == 3
