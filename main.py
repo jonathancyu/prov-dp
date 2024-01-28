@@ -8,9 +8,10 @@ from utility import save_dot
 def main(args):
     input_graphs = [GraphWrapper(args.input)]
     tree_shaker = TreeShaker(epsilon=0.1, delta=0.1, alpha=0.1)
-    output_graphs = tree_shaker.perturb_graphs(input_graphs)
+    output_graph_steps = tree_shaker.perturb_graphs(input_graphs)[0]
     save_dot(input_graphs[0].to_dot(), args.output_dir / 'original.dot')
-    save_dot(output_graphs[0].to_dot(), args.output_dir / 'forward.dot')
+    for label, graph in output_graph_steps.items():
+        save_dot(graph.to_dot(), args.output_dir / f'step{label}.dot')
 
 
 if __name__ == '__main__':

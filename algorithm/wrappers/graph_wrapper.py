@@ -205,4 +205,3 @@ class GraphWrapper:
         src_node.edge_ids[IN].append(edge_id)
         dst_node.edge_ids[IN].remove(edge_id)
         dst_node.edge_ids[OUT].append(edge_id)
-        pass
