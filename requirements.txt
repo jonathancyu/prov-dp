@@ -1,5 +1,3 @@
-pickle
-itertools
-pathlib
+pydantic
 networkx
 graphviz

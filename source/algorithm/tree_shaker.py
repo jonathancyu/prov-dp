@@ -58,10 +58,8 @@ class TreeShaker(GraphProcessor):
 
         # Assert that all non-process nodes have out-degree 0
         for node in graph.nodes:
-            print
             if str(node.get_type()) == str(NodeType.PROCESS_LET):
                 continue
-            print(f'{node.get_token()}: {len(node.edge_ids[OUT])}')
             assert len(node.edge_ids[OUT]) == 0
 
 
@@ -69,26 +67,25 @@ class TreeShaker(GraphProcessor):
         for node in graph.nodes:
             if node.get_type() == NodeType.PROCESS_LET:
                 continue
-            print(node)
 
             # Create a duplicate node for each edge, then delete original
             edge_ids = node.edge_ids
-            assert len(edge_ids[OUT]) == 0  # In the previous step, we should have inverted all outgoing edges
-            print(len(edge_ids[IN]))
             original_node_count = len(graph.nodes)
+            original_edge_id_count = len(edge_ids[IN])
             new_node_count = 0
-            if len(edge_ids[IN]) > 1:
-                print(node)
 
             for edge_id in edge_ids[IN]:
-                new_node_id = graph.get_next_node_id()
+                # Create new node
                 new_node = deepcopy(node)
+                new_node_id = graph.get_next_node_id()
                 new_node.node.id = new_node_id
                 new_node.edge_ids = {IN: [edge_id], OUT: []}
 
+                # Add to the graph wrapper
                 graph.add_node(new_node)
                 new_node_count += 1
 
+                # Move edge to new node
                 edge = graph.get_edge(edge_id)
                 edge.node_ids[OUT] = new_node_id
                 edge.edge.dst_id = new_node_id
@@ -103,8 +100,8 @@ class TreeShaker(GraphProcessor):
                 assert len(edge_ids[OUT]) == 0
                 if len(edge_ids[IN]) > 1:
                     print(node.get_token())
-
-            assert new_node_count == len(node.edge_ids[IN])
+            print(new_node_count, original_edge_id_count)
+            assert new_node_count == original_edge_id_count
             assert len(graph.nodes) == original_node_count + new_node_count - 1
         steps['3_duplicate_leaves'] = deepcopy(graph)
 
@@ -132,8 +129,7 @@ class TreeShaker(GraphProcessor):
         return steps
     def perturb_graphs(self, input_graphs: list[GraphWrapper]) -> list[GraphWrapper]:
         # Graph preprocessing: Invert all read edges
-        output_graphs = []
-        input_graphs = [self.preprocess_graph(input_graph) for input_graph in input_graphs]
+        output_graphs = [self.preprocess_graph(input_graph) for input_graph in input_graphs]
         """
         # Prune all graphs (using epsilon_p budget)
         output_graphs: list[GraphWrapper] = []
