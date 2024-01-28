@@ -3,7 +3,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from algorithm import GraphWrapper, EdgeWrapper
+from source.algorithm import GraphWrapper, EdgeWrapper
 
 
 def path_to_string(graph: GraphWrapper, path: list[EdgeWrapper]):

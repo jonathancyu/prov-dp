@@ -1,12 +1,8 @@
 from collections import Counter
-from typing import Callable
 
-import numpy as np
-
-from algorithm.wrappers.edge_wrapper import EdgeWrapper
-from algorithm.wrappers.graph_wrapper import GraphWrapper
-from algorithm.wrappers.node_wrapper import NodeWrapper
-from graphson import Edge, EdgeType
+from source.algorithm.wrappers.graph_wrapper import GraphWrapper
+from source.algorithm.wrappers.node_wrapper import NodeWrapper
+from source.graphson import EdgeType
 
 EDGES_PROCESSED = '#edges processed'
 EDGES_FILTERED = '#edges filtered'

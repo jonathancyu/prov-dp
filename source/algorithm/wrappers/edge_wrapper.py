@@ -1,4 +1,4 @@
-from graphson import Edge
+from source.graphson import Edge
 
 from .node_wrapper import IN, OUT
 

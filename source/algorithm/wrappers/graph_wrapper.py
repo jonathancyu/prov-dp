@@ -1,10 +1,9 @@
 import itertools
 from pathlib import Path
 
-import networkx as nx
 from graphviz import Digraph
 
-from graphson import Graph, NodeType, Node, EdgeType, Edge
+from source.graphson import Graph, NodeType, Node, EdgeType, Edge
 from utility import get_edge_ref_id
 from .node_wrapper import NodeWrapper, IN, OUT
 from .edge_wrapper import EdgeWrapper
@@ -190,7 +189,7 @@ class GraphWrapper:
         return paths
 
     def get_next_node_id(self) -> int:
-        return max([node.get_id() for node in self.nodes]) + 1
+        return max([node.id for node in self.graph.nodes]) + 1
 
     def get_next_edge_id(self) -> int:
         return max([edge.get_id() for edge in self.edges]) + 1

@@ -1,6 +1,6 @@
 from collections import Counter
 
-from graphson import Node, NodeType, EdgeType
+from source.graphson import Node, NodeType, EdgeType
 
 IN = 'IN'
 OUT = 'OUT'

@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from algorithm import TreeShaker, GraphWrapper
+from source.algorithm import TreeShaker, GraphWrapper
 from utility import save_dot
 
 

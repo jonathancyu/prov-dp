@@ -1,12 +1,10 @@
-import pickle
 from collections import deque
 from copy import deepcopy
 
 import numpy as np
-from icecream import ic
 
 from utility import logistic_function
-from graphson import NodeType, Node, Edge
+from source.graphson import NodeType
 from .graph_processor import GraphProcessor
 from .wrappers import GraphWrapper, EdgeWrapper, NodeWrapper, Subgraph, IN, OUT
 
@@ -28,92 +26,114 @@ class TreeShaker(GraphProcessor):
         self.alphas = {IN: alpha, OUT: alpha}
         self.pruned_subgraphs = {IN: [], OUT: []}
 
+    def step2(self, graph: GraphWrapper) -> GraphWrapper:
+        new_graph = deepcopy(graph)
+        # 2. Invert all outgoing edges from files/IPs
+        for node in new_graph.nodes:
+            if node.get_type() == NodeType.PROCESS_LET:
+                continue
+
+            edge_ids = node.edge_ids
+            expected = len(edge_ids[IN]) + len(edge_ids[OUT])
+
+            outgoing_edges = edge_ids[OUT].copy()  # Copy list to prevent modification during iteration
+            for edge_id in outgoing_edges:
+                new_graph.invert_edge(edge_id)
+                edge = new_graph.get_edge(edge_id)
+
+            assert len(edge_ids[OUT]) == 0
+            assert len(edge_ids[IN]) == expected
+        return new_graph
+
+
+    def preprocess_graph(self, input_graph: GraphWrapper) -> GraphWrapper:
+        steps = {}
+        # 1. Original graph
+        graph = deepcopy(input_graph)
+        steps['1_original_graph'] = graph
+
+        # 2. Invert all outgoing edges from files/IPs
+        graph = self.step2(graph)
+        steps['2_inverted_edges'] = graph
+
+        # Assert that all non-process nodes have out-degree 0
+        for node in graph.nodes:
+            print
+            if str(node.get_type()) == str(NodeType.PROCESS_LET):
+                continue
+            print(f'{node.get_token()}: {len(node.edge_ids[OUT])}')
+            assert len(node.edge_ids[OUT]) == 0
+
+
+        # 3. Duplicate file/IP nodes for each incoming edge
+        for node in graph.nodes:
+            if node.get_type() == NodeType.PROCESS_LET:
+                continue
+            print(node)
+
+            # Create a duplicate node for each edge, then delete original
+            edge_ids = node.edge_ids
+            assert len(edge_ids[OUT]) == 0  # In the previous step, we should have inverted all outgoing edges
+            print(len(edge_ids[IN]))
+            original_node_count = len(graph.nodes)
+            new_node_count = 0
+            if len(edge_ids[IN]) > 1:
+                print(node)
+
+            for edge_id in edge_ids[IN]:
+                new_node_id = graph.get_next_node_id()
+                new_node = deepcopy(node)
+                new_node.node.id = new_node_id
+                new_node.edge_ids = {IN: [edge_id], OUT: []}
+
+                graph.add_node(new_node)
+                new_node_count += 1
+
+                edge = graph.get_edge(edge_id)
+                edge.node_ids[OUT] = new_node_id
+                edge.edge.dst_id = new_node_id
+
+            graph.nodes.remove(node)
+
+            for node in graph.nodes:
+                if node.get_type() == NodeType.PROCESS_LET:
+                    continue
+
+                edge_ids = node.edge_ids
+                assert len(edge_ids[OUT]) == 0
+                if len(edge_ids[IN]) > 1:
+                    print(node.get_token())
+
+            assert new_node_count == len(node.edge_ids[IN])
+            assert len(graph.nodes) == original_node_count + new_node_count - 1
+        steps['3_duplicate_leaves'] = deepcopy(graph)
+
+        #
+        # # 4. Add ephemeral root node, with edges to all root nodes (in degree == 0)
+        # raw_root_node = Node()
+        # raw_root_node.id = new_graph.get_next_node_id()
+        # raw_root_node.type = NodeType.EPHEMERAL
+        # root_node = NodeWrapper(raw_root_node)
+        # for node in new_graph.nodes:
+        #     if len(node.edge_ids[IN]) > 0:
+        #         continue
+        #
+        #     # Create edge from ephemeral root to subtree root
+        #     raw_edge = Edge()
+        #     raw_edge.id = new_graph.get_next_edge_id()
+        #
+        #     edge = EdgeWrapper(raw_edge)
+        #     edge.node_ids[IN] = raw_root_node.id
+        #     edge.node_ids[OUT] = node.get_id()
+        #     root_node.edge_ids[OUT].append(edge.get_id())
+        #
+        #     new_graph.add_edge(edge)
+
+        return steps
     def perturb_graphs(self, input_graphs: list[GraphWrapper]) -> list[GraphWrapper]:
         # Graph preprocessing: Invert all read edges
         output_graphs = []
-        for input_graph in input_graphs:
-            steps = {}
-            # 1. Original graph
-            new_graph = deepcopy(input_graph)
-            steps['1_original_graph'] = deepcopy(new_graph)
-            # 2. Invert all outgoing edges from files/IPs
-            for node in new_graph.nodes:
-                if node.get_type() == NodeType.PROCESS_LET:
-                    continue
-
-                edge_ids = node.edge_ids
-                expected = len(edge_ids[IN]) + len(edge_ids[OUT])
-
-                outgoing_edges = edge_ids[OUT].copy()  # Copy list to prevent modification during iteration
-                for edge_id in outgoing_edges:
-                    new_graph.invert_edge(edge_id)
-                    edge = new_graph.get_edge(edge_id)
-
-                assert len(edge_ids[OUT]) == 0
-                assert len(edge_ids[IN]) == expected
-            steps['2_inverted_edges'] = deepcopy(new_graph)
-
-            # 3. Duplicate file/IP nodes for each incoming edge
-            for node in new_graph.nodes:
-                if node.get_type() == NodeType.PROCESS_LET:
-                    continue
-
-                # Create a duplicate node for each edge, then delete original
-                edge_ids = node.edge_ids
-                assert len(edge_ids[OUT]) == 0  # In the previous step, we should have inverted all outgoing edges
-                original_node_count = len(new_graph.nodes)
-                new_node_count = 0
-                for edge_id in node.edge_ids[IN]:
-                    new_node_id = new_graph.get_next_node_id()
-                    new_node = deepcopy(node)
-                    new_node.node.id = new_node_id
-                    new_node.edge_ids = {IN: [edge_id], OUT: []}
-
-                    new_graph.add_node(new_node)
-                    new_node_count += 1
-
-                    edge = new_graph.get_edge(edge_id)
-                    edge.node_ids[OUT] = new_node_id
-                    edge.edge.dst_id = new_node_id
-
-                new_graph.nodes.remove(node)
-                assert new_node_count == len(node.edge_ids[IN])
-                assert len(new_graph.nodes) == original_node_count + new_node_count - 1
-            steps['3_duplicate_leaves'] = deepcopy(new_graph)
-
-            for node in new_graph.nodes:
-                if node.get_type() == NodeType.PROCESS_LET:
-                    continue
-
-                edge_ids = node.edge_ids
-                assert len(edge_ids[OUT]) == 0
-                try:
-                    assert len(edge_ids[IN]) == 1
-                except AssertionError:
-                    print(node)
-
-            #
-            # # 4. Add ephemeral root node, with edges to all root nodes (in degree == 0)
-            # raw_root_node = Node()
-            # raw_root_node.id = new_graph.get_next_node_id()
-            # raw_root_node.type = NodeType.EPHEMERAL
-            # root_node = NodeWrapper(raw_root_node)
-            # for node in new_graph.nodes:
-            #     if len(node.edge_ids[IN]) > 0:
-            #         continue
-            #
-            #     # Create edge from ephemeral root to subtree root
-            #     raw_edge = Edge()
-            #     raw_edge.id = new_graph.get_next_edge_id()
-            #
-            #     edge = EdgeWrapper(raw_edge)
-            #     edge.node_ids[IN] = raw_root_node.id
-            #     edge.node_ids[OUT] = node.get_id()
-            #     root_node.edge_ids[OUT].append(edge.get_id())
-            #
-            #     new_graph.add_edge(edge)
-
-            output_graphs.append(steps)
+        input_graphs = [self.preprocess_graph(input_graph) for input_graph in input_graphs]
         """
         # Prune all graphs (using epsilon_p budget)
         output_graphs: list[GraphWrapper] = []

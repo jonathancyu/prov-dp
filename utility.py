@@ -5,8 +5,7 @@ from typing import Callable, TypeVar
 import numpy as np
 from graphviz import Digraph
 
-from algorithm.wrappers import EdgeWrapper
-from graphson import GraphsonObject, Node
+from source.graphson import GraphsonObject
 
 T = TypeVar('T')
 

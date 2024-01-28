@@ -9,10 +9,8 @@ from typing import Callable
 
 import pandas as pd
 import yaml
-from icecream import ic
-from tqdm import tqdm
 
-from algorithm import TreeShaker, GraphWrapper, count_disconnected_nodes
+from source.algorithm import TreeShaker, GraphWrapper, count_disconnected_nodes
 from utility import save_dot, get_stats
 
 
