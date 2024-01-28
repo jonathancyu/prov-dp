@@ -21,6 +21,7 @@ def group_by_lambda(objects: list[GraphsonObject],
 
     return grouped
 
+
 def save_dot(dot_graph: Digraph,
              file_path: Path,
              pdf=False) -> None:

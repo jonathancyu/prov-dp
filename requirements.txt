@@ -1,3 +1,4 @@
 pydantic
+pyyaml
 networkx
 graphviz

@@ -27,7 +27,7 @@ class Node(GraphsonObject):
         return hash(self.id)
 
     def to_dot_args(self) -> dict[str, any]:
-        model = self.model_dump(by_alias=True, exclude=['time'])
+        model = self.model_dump(by_alias=True, exclude={'time'})
         args = {}
         match self.type:
             case NodeType.PROCESS_LET:
@@ -63,8 +63,8 @@ class Node(GraphsonObject):
             case NodeType.EPHEMERAL:
                 args = {
                     'color': 'blue',
-                    'shape': 'invtriangle',
-                    'style': 'filled',
+                    'shape': 'oval',
+                    'style': 'solid',
                     'label': 'ephemeral'
                 }
         return {key: sanitize(value) for key, value in args.items()}

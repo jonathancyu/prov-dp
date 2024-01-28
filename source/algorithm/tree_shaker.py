@@ -1,10 +1,11 @@
 from collections import deque
 from copy import deepcopy
+from pathlib import Path
 
 import numpy as np
 
 from utility import logistic_function
-from source.graphson import NodeType
+from source.graphson import NodeType, Node, Edge
 from .graph_processor import GraphProcessor
 from .wrappers import GraphWrapper, EdgeWrapper, NodeWrapper, Subgraph, IN, OUT
 
@@ -45,16 +46,15 @@ class TreeShaker(GraphProcessor):
             assert len(edge_ids[IN]) == expected
         return new_graph
 
-
     def preprocess_graph(self, input_graph: GraphWrapper) -> GraphWrapper:
-        steps = {}
         # 1. Original graph
+        output_dir = Path('../data/output/nd-52809777-processletevent')
         graph = deepcopy(input_graph)
-        steps['1_original_graph'] = graph
+        graph.to_dot().save(output_dir / '1_original_graph.dot')
 
         # 2. Invert all outgoing edges from files/IPs
         graph = self.step2(graph)
-        steps['2_inverted_edges'] = graph
+        graph.to_dot().save(output_dir / '2_inverted_edges.dot')
 
         # Assert that all non-process nodes have out-degree 0
         for node in graph.nodes:
@@ -62,75 +62,75 @@ class TreeShaker(GraphProcessor):
                 continue
             assert len(node.edge_ids[OUT]) == 0
 
-
         # 3. Duplicate file/IP nodes for each incoming edge
+        nodes_to_remove = []
+        nodes_to_add = []
         for node in graph.nodes:
             if node.get_type() == NodeType.PROCESS_LET:
                 continue
 
             # Create a duplicate node for each edge, then delete original
             edge_ids = node.edge_ids
-            original_node_count = len(graph.nodes)
-            original_edge_id_count = len(edge_ids[IN])
-            new_node_count = 0
-
             for edge_id in edge_ids[IN]:
                 # Create new node
                 new_node = deepcopy(node)
-                new_node_id = graph.get_next_node_id()
+                new_node_id = graph.get_next_node_id() + len(nodes_to_add)
                 new_node.node.id = new_node_id
                 new_node.edge_ids = {IN: [edge_id], OUT: []}
-
-                # Add to the graph wrapper
-                graph.add_node(new_node)
-                new_node_count += 1
+                nodes_to_add.append(new_node)
 
                 # Move edge to new node
                 edge = graph.get_edge(edge_id)
                 edge.node_ids[OUT] = new_node_id
                 edge.edge.dst_id = new_node_id
 
+            # Remove original node
+            nodes_to_remove.append(node)
+
+            # assert new_node_count == original_edge_id_count
+            # assert len(graph.nodes) == original_node_count + new_node_count - 1
+
+        for node in nodes_to_remove:
             graph.nodes.remove(node)
+        for node in nodes_to_add:
+            graph.add_node(node)
 
-            for node in graph.nodes:
-                if node.get_type() == NodeType.PROCESS_LET:
-                    continue
+        graph.to_dot().save(output_dir / '3_duplicate_leaves.dot')
 
-                edge_ids = node.edge_ids
-                assert len(edge_ids[OUT]) == 0
-                if len(edge_ids[IN]) > 1:
-                    print(node.get_token())
-            print(new_node_count, original_edge_id_count)
-            assert new_node_count == original_edge_id_count
-            assert len(graph.nodes) == original_node_count + new_node_count - 1
-        steps['3_duplicate_leaves'] = deepcopy(graph)
+        # 4. Add ephemeral root node, with edges to all root nodes (in degree == 0)
+        raw_root_node = Node(
+            _id=9999,
+            TYPE=NodeType.EPHEMERAL
+        )
+        root_node = NodeWrapper(raw_root_node)
+        graph.add_node(root_node)
+        for node in graph.nodes:
+            if len(node.edge_ids[IN]) > 0 or node == root_node:
+                continue
 
-        #
-        # # 4. Add ephemeral root node, with edges to all root nodes (in degree == 0)
-        # raw_root_node = Node()
-        # raw_root_node.id = new_graph.get_next_node_id()
-        # raw_root_node.type = NodeType.EPHEMERAL
-        # root_node = NodeWrapper(raw_root_node)
-        # for node in new_graph.nodes:
-        #     if len(node.edge_ids[IN]) > 0:
-        #         continue
-        #
-        #     # Create edge from ephemeral root to subtree root
-        #     raw_edge = Edge()
-        #     raw_edge.id = new_graph.get_next_edge_id()
-        #
-        #     edge = EdgeWrapper(raw_edge)
-        #     edge.node_ids[IN] = raw_root_node.id
-        #     edge.node_ids[OUT] = node.get_id()
-        #     root_node.edge_ids[OUT].append(edge.get_id())
-        #
-        #     new_graph.add_edge(edge)
+            # Create edge from ephemeral root to subtree root
+            raw_edge = Edge(
+                _id=graph.get_next_edge_id(),
+                _outV=raw_root_node.id,
+                _inV=node.get_id(),
+                OPTYPE='EPHEMERAL',
+                _label='EPHEMERAL',
+                EVENT_START=0
+            )
 
-        return steps
+            edge = EdgeWrapper(raw_edge)
+            root_node.edge_ids[OUT].append(edge.get_id())
+
+            graph.add_edge(edge)
+
+        graph.to_dot().save(output_dir / '4_ephemeral_root.dot')
+
+        return graph
+
     def perturb_graphs(self, input_graphs: list[GraphWrapper]) -> list[GraphWrapper]:
         # Graph preprocessing: Invert all read edges
         output_graphs = [self.preprocess_graph(input_graph) for input_graph in input_graphs]
-        """
+        """ 
         # Prune all graphs (using epsilon_p budget)
         output_graphs: list[GraphWrapper] = []
 

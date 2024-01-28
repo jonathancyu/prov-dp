@@ -33,6 +33,8 @@ class Edge(GraphsonObject):
         args = {
             'color': 'black'
         }
+        if self.optype == 'EPHEMERAL':
+            args['color'] = 'blue'
         if self.time is not None:
             args['label'] = format_timestamp(self.time)
         return args
