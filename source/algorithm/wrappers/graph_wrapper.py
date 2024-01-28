@@ -125,6 +125,9 @@ class GraphWrapper:
     def add_node(self, node: NodeWrapper) -> None:
         self.nodes.append(node)
 
+    def remove_node(self, node: NodeWrapper) -> None:
+        self.nodes.remove(node)
+
     def to_dot(self) -> Digraph:
         return Graph(
             vertices=[node.node for node in self.nodes],
