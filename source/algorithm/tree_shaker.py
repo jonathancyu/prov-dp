@@ -30,6 +30,7 @@ class TreeShaker(GraphProcessor):
     def perturb_graphs(self, input_graphs: list[GraphWrapper]) -> list[GraphWrapper]:
         # Graph preprocessing: Invert all read edges
         output_graphs = [input_graph.preprocess(Path('../data/output/test')) for input_graph in input_graphs]
+        self
         """ 
         # Prune all graphs (using epsilon_p budget)
         output_graphs: list[GraphWrapper] = []
