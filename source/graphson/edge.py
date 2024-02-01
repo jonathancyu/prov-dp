@@ -30,13 +30,16 @@ class Edge(GraphsonObject):
         return Edge(_id=new_id, _inV=src_id, _outV=dst_id, OPTYPE=optype, EVENT_START=time)
 
     def to_dot_args(self) -> dict[str, any]:
+        model = self.model_dump(by_alias=True, exclude={'time'})
         args = {
-            'color': 'black'
+            'color': 'black',
+            'label': ''
         }
         if self.optype == 'EPHEMERAL':
             args['color'] = 'blue'
-        if self.time is not None:
-            args['label'] = format_timestamp(self.time)
+        # if self.time is not None:
+        #     args['label'] += format_timestamp(self.time)
+        args['label'] += self.label
         return args
 
     def __hash__(self):
