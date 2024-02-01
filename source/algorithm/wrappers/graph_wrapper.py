@@ -1,4 +1,5 @@
 import itertools
+from copy import deepcopy
 from pathlib import Path
 
 from graphviz import Digraph
@@ -197,7 +198,7 @@ class GraphWrapper:
     def get_next_edge_id(self) -> int:
         return max([edge.get_id() for edge in self.edges]) + 1
 
-    def invert_edge(self, edge_id: int) -> None:
+    def _invert_edge(self, edge_id: int) -> None:
         edge = self.get_edge(edge_id)
         src_id, dst_id = edge.node_ids[IN], edge.node_ids[OUT]
         edge.invert()
@@ -207,3 +208,87 @@ class GraphWrapper:
         src_node.edge_ids[IN].append(edge_id)
         dst_node.edge_ids[IN].remove(edge_id)
         dst_node.edge_ids[OUT].append(edge_id)
+
+    # Step 1. Original graph
+    def original_graph(self) -> None:
+        pass
+
+    # Step 2. Invert all outgoing edges from files/IPs
+    def _invert_outgoing_file_edges(self) -> None:
+        edges_to_invert = []
+        for node in self.nodes:
+            if node.get_type() == NodeType.PROCESS_LET:
+                continue
+            edges_to_invert.extend(node.edge_ids[OUT])
+
+        for edge_id in edges_to_invert:
+            self._invert_edge(edge_id)
+
+    # Step 3. Duplicate file/IP nodes for each incoming edge
+    def _duplicate_file_ip_leaves(self) -> None:
+        nodes_to_remove = []
+        nodes_to_add = []
+        for node in self.nodes:
+            if node.get_type() == NodeType.PROCESS_LET:
+                continue
+            # Mark original node for removal, then create a duplicate node for each edge
+            nodes_to_remove.append(node)
+            for edge_id in node.edge_ids[IN]:
+                # Create new node
+                new_node = deepcopy(node)
+                new_node_id = self.get_next_node_id() + len(nodes_to_add)
+                new_node.node.id = new_node_id
+                new_node.edge_ids = {IN: [edge_id], OUT: []}
+                nodes_to_add.append(new_node)
+
+                # Move edge to new node
+                edge = self.get_edge(edge_id)
+                edge.node_ids[OUT] = new_node_id
+                edge.edge.dst_id = new_node_id
+        # Apply changes
+        for node in nodes_to_remove:
+            self.remove_node(node)
+        for node in nodes_to_add:
+            self.add_node(node)
+
+    # Step 4
+    def _add_ephemeral_root(self) -> None:
+        raw_root_node = Node(
+            _id=9999,
+            TYPE=NodeType.EPHEMERAL
+        )
+        root_node = NodeWrapper(raw_root_node)
+        self.add_node(root_node)
+        for node in self.nodes:
+            if len(node.edge_ids[IN]) > 0 or node == root_node:
+                continue
+
+            # Create edge from ephemeral root to subtree root
+            raw_edge = Edge(
+                _id=self.get_next_edge_id(),
+                _outV=root_node.get_id(),
+                _inV=node.get_id(),
+                OPTYPE='EPHEMERAL',
+                _label='EPHEMERAL',
+                EVENT_START=0
+            )
+
+            # Add edge to the graph
+            edge = EdgeWrapper(raw_edge)
+            self.add_edge(edge)
+            root_node.edge_ids[OUT].append(edge.get_id())
+
+    preprocess_steps: list[callable] = [
+        original_graph,
+        _invert_outgoing_file_edges,
+        _duplicate_file_ip_leaves,
+        _add_ephemeral_root
+    ]
+
+    def preprocess(self, output_dir: Path = None) -> 'GraphWrapper':
+        for i, step in enumerate(self.preprocess_steps):
+            step(self)
+            if output_dir is not None:
+                self.to_dot().save(output_dir / f'{i+1}_{step.__name__.strip("_")}.dot')
+
+        return self
