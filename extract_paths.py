@@ -25,7 +25,7 @@ if __name__ == '__main__':
     input_path = Path('F:\\data\\benign_graphs\\tc3-theia\\firefox\\nd')
     output_directory = Path('F:\\data\\data\\output\\tc3-theia\\firefox')
     input_paths = list(input_path.glob('*.json'))
-    input_graphs = [GraphWrapper(input_path) 
+    input_graphs = [GraphWrapper.load_file(input_path)
                     for input_path in tqdm(input_paths, desc='Reading graphs')]
         
     num_processes = 8  # multiprocessing.cpu_count()

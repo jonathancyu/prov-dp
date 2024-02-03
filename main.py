@@ -6,7 +6,7 @@ from utility import save_dot
 
 
 def main(args):
-    input_graphs = [GraphWrapper(args.input)]
+    input_graphs = [GraphWrapper.load_file(args.input)]
     tree_shaker = TreeShaker(epsilon=0.1, delta=0.1, alpha=0.1)
 
     output_graph = tree_shaker.perturb_graphs(input_graphs)[0]

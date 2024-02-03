@@ -1,11 +1,13 @@
 import itertools
+from collections import deque
 from copy import deepcopy
 from pathlib import Path
 
+import numpy as np
 from graphviz import Digraph
 
 from source.graphson import Graph, NodeType, Node, EdgeType, Edge
-from utility import get_edge_ref_id
+from utility import get_edge_ref_id, logistic_function
 from .node_wrapper import NodeWrapper, IN, OUT
 from .edge_wrapper import EdgeWrapper
 
@@ -14,39 +16,39 @@ class GraphWrapper:
     graph: Graph
     nodes: list[NodeWrapper]
     edges: list[EdgeWrapper]
-    json_path: Path
-    _source_edge_ref_id: int | None
-    source_edge_id: int
+    source_edge_id: int | None
 
     _node_lookup: dict[int, NodeWrapper]
-
     _edge_lookup: dict[int, EdgeWrapper]
-
     _subtree_lookup: dict[str, dict[int, list[EdgeWrapper]]]
+    _marked_edges: set[int]
 
-    def __init__(self, json_path: Path = None):
-        if json_path is None:
+    @staticmethod
+    def load_file(json_path: Path) -> 'GraphWrapper':
+        return GraphWrapper(
+            Graph.load_file(json_path),
+            get_edge_ref_id(str(json_path.stem))
+        )
+
+    def __init__(self,
+                 graph: Graph = None,
+                 source_edge_ref_id: int = None):
+        if graph is None:
             graph = Graph()
-            self._source_edge_ref_id = None
-        else:
-            graph = Graph.load_file(json_path)
-            self.json_path = json_path
-            self._source_edge_ref_id = get_edge_ref_id(str(json_path.stem))
         self.graph = graph
-        self.tree_sizes = {
-            IN: 0, OUT: 0
-        }
+
         self.nodes = []
         self.edges = []
-        self._node_lookup = {}
-        self._edge_lookup = {}
-        self._add_nodes(self.graph.nodes)
-        self._add_edges(self.graph.edges)
+        self._init_nodes(self.graph.nodes)
+        self._init_edges(self.graph.edges)
 
-        if self._source_edge_ref_id is not None:
-            source_edge = [edge for edge in self.edges if edge.get_ref_id() == self._source_edge_ref_id]
+        # todo: this is convoluted
+        if source_edge_ref_id is not None:
+            source_edge = [edge for edge in self.edges if edge.get_ref_id() == source_edge_ref_id]
             assert len(source_edge) == 1
             self.source_edge_id = source_edge[0].get_id()
+        else:
+            self.source_edge_id = None
 
         self._set_node_times()
 
@@ -135,13 +137,15 @@ class GraphWrapper:
             edges=[edge.edge for edge in self.edges]
         ).to_dot()
 
-    def _add_nodes(self, nodes: list[Node]):
+    def _init_nodes(self, nodes: list[Node]):
+        self._node_lookup = {}
         for node in nodes:
             node_wrapper = NodeWrapper(node)
             self.nodes.append(node_wrapper)
             self._node_lookup[node.id] = node_wrapper
 
-    def _add_edges(self, edges: list[Edge]):
+    def _init_edges(self, edges: list[Edge]):
+        self._edge_lookup = {}
         for edge in edges:
             edge_wrapper = EdgeWrapper(edge)
             self.edges.append(edge_wrapper)
@@ -253,12 +257,27 @@ class GraphWrapper:
 
     # Step 4
     def _add_ephemeral_root(self) -> None:
+        # Create root node
         raw_root_node = Node(
             _id=9999,
             TYPE=NodeType.EPHEMERAL
         )
         root_node = NodeWrapper(raw_root_node)
         self.add_node(root_node)
+
+        # Create root edge for BFS
+        source_edge = EdgeWrapper(Edge(
+                _id=self.get_next_edge_id(),
+                _outV=root_node.get_id(),
+                _inV=root_node.get_id(),
+                OPTYPE='EPHEMERAL',
+                _label='EPHEMERAL',
+                EVENT_START=-1
+        ))
+        self.add_edge(source_edge)
+        self.source_edge_id = source_edge.get_id()
+
+        # Add disjoint trees to root's children
         for node in self.nodes:
             if len(node.edge_ids[IN]) > 0 or node == root_node:
                 continue
@@ -292,3 +311,41 @@ class GraphWrapper:
                 self.to_dot().save(output_dir / f'{i+1}_{step.__name__.strip("_")}.dot')
 
         return self
+
+    def prune(self, alpha: float, epsilon: float) -> 'GraphWrapper':
+        local_sensitivity: float = 1 / alpha
+        # (height, edge_id) tuples
+        queue = deque([(0, self.source_edge_id)])
+        while len(queue) > 0:
+            depth, edge_id = queue.popleft()
+            edge = self.get_edge(edge_id)
+
+            subtree_size = self.get_tree_size(OUT, edge_id)
+            distance = alpha * subtree_size
+            epsilon_prime = epsilon * distance
+
+            p = logistic_function(epsilon_prime / local_sensitivity)
+            prune_edge = np.random.choice([True, False], p=[p, 1 - p])
+            # If we prune, don't add children to queue
+            if prune_edge:
+                self._marked_edges.add(edge_id)
+                continue
+
+            # Otherwise, continue adding children to queue
+            node_id = edge.node_ids[OUT]
+            node = self.get_node(node_id)
+            next_edge_ids = node.edge_ids[OUT]
+            queue.extend([
+                (depth + 1, next_edge_id)
+                for next_edge_id in next_edge_ids
+            ])
+
+        return self
+
+    def get_train_data(self) -> list[tuple[str, 'GraphWrapper']]:
+        """
+        Returns a list of training data
+        :return: List of tuples of the form (tokenized path, root edge ID of subtree)
+        """
+        pass
+

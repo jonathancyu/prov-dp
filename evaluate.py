@@ -62,7 +62,7 @@ def evaluate_for_epsilon(input_path: Path, output_path: Path,
 
     # Process graphs
     input_paths = list(input_path.glob('*.json'))[:200]  # TODO remove limit
-    input_graphs = [GraphWrapper(input_path) for input_path in input_paths]
+    input_graphs = [GraphWrapper.load_file(input_path) for input_path in input_paths]
 
     graph_output_path = output_path / f'epsilon_{epsilon}-delta_{delta}-alpha_{alpha}'
     if os.path.isdir(graph_output_path):
