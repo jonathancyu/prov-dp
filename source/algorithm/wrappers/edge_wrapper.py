@@ -39,7 +39,7 @@ class EdgeWrapper:
         return self.edge.optype
 
     def get_token(self) -> str:
-        model = self.edge.model_dump()
+        model = self.edge.model_dump(by_alias=True)
         return '_'.join([model['_label'],  self.edge.optype])
 
     def __hash__(self):

@@ -1,8 +1,10 @@
+import pickle
 from collections import deque
 from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
+from tqdm import tqdm
 
 from utility import logistic_function
 from source.graphson import NodeType, Node, Edge
@@ -13,9 +15,8 @@ from .wrappers import GraphWrapper, EdgeWrapper, NodeWrapper, Subgraph, IN, OUT
 class TreeShaker(GraphProcessor):
     epsilon_p: float  # structural budget = delta * epsilon
     epsilon_m: float  # edge count budget = (1-delta) * epsilon
+    delta: float
     alpha: float
-    pruned_subgraphs: dict[str, list[Subgraph]]
-    pruned_subtrees: list[Subgraph]
 
     def __init__(self,
                  epsilon: float,
@@ -26,29 +27,25 @@ class TreeShaker(GraphProcessor):
         self.epsilon_m = (1-delta) * epsilon
         self.delta = delta
         self.alpha = alpha
-        self.pruned_subgraphs = {IN: [], OUT: []}
 
-    def perturb_graphs(self, input_graphs: list[GraphWrapper]) -> list[GraphWrapper]:
+    def perturb_graphs(self, graphs: list[GraphWrapper]) -> None:
         # Graph preprocessing: Invert all read edges
-        for graph in input_graphs:
+        for graph in tqdm(graphs, desc='Preprocessing graphs'):
             graph.preprocess()
 
         # Prune graphs and create training dataset
         train_data: list[tuple[str, GraphWrapper]] = []
-        for graph in input_graphs:
+        for graph in tqdm(graphs, desc='Pruning graphs'):
             # Prune tree (using epsilon_p budget)
             graph.prune(self.alpha, self.epsilon_p)
+            train_data.extend(graph.get_train_data())
+        print(f'Created {len(train_data)} training examples')
+        # Dump so we can pick up in a notebook
+        with open('train_data.pkl', 'wb') as f:
+            pickle.dump(train_data, f)
 
-
-
-        # Add paths and trees to dataset
-        train_data = []
-
-        # with open('pruned_subgraphs.pkl', 'wb') as f:
-        #     pickle.dump(self.pruned_subgraphs, f)
         # Add edges to graphs (epsilon_m)
 
-        return []
 
     def add_trees(self,
                   input_graph: GraphWrapper,
