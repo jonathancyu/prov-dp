@@ -39,10 +39,11 @@ class TreeShaker(GraphProcessor):
             # Prune tree (using epsilon_p budget)
             graph.prune(self.alpha, self.epsilon_p)
             train_data.extend(graph.get_train_data())
-        print(f'Created {len(train_data)} training examples')
+
         # Dump so we can pick up in a notebook
         with open('train_data.pkl', 'wb') as f:
             pickle.dump(train_data, f)
+            print(f'Wrote {len(train_data)} training examples to train_data.pkl')
 
         # Add edges to graphs (epsilon_m)
 
