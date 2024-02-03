@@ -79,7 +79,8 @@ class GraphWrapper:
                 node.time = edge.get_time()
 
     def get_subtree(self,
-                    root_node_id: int) -> 'GraphWrapper':
+                    root_node_id: int,
+                    visited_node_ids: list[int] = None) -> 'GraphWrapper':
         """
         :param root_node_id: ID of the root node
         :return: Subtree rooted at the given node
@@ -88,16 +89,21 @@ class GraphWrapper:
         subtree = self._subtree_lookup.get(root_node_id)
         if subtree is not None:
             return subtree
+        visited_node_ids = visited_node_ids or []
 
         subgraph = GraphWrapper()
         root_node = self.get_node(root_node_id)
+        visited_node_ids.append(root_node_id)
         subgraph.add_node(root_node)
 
         # BFS recursively
         for edge_id in root_node.edge_ids[OUT]:
             edge = self.get_edge(edge_id)
+            next_node_id = edge.get_dst_id()
+            if next_node_id in visited_node_ids:
+                continue
             subgraph.add_edge(edge)
-            next_subgraph = self.get_subtree(edge.get_dst_id())
+            next_subgraph = self.get_subtree(edge.get_dst_id(), visited_node_ids)
             if next_subgraph is not None:
                 subgraph.add_graph(next_subgraph)
 
