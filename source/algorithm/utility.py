@@ -1,5 +1,5 @@
 from concurrent.futures import ProcessPoolExecutor
-from typing import TypeVar
+from typing import TypeVar, Generator
 
 import networkx as nx
 from tqdm import tqdm
@@ -29,15 +29,16 @@ def to_nx(graph: Subgraph | GraphWrapper) -> nx.DiGraph:
 
 def map_pool(func: callable,
              items: list[T],
-             desc: str = '') -> list[T]:
+             desc: str = '') -> Generator:
     with ProcessPoolExecutor() as executor:
         # When we multiprocess, objects are pickled and passed to the child process
         # So we have to return objects from the function to get the changes back
-        return list(tqdm(
-            executor.map(
-                func,
-                items
-            ),
-            total=len(items),
-            desc=desc
-        ))
+        futures = [
+            executor.submit(func, *item) if isinstance(item, tuple)
+            else executor.submit(func, item)
+            for item in items
+        ]
+        with tqdm(total=len(futures), desc=desc) as pbar:
+            for future in futures:
+                yield future.result()
+                pbar.update(1)
