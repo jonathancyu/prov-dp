@@ -1,5 +1,6 @@
 import argparse
 import random
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from tqdm import tqdm
@@ -8,8 +9,18 @@ from source.algorithm import TreeShaker, GraphWrapper
 
 
 def main(args):
-    input_paths = list(args.input_dir.glob('*.json'))
-    graphs = [GraphWrapper.load_file(path) for path in tqdm(input_paths, desc='Loading graphs')]
+    input_paths = list(args.input_dir.glob('*.json'))[:200]
+    with ProcessPoolExecutor() as executor:
+        graphs = list(
+            tqdm(
+                executor.map(
+                    GraphWrapper.load_file,
+                    input_paths
+                ),
+                total=len(input_paths),
+                desc='Loading graphs'
+            ))
+
     tree_shaker = TreeShaker(epsilon=1, delta=0.5, alpha=1)
     tree_shaker.perturb_graphs(graphs)
 

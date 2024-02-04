@@ -1,5 +1,6 @@
 import pickle
 from collections import deque
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from copy import deepcopy
 from pathlib import Path
 
@@ -29,9 +30,18 @@ class TreeShaker(GraphProcessor):
         self.alpha = alpha
 
     def perturb_graphs(self, graphs: list[GraphWrapper]) -> None:
-        # Graph preprocessing: Invert all read edges
-        for graph in tqdm(graphs, desc='Preprocessing graphs'):
-            graph.preprocess()
+        # Preprocess graphs
+        with ProcessPoolExecutor() as executor:
+            # When we multiprocess, the graphs are copied to the worker processes
+            # So we have to return self from preprocess to get the changes back
+            graphs = list(tqdm(
+                executor.map(
+                    GraphWrapper.preprocess,
+                    graphs
+                ),
+                total=len(graphs),
+                desc='Preprocessing graphs'
+            ))
 
         # Prune graphs and create training dataset
         train_data: list[tuple[str, GraphWrapper]] = []

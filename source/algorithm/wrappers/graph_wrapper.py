@@ -24,7 +24,7 @@ class GraphWrapper:
 
     _subtree_lookup: dict[int, 'GraphWrapper']
     _marked_edges: set[int]
-    _training_data: list[tuple[list[int], 'GraphWrapper']] # (path, subtree) tuples
+    _training_data: list[tuple[list[int], 'GraphWrapper']]  # (path, subtree) tuples
 
     @staticmethod
     def load_file(json_path: Path) -> 'GraphWrapper':
@@ -120,8 +120,17 @@ class GraphWrapper:
         return len(self.get_subtree(root_node_id))
 
     def add_edge(self, edge: EdgeWrapper) -> None:
+        edge_id = edge.get_id()
+        assert self.get_edge(edge_id) is None
         self.edges.append(edge)
-        self._edge_lookup[edge.get_id()] = edge
+        self._edge_lookup[edge_id] = edge
+        for direction in [IN, OUT]:
+            opposite = OUT if direction == IN else OUT
+            if node := self.get_node(edge.node_ids[direction]):
+                edge_ids = node.edge_ids[opposite]
+                if edge_id in edge_ids:
+                    continue
+                node.edge_ids[opposite].append(edge_id)
 
     def add_node(self, node: NodeWrapper) -> None:
         self.nodes.append(node)
@@ -132,8 +141,13 @@ class GraphWrapper:
         self._node_lookup.pop(node.get_id())
 
     def remove_edge(self, edge: EdgeWrapper) -> None:
+        edge_id = edge.get_id()
         self.edges.remove(edge)
-        self._edge_lookup.pop(edge.get_id())
+        self._edge_lookup.pop(edge_id)
+        for direction in [IN, OUT]:
+            opposite = OUT if direction == IN else IN
+            if node := self.get_node(edge.node_ids[direction]):
+                node.edge_ids[opposite].remove(edge_id)
 
     def to_dot(self) -> Digraph:
         return Graph(
@@ -295,21 +309,18 @@ class GraphWrapper:
                 continue
 
             # Create edge from ephemeral root to subtree root
-            raw_edge = Edge(
-                _id=self.get_next_edge_id(),
-                _outV=root_node.get_id(),
-                _inV=node.get_id(),
-                OPTYPE='EPHEMERAL',
-                _label='EPHEMERAL',
-                EVENT_START=0
+            self.add_edge(
+                EdgeWrapper(Edge(
+                    _id=self.get_next_edge_id(),
+                    _outV=root_node.get_id(),
+                    _inV=node.get_id(),
+                    OPTYPE='EPHEMERAL',
+                    _label='EPHEMERAL',
+                    EVENT_START=0
+                ))
             )
 
-            # Add edge to the graph
-            edge = EdgeWrapper(raw_edge)
-            self.add_edge(edge)
-            root_node.edge_ids[OUT].append(edge.get_id())
-
-    preprocess_steps: list[callable] = [
+    _preprocess_steps: list[callable] = [
         original_graph,
         _invert_outgoing_file_edges,
         _duplicate_file_ip_leaves,
@@ -317,7 +328,7 @@ class GraphWrapper:
     ]
 
     def preprocess(self, output_dir: Path = None) -> 'GraphWrapper':
-        for i, step in enumerate(self.preprocess_steps):
+        for i, step in enumerate(self._preprocess_steps):
             step(self)
             if output_dir is not None:
                 self.to_dot().save(output_dir / f'{i+1}_{step.__name__.strip("_")}.dot')
@@ -339,8 +350,12 @@ class GraphWrapper:
         local_sensitivity: float = 1 / alpha
         # (edge_id, list[edge_id_path]) tuples
         queue = deque([(self.source_edge_id, [])])
+        visited_edge_ids: set[int] = set()
         while len(queue) > 0:
             edge_id, path = queue.popleft()
+            if edge_id in visited_edge_ids:
+                continue
+            visited_edge_ids.add(edge_id)
             edge = self.get_edge(edge_id)
 
             subtree_size = self.get_tree_size(edge_id)
@@ -350,8 +365,10 @@ class GraphWrapper:
             p = logistic_function(epsilon_prime / local_sensitivity)
             prune_edge = np.random.choice([True, False], p=[p, 1 - p])
             # If we prune, don't add children to queue
-            if prune_edge and len(path) > 1: # Don't prune ephemeral root
+            if prune_edge and len(path) > 1:  # Don't prune ephemeral root
                 pruned_tree = self._prune_tree(edge_id)
+                visited_edge_ids.update(e.get_id() for e in pruned_tree.edges)
+                # print(f'Pruned {len(pruned_tree)} with p={p}')
                 self._training_data.append((path, pruned_tree))
                 continue
 
@@ -373,7 +390,7 @@ class GraphWrapper:
                 self._training_data.append((path, leaf_graph))
                 num_leaves += 1
                 continue
-        print(f'Pruned {len(self._marked_edges)} subgraphs, and added {num_leaves} leaf samples')
+        # print(f'Pruned {len(self._marked_edges)} subgraphs, and added {num_leaves} leaf samples')
         return self
 
     def add_trees(self) -> 'GraphWrapper':
