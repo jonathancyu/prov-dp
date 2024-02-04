@@ -9,7 +9,7 @@ from source.algorithm import TreeShaker, GraphWrapper
 
 
 def main(args):
-    input_paths = list(args.input_dir.glob('*.json'))[:200]
+    input_paths = list(args.input_dir.glob('*.json'))
     with ProcessPoolExecutor() as executor:
         graphs = list(
             tqdm(

@@ -1,4 +1,5 @@
 import pickle
+from itertools import product
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from copy import deepcopy
@@ -10,6 +11,7 @@ from tqdm import tqdm
 from utility import logistic_function
 from source.graphson import NodeType, Node, Edge
 from .graph_processor import GraphProcessor
+from .utility import map_pool
 from .wrappers import GraphWrapper, EdgeWrapper, NodeWrapper, Subgraph, IN, OUT
 
 
@@ -31,24 +33,24 @@ class TreeShaker(GraphProcessor):
 
     def perturb_graphs(self, graphs: list[GraphWrapper]) -> None:
         # Preprocess graphs
-        with ProcessPoolExecutor() as executor:
-            # When we multiprocess, the graphs are copied to the worker processes
-            # So we have to return self from preprocess to get the changes back
-            graphs = list(tqdm(
-                executor.map(
-                    GraphWrapper.preprocess,
-                    graphs
-                ),
-                total=len(graphs),
-                desc='Preprocessing graphs'
-            ))
+        graphs = map_pool(
+            GraphWrapper.preprocess,
+            graphs,
+            'Preprocessing graphs'
+        )
 
-        # Prune graphs and create training dataset
-        train_data: list[tuple[str, GraphWrapper]] = []
-        for graph in tqdm(graphs, desc='Pruning graphs'):
-            # Prune tree (using epsilon_p budget)
-            graph.prune(self.alpha, self.epsilon_p)
-            train_data.extend(graph.get_train_data())
+        # Prune graphs
+        graphs = map_pool(
+            GraphWrapper.prune,
+            product(graphs, [self.alpha], [self.epsilon_p]),
+            'Pruning graphs'
+        )
+        # Create training data
+        train_data: list[tuple[str, GraphWrapper]] = map_pool(
+            GraphWrapper.get_train_data,
+            graphs,
+            'Creating training data'
+        )
 
         # Dump so we can pick up in a notebook
         with open('train_data.pkl', 'wb') as f:
@@ -56,7 +58,6 @@ class TreeShaker(GraphProcessor):
             print(f'Wrote {len(train_data)} training examples to train_data.pkl')
 
         # Add edges to graphs (epsilon_m)
-
 
     def add_trees(self,
                   input_graph: GraphWrapper,
