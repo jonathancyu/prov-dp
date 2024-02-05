@@ -4,3 +4,4 @@ networkx~=3.2.1
 graphviz~=0.20.1
 numpy~=1.26.3
 tqdm
+karateclub
