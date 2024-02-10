@@ -1,57 +1,163 @@
+import pickle
+from pathlib import Path
+
+import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import tqdm
+from karateclub import Graph2Vec
 
 from source.algorithm import GraphWrapper
+from source.algorithm.utility import tokenize, build_vocab, get_device, to_nx
 
 
 class Model:
+    # Model parameters
+    device: torch.device
     context_length: int
+    n_embedding: int
+    n_hidden: int
+    n_graph_embedding: int
+
+    # Dataset info
+    paths: list[str]
+    graphs: list[GraphWrapper]
     stoi: dict[str, int]
     itos: list[str]
 
+    base_model_path: Path
+
     def __init__(self,
-                 context_length: int):
-        self.context_length = context_length
+                 paths: list[str],
+                 graphs: list[GraphWrapper],
+                 context_length: int = 8,
+                 n_embedding: int = 10,
+                 n_hidden: int = 100,
+                 n_graph_embedding: int = 100,
+                 batch_size: int = 2048,
+                 learning_rate: float = 0.01,
+                 momentum: float = 0.9,
+                 base_model_path: Path = Path('.')):
+        self.base_model_path = base_model_path
 
-    def train(self,
-              paths: list[str],
-              graphs: list[GraphWrapper]):
+        # Build vocabulary
         assert len(paths) == len(graphs)
-        self.stoi, self.itos = Model.build_vocab(paths)
+        self.paths = paths
+        self.graphs = graphs
+        self.graph_embeddings = self.get_graph_embeddings()
+        self.stoi, self.itos = build_vocab(paths)
+        self.vocab_size = len(self.stoi)
+
+        # Initialize model
+        self.device = get_device()
+        self.context_length = context_length
+        self.n_embedding = n_embedding
+        self.n_hidden = n_hidden
+        self.n_graph_embedding = n_graph_embedding
+        self.learning_rate = learning_rate
+        self.momentum = momentum
+        self.batch_size = batch_size
+
+        self._init_model()
+        self.model.to(self.device)
 
 
-    @staticmethod
-    def tokenize(path):
-        assert len(path) % 2 == 0
-        return [f'{path[idx]}|{path[idx + 1]}' for idx in range(0, len(path), 2)]
+    def _init_model(self):
+        self.model = nn.Sequential(
+            nn.Embedding(self.vocab_size, self.n_embedding),
+            nn.Flatten(),
+            nn.Linear(self.n_embedding * self.context_length, self.n_embedding * self.context_length), nn.ReLU(),
+            nn.Linear(self.n_embedding * self.context_length, self.n_hidden), nn.ReLU(),
+            nn.Linear(self.n_hidden, self.n_embedding)
+        )
 
-    @staticmethod
-    def build_vocab(paths: list[str]) -> tuple[list[str], dict[str, int]]:
-        """
-        Builds the vocabulary for the model.
-        :param paths: list of paths
-        :return: integer to string, and string to integer mappings
-        """
-        token_set = set()
-        distinct_paths = set()
-        for path in paths:
-            path = Model.tokenize(path)
-            token_set.update(path)
-            distinct_paths.add(' '.join(path))
-        tokens = ['.'] + list(token_set)
-        print(f'Found {len(tokens)} tokens and {len(distinct_paths)} distinct paths in {len(paths)} entries')
-        return tokens, {token: i for i, token in enumerate(tokens)}
+    def _get_graph_embeddings(self) -> list[np.array]:
+        # Embed graphs using graphviz
+        if not (self.base_model_path / 'graph2vec.pkl').exists():
+            # Fit model
+            nx_graphs = [to_nx(graph) for graph in self.graphs]
+            graph2vec = Graph2Vec(
+                wl_iterations=80,
+                attributed=True,
+                dimensions=self.n_graph_embedding,
+                workers=4,
+                epochs=5
+            )
+            graph2vec.fit(nx_graphs)
+            # Save model
+            with open(self.base_model_path / 'graph2vec.pkl', 'wb') as file:
+                pickle.dump(graph2vec, file)
+        else:
+            # Load model
+            with open(self.base_model_path / 'graph2vec.pkl', 'rb') as file:
+                graph2vec = pickle.load(file)
+
+        return graph2vec.get_embedding()
+
+    def train(self, epochs: int):
+        # Create dataset
+        X, Y = self.build_dataset(self.paths, self.graph_embeddings)
+        print(f'X: {X.shape}, Y: {Y.shape}')
+
+        # Train model
+        self.model.train()
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
+        with tqdm.tqdm(total=epochs) as bar:
+            for epoch in range(epochs):
+                optimizer.zero_grad()
+
+                # Sample batch
+                ix = torch.randint(0, Y.shape[0], (self.batch_size,))
+                X_batch, Y_batch = X[ix], Y[ix]
+
+                # Forward pass
+                output = self.model(X_batch)
+
+                # Backward pass
+                loss = F.mse_loss(output, Y_batch)
+                loss.backward()
+                optimizer.step()
+                bar.update(1)
+
+                # Log loss
+                if epoch % 100 == 0:
+                    bar.set_description(f'Loss: {loss.item():.8f}')
 
     def path_to_context(self, path: str) -> list[int]:
-        path_tokens = Model.tokenize(path.split(' '))
+        path_tokens = tokenize(path.split(' '))
         path = [self.stoi[token] for token in path_tokens]
         context = [0] * self.context_length
         for i in range(min(self.context_length, len(path))):
             context[i] = path[i]
         return context
 
-    def build_dataset(self, paths: list[str], graph_embeddings: list[GraphWrapper]) -> tuple[torch.tensor, torch.tensor]:
+    def build_dataset(self,
+                      paths: list[str],
+                      graph_embeddings: list[np.array]) -> tuple[torch.tensor, torch.tensor]:
+        X, Y = [], []
+        for path, graph_embedding in zip(paths, graph_embeddings):
+            context = self.path_to_context(path)
+            X.append(context)
+            Y.append(graph_embedding)
 
+        return torch.tensor(X, device=self.device), torch.tensor(Y, device=self.device)
 
-    @torch.no_grad()
-    def forward(self, x):
-        raise NotImplementedError
+    def predict(self, path: str) -> GraphWrapper:
+        with torch.no_grad():
+            self.model.eval()
+            context = self.path_to_context(path)
+            prediction = self.model(torch.tensor([context], device=self.device)).numpy()
+
+        min_distance = float('inf')
+        best_i: int = -1
+        for i in range(len(self.graph_embeddings)):
+            embedding = self.graph_embeddings[i]
+            distance = np.linalg.norm(prediction - embedding, ord=1)
+            if distance < min_distance:
+                min_distance = distance
+                best_i = i
+
+        assert best_i >= 0
+        print(f'Closest match: {best_i}')
+        return self.graphs[best_i]
