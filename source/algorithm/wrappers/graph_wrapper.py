@@ -83,6 +83,7 @@ class GraphWrapper:
                     visited_node_ids: list[int] = None) -> 'GraphWrapper':
         """
         :param root_node_id: ID of the root node
+        :param visited_node_ids: List of node IDs that have already been visited
         :return: Subtree rooted at the given node
         """
         # Check if we've already computed this subtree

@@ -12,7 +12,7 @@ from source.algorithm import GraphWrapper
 from source.algorithm.utility import tokenize, build_vocab, get_device, to_nx
 
 
-class Model:
+class GraphModel:
     # Model parameters
     device: torch.device
     context_length: int
@@ -45,7 +45,7 @@ class Model:
         assert len(paths) == len(graphs)
         self.paths = paths
         self.graphs = graphs
-        self.graph_embeddings = self.get_graph_embeddings()
+        self.graph_embeddings = self._get_graph_embeddings()
         self.stoi, self.itos = build_vocab(paths)
         self.vocab_size = len(self.stoi)
 
@@ -97,7 +97,7 @@ class Model:
 
     def train(self, epochs: int):
         # Create dataset
-        X, Y = self.build_dataset(self.paths, self.graph_embeddings)
+        X, Y = self._build_dataset(self.paths, self.graph_embeddings)
         print(f'X: {X.shape}, Y: {Y.shape}')
 
         # Train model
@@ -123,8 +123,9 @@ class Model:
                 # Log loss
                 if epoch % 100 == 0:
                     bar.set_description(f'Loss: {loss.item():.8f}')
+        torch.save(self.model.state_dict(), self.base_model_path / 'graph_model.tar')
 
-    def path_to_context(self, path: str) -> list[int]:
+    def _path_to_context(self, path: str) -> list[int]:
         path_tokens = tokenize(path.split(' '))
         path = [self.stoi[token] for token in path_tokens]
         context = [0] * self.context_length
@@ -132,12 +133,12 @@ class Model:
             context[i] = path[i]
         return context
 
-    def build_dataset(self,
-                      paths: list[str],
-                      graph_embeddings: list[np.array]) -> tuple[torch.tensor, torch.tensor]:
+    def _build_dataset(self,
+                       paths: list[str],
+                       graph_embeddings: list[np.array]) -> tuple[torch.tensor, torch.tensor]:
         X, Y = [], []
         for path, graph_embedding in zip(paths, graph_embeddings):
-            context = self.path_to_context(path)
+            context = self._path_to_context(path)
             X.append(context)
             Y.append(graph_embedding)
 
@@ -146,7 +147,7 @@ class Model:
     def predict(self, path: str) -> GraphWrapper:
         with torch.no_grad():
             self.model.eval()
-            context = self.path_to_context(path)
+            context = self._path_to_context(path)
             prediction = self.model(torch.tensor([context], device=self.device)).numpy()
 
         min_distance = float('inf')
