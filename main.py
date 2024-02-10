@@ -1,16 +1,12 @@
 import argparse
-import random
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from tqdm import tqdm
-
-from source.algorithm import TreeShaker, GraphWrapper
+from source.algorithm import GraphProcessor
 
 
 def main(args):
     input_paths = list(args.input_dir.glob('*.json'))
-    tree_shaker = TreeShaker(epsilon=1, delta=0.5, alpha=1)
+    tree_shaker = GraphProcessor(epsilon=1, delta=0.5, alpha=1)
     tree_shaker.perturb_graphs(input_paths)
 
 

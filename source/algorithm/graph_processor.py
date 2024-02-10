@@ -1,45 +1,62 @@
-from collections import Counter
+import pickle
+from itertools import product
+from pathlib import Path
 
-from source.algorithm.wrappers.graph_wrapper import GraphWrapper
-from source.algorithm.wrappers.node_wrapper import NodeWrapper
-from source.graphson import EdgeType
+import numpy as np
 
-EDGES_PROCESSED = '#edges processed'
-EDGES_FILTERED = '#edges filtered'
-PRUNED_AT_DEPTH = '#pruned at depth'
-SELF_REFERRING = '#self referring edges pruned'
-TIME_FILTERED = '#edges pruned by time'
-PRUNED_SUBTREE_SIZES = 'sizes of subtree pruned'
+from .utility import map_pool
+from .wrappers import GraphWrapper, EdgeWrapper
 
 
 class GraphProcessor:
-    stats: dict[str, Counter[EdgeType, int]]
-    lists: dict[str, list[any]]
+    epsilon_p: float  # structural budget = delta * epsilon
+    epsilon_m: float  # edge count budget = (1-delta) * epsilon
+    delta: float
+    alpha: float
 
-    def __init__(self):
-        self.stats = {}
-        self.lists = {'runtimes': []}
+    def __init__(self,
+                 epsilon: float,
+                 delta: float,
+                 alpha: float):
+        self.epsilon_p = delta * epsilon
+        self.epsilon_m = (1-delta) * epsilon
+        self.delta = delta
+        self.alpha = alpha
 
-    def increment_counter(self, key: str, edge_type: EdgeType) -> None:
-        if self.stats.get(key) is None:
-            self.stats[key] = Counter()
-        self.stats[key].update([str(edge_type)])
+    def perturb_graphs(self, paths: list[Path]) -> None:
+        # Load graphs
+        graphs = list(map_pool(
+            GraphWrapper.load_file,
+            paths,
+            'Loading graphs'
+        ))
+        # Preprocess graphs
+        preprocessed_graphs = map_pool(
+            GraphWrapper.preprocess,
+            graphs,
+            'Preprocessing graphs'
+        )
+        del graphs
 
-    def get_stats_str(self) -> str:
-        lines = []  # [f'runtime avg: {np.average(self.lists['runtimes'])}',
-        #          f'runtime stdev: {np.std(self.lists['runtimes'])}',
-        #          f'runtime (min, max): ({min(self.lists['runtimes']), max(self.lists['runtimes'])})']
-        for stat, counter in self.stats.items():
-            lines.append(stat)
-            for edge_type, value in counter.items():
-                lines.append(f'  {edge_type}: {value}')
-            lines.append('')
-        return '\n'.join(lines)
+        # Prune graphs
+        pruned_graphs = list(map_pool(
+            GraphWrapper.prune,
+            list(product(preprocessed_graphs, [self.alpha], [self.epsilon_p])),
+            'Pruning graphs'
+        ))
+        del preprocessed_graphs
 
+        # Create training data
+        train_data: list[tuple[str, GraphWrapper]] = list(map_pool(
+            GraphWrapper.get_train_data,
+            pruned_graphs,
+            'Creating training data'
+        ))
+        del pruned_graphs
 
-def count_disconnected_nodes(graph: GraphWrapper) -> float:
-    included_nodes: set[NodeWrapper] = set()
-    for edge in graph.edges:
-        included_nodes.add(graph.get_node(edge.get_src_id()))
-        included_nodes.add(graph.get_node(edge.get_dst_id()))
-    return len(set(graph.nodes) - included_nodes)
+        # Dump so we can pick up in a notebook
+        with open('train_data.pkl', 'wb') as f:
+            pickle.dump(train_data, f)
+            print(f'Wrote {len(train_data)} training examples to train_data.pkl')
+
+        # Add edges to graphs (epsilon_m)
