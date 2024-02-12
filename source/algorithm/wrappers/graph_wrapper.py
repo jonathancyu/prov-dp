@@ -23,7 +23,7 @@ class GraphWrapper:
     _edge_lookup: dict[int, EdgeWrapper]
 
     _subtree_lookup: dict[int, 'GraphWrapper']
-    _marked_edges: set[int]
+    marked_edge_ids: dict[int, str]  # edge_id: path
     _training_data: list[tuple[list[int], 'GraphWrapper']]  # (path, subtree) tuples
 
     @staticmethod
@@ -54,7 +54,7 @@ class GraphWrapper:
 
         self._set_node_times()
         self._subtree_lookup = {}
-        self._marked_edges = set()
+        self.marked_edge_ids = {}
         self._training_data = []
 
     # TODO: split this func, too many responsibilities
@@ -336,8 +336,10 @@ class GraphWrapper:
 
         return self
 
-    def _prune_tree(self, root_edge_id: int) -> 'GraphWrapper':
-        self._marked_edges.add(root_edge_id)
+    def _prune_tree(self,
+                    root_edge_id: int,
+                    path: str) -> 'GraphWrapper':
+        self.marked_edge_ids[root_edge_id] = path
         root_edge = self.get_edge(root_edge_id)
         subtree: GraphWrapper = self.get_subtree(root_edge.get_dst_id())
         for edge in subtree.edges:
@@ -367,7 +369,7 @@ class GraphWrapper:
             prune_edge = np.random.choice([True, False], p=[p, 1 - p])
             # If we prune, don't add children to queue
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root
-                pruned_tree = self._prune_tree(edge_id)
+                pruned_tree = self._prune_tree(edge_id, self._path_to_string(path))
                 visited_edge_ids.update(e.get_id() for e in pruned_tree.edges)
                 # print(f'Pruned {len(pruned_tree)} with p={p}')
                 self._training_data.append((path, pruned_tree))
@@ -392,25 +394,6 @@ class GraphWrapper:
                 num_leaves += 1
                 continue
         # print(f'Pruned {len(self._marked_edges)} subgraphs, and added {num_leaves} leaf samples')
-        return self
-
-    def add_trees(self) -> 'GraphWrapper':
-        queue = deque([(self.source_edge_id, [])])
-        while len(queue) > 0:
-            edge_id, path = queue.popleft()
-            edge = self.get_edge(edge_id)
-            if edge_id in self._marked_edges:
-                # predict a tree from our model
-                # add the contained nodes/edges, and set edge.dst_id = root(new tree)
-                continue
-
-            # TODO: could refactor this if we have to BGS some more time
-            node_id = edge.node_ids[OUT]
-            node = self.get_node(node_id)
-            queue.extend([
-                (next_edge_id, path + [edge_id])
-                for next_edge_id in node.edge_ids[OUT]
-            ])
         return self
 
     def _path_to_string(self, path: list[int]) -> str:
@@ -455,6 +438,12 @@ class GraphWrapper:
     def add_graph(self, graph: 'GraphWrapper') -> None:
         self.nodes.extend(graph.nodes)
         self.edges.extend(graph.edges)
+
+    def insert_subgraph(self,
+                        edge_id: int,
+                        graph: 'GraphWrapper') -> None:
+        edge = self.get_edge(edge_id)
+        assert edge.node_ids[OUT] is None
 
     def __len__(self):
         return len(self.nodes)

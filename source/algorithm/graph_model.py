@@ -40,17 +40,8 @@ class GraphModel:
                  momentum: float = 0.9,
                  base_model_path: Path = Path('.')):
         self.base_model_path = base_model_path
-
-        # Build vocabulary
-        assert len(paths) == len(graphs)
-        self.paths = paths
-        self.graphs = graphs
-        self.graph_embeddings = self._get_graph_embeddings()
-        self.stoi, self.itos = build_vocab(paths)
-        self.vocab_size = len(self.stoi)
-
-        # Initialize model
-        self.device = get_device()
+        self.base_model_path.mkdir(exist_ok=True, parents=True)
+        # Set model parameters
         self.context_length = context_length
         self.n_embedding = n_embedding
         self.n_hidden = n_hidden
@@ -59,6 +50,16 @@ class GraphModel:
         self.momentum = momentum
         self.batch_size = batch_size
 
+        # Build vocabulary
+        assert len(paths) == len(graphs)
+        self.paths = paths
+        self.graphs = graphs
+        self.graph_embeddings = self._get_graph_embeddings()
+        self.itos, self.stoi = build_vocab(paths)
+        self.vocab_size = len(self.stoi)
+
+        # Initialize model
+        self.device = get_device()
         self._init_model()
         self.model.to(self.device)
 
@@ -69,12 +70,12 @@ class GraphModel:
             nn.Flatten(),
             nn.Linear(self.n_embedding * self.context_length, self.n_embedding * self.context_length), nn.ReLU(),
             nn.Linear(self.n_embedding * self.context_length, self.n_hidden), nn.ReLU(),
-            nn.Linear(self.n_hidden, self.n_embedding)
+            nn.Linear(self.n_hidden, self.n_graph_embedding)
         )
 
     def _get_graph_embeddings(self) -> list[np.array]:
         # Embed graphs using graphviz
-        if not (self.base_model_path / 'graph2vec.pkl').exists():
+        if True:  # not (self.base_model_path / 'graph2vec.pkl').exists():
             # Fit model
             nx_graphs = [to_nx(graph) for graph in self.graphs]
             graph2vec = Graph2Vec(
@@ -84,6 +85,7 @@ class GraphModel:
                 workers=4,
                 epochs=5
             )
+            print('Fitting graph2vec')
             graph2vec.fit(nx_graphs)
             # Save model
             with open(self.base_model_path / 'graph2vec.pkl', 'wb') as file:
@@ -92,8 +94,9 @@ class GraphModel:
             # Load model
             with open(self.base_model_path / 'graph2vec.pkl', 'rb') as file:
                 graph2vec = pickle.load(file)
-
-        return graph2vec.get_embedding()
+        graph_embeddings = graph2vec.get_embedding()
+        assert len(graph_embeddings) == len(self.graphs)
+        return graph_embeddings
 
     def train(self, epochs: int):
         # Create dataset
@@ -123,7 +126,9 @@ class GraphModel:
                 # Log loss
                 if epoch % 100 == 0:
                     bar.set_description(f'Loss: {loss.item():.8f}')
-        torch.save(self.model.state_dict(), self.base_model_path / 'graph_model.tar')
+        model_path = self.base_model_path / 'graph_model.tar'
+        torch.save(self.model.state_dict(), model_path)
+        print(f'Saved model to {model_path}')
 
     def _path_to_context(self, path: str) -> list[int]:
         path_tokens = tokenize(path.split(' '))
@@ -148,7 +153,8 @@ class GraphModel:
         with torch.no_grad():
             self.model.eval()
             context = self._path_to_context(path)
-            prediction = self.model(torch.tensor([context], device=self.device)).numpy()
+            prediction_tensor = self.model(torch.tensor([context], device=self.device))
+            prediction = prediction_tensor.cpu().data.numpy()
 
         min_distance = float('inf')
         best_i: int = -1

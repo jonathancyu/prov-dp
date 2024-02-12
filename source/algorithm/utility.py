@@ -68,7 +68,7 @@ def build_vocab(paths: list[str]) -> tuple[list[str], dict[str, int]]:
     token_set = set()
     distinct_paths = set()
     for path in paths:
-        path = tokenize(path)
+        path = tokenize(path.split(' '))
         token_set.update(path)
         distinct_paths.add(' '.join(path))
     tokens = ['.'] + list(token_set)
