@@ -156,15 +156,11 @@ class GraphModel:
             prediction_tensor = self.model(torch.tensor([context], device=self.device))
             prediction = prediction_tensor.cpu().data.numpy()
 
-        min_distance = float('inf')
-        best_i: int = -1
+        probabilities = []
         for i in range(len(self.graph_embeddings)):
             embedding = self.graph_embeddings[i]
-            distance = np.linalg.norm(prediction - embedding, ord=1)
-            if distance < min_distance:
-                min_distance = distance
-                best_i = i
-
-        assert best_i >= 0
-        print(f'Closest match: {best_i}')
-        return self.graphs[best_i]
+            probabilities.append(np.linalg.norm(prediction - embedding, ord=1))
+        probabilities /= np.sum(probabilities)
+        choice = np.random.choice(len(probabilities), p=probabilities)
+        print(f'Predicted {choice} with probability {probabilities[i]}')
+        return self.graphs[choice]
