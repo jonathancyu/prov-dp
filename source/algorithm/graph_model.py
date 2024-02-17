@@ -80,7 +80,7 @@ class GraphModel:
 
     def _get_graph_embeddings(self) -> list[np.array]:
         # Embed graphs using graphviz
-        if True:  # not (self.base_model_path / 'graph2vec.pkl').exists():
+        if not (self.base_model_path / 'graph2vec.pkl').exists():
             # Fit model
             nx_graphs = [to_nx(graph) for graph in self.graphs]
             graph2vec = Graph2Vec(
@@ -99,6 +99,7 @@ class GraphModel:
             # Load model
             with open(self.base_model_path / 'graph2vec.pkl', 'rb') as file:
                 graph2vec = pickle.load(file)
+        print('Finished loading graph2vec')
         graph_embeddings = graph2vec.get_embedding()
         assert len(graph_embeddings) == len(self.graphs)
         return graph_embeddings
