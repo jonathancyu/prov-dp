@@ -2,6 +2,7 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import TypeVar, Generator
 
 import networkx as nx
+import torch
 from tqdm import tqdm
 
 from .wrappers import Subgraph, GraphWrapper, IN, OUT
@@ -42,3 +43,34 @@ def map_pool(func: callable,
             for future in futures:
                 yield future.result()
                 pbar.update(1)
+
+
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device('cuda')
+    elif torch.backends.mps.is_available():
+        return torch.device('mps')
+    else:
+        return torch.device('cpu')
+
+
+def tokenize(path):
+    assert len(path) % 2 == 0
+    return [f'{path[idx]}|{path[idx + 1]}' for idx in range(0, len(path), 2)]
+
+
+def build_vocab(paths: list[str]) -> tuple[list[str], dict[str, int]]:
+    """
+    Builds the vocabulary for the model.
+    :param paths: list of paths
+    :return: integer to string, and string to integer mappings
+    """
+    token_set = set()
+    distinct_paths = set()
+    for path in paths:
+        path = tokenize(path.split(' '))
+        token_set.update(path)
+        distinct_paths.add(' '.join(path))
+    tokens = ['.'] + list(token_set)
+    print(f'Found {len(tokens)} tokens and {len(distinct_paths)} distinct paths in {len(paths)} entries')
+    return tokens, {token: i for i, token in enumerate(tokens)}

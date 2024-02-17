@@ -1,17 +1,22 @@
 import argparse
+import pickle
 import random
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from tqdm import tqdm
-
-from source.algorithm import TreeShaker, GraphWrapper
+from source.algorithm import GraphProcessor
+from utility import save_dot
 
 
 def main(args):
+    random.seed(42)
     input_paths = list(args.input_dir.glob('*.json'))
-    tree_shaker = TreeShaker(epsilon=1, delta=0.5, alpha=1)
-    tree_shaker.perturb_graphs(input_paths)
+    tree_shaker = GraphProcessor(epsilon=1, delta=0.5, alpha=1)
+    perturbed_graphs = tree_shaker.perturb_graphs(input_paths)
+    with open(args.output_dir / 'perturbed_graphs.txt', 'wb') as f:
+        pickle.dump(perturbed_graphs, f)
+
+    for graph in perturbed_graphs:
+        save_dot(graph.to_dot(), args.output_dir / f'nd-{graph.source_edge_ref_id}-processletevent.dot')
 
 
 if __name__ == '__main__':

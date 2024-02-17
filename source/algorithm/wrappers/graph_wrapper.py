@@ -17,13 +17,14 @@ class GraphWrapper:
     graph: Graph
     nodes: list[NodeWrapper]
     edges: list[EdgeWrapper]
+    source_edge_ref_id: int | None
     source_edge_id: int | None
 
     _node_lookup: dict[int, NodeWrapper]
     _edge_lookup: dict[int, EdgeWrapper]
 
     _subtree_lookup: dict[int, 'GraphWrapper']
-    _marked_edges: set[int]
+    marked_edge_ids: dict[int, str]  # edge_id: path
     _training_data: list[tuple[list[int], 'GraphWrapper']]  # (path, subtree) tuples
 
     @staticmethod
@@ -44,6 +45,7 @@ class GraphWrapper:
         self._init_edges(self.graph.edges)
 
         # todo: this is convoluted
+        self.source_edge_ref_id = source_edge_ref_id
         if source_edge_ref_id is not None:
             # Ref ID != graphson ID, so we need to find the edge with the matching ref ID
             source_edge = [edge for edge in self.edges if edge.get_ref_id() == source_edge_ref_id]
@@ -54,7 +56,7 @@ class GraphWrapper:
 
         self._set_node_times()
         self._subtree_lookup = {}
-        self._marked_edges = set()
+        self.marked_edge_ids = {}
         self._training_data = []
 
     # TODO: split this func, too many responsibilities
@@ -83,6 +85,7 @@ class GraphWrapper:
                     visited_node_ids: list[int] = None) -> 'GraphWrapper':
         """
         :param root_node_id: ID of the root node
+        :param visited_node_ids: List of node IDs that have already been visited
         :return: Subtree rooted at the given node
         """
         # Check if we've already computed this subtree
@@ -335,10 +338,13 @@ class GraphWrapper:
 
         return self
 
-    def _prune_tree(self, root_edge_id: int) -> 'GraphWrapper':
-        self._marked_edges.add(root_edge_id)
+    def _prune_tree(self,
+                    root_edge_id: int,
+                    path: str) -> 'GraphWrapper':
+        self.marked_edge_ids[root_edge_id] = path
         root_edge = self.get_edge(root_edge_id)
         subtree: GraphWrapper = self.get_subtree(root_edge.get_dst_id())
+        root_edge.node_ids[OUT] = None
         for edge in subtree.edges:
             self.remove_edge(edge)
         for node in subtree.nodes:
@@ -346,6 +352,8 @@ class GraphWrapper:
         return subtree
 
     def prune(self, alpha: float, epsilon: float) -> 'GraphWrapper':
+        sizes = []
+        depths = []
         num_leaves = 0
         local_sensitivity: float = 1 / alpha
         # (edge_id, list[edge_id_path]) tuples
@@ -366,7 +374,9 @@ class GraphWrapper:
             prune_edge = np.random.choice([True, False], p=[p, 1 - p])
             # If we prune, don't add children to queue
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root
-                pruned_tree = self._prune_tree(edge_id)
+                sizes.append(subtree_size)
+                depths.append(len(path))
+                pruned_tree = self._prune_tree(edge_id, self._path_to_string(path))
                 visited_edge_ids.update(e.get_id() for e in pruned_tree.edges)
                 # print(f'Pruned {len(pruned_tree)} with p={p}')
                 self._training_data.append((path, pruned_tree))
@@ -391,26 +401,7 @@ class GraphWrapper:
                 num_leaves += 1
                 continue
         # print(f'Pruned {len(self._marked_edges)} subgraphs, and added {num_leaves} leaf samples')
-        return self
-
-    def add_trees(self) -> 'GraphWrapper':
-        queue = deque([(self.source_edge_id, [])])
-        while len(queue) > 0:
-            edge_id, path = queue.popleft()
-            edge = self.get_edge(edge_id)
-            if edge_id in self._marked_edges:
-                # predict a tree from our model
-                # add the contained nodes/edges, and set edge.dst_id = root(new tree)
-                continue
-
-            # TODO: could refactor this if we have to BGS some more time
-            node_id = edge.node_ids[OUT]
-            node = self.get_node(node_id)
-            queue.extend([
-                (next_edge_id, path + [edge_id])
-                for next_edge_id in node.edge_ids[OUT]
-            ])
-        return self
+        return self, sizes, depths
 
     def _path_to_string(self, path: list[int]) -> str:
         tokens = []
@@ -454,6 +445,29 @@ class GraphWrapper:
     def add_graph(self, graph: 'GraphWrapper') -> None:
         self.nodes.extend(graph.nodes)
         self.edges.extend(graph.edges)
+
+    def insert_subgraph(self,
+                        edge_id: int,
+                        graph: 'GraphWrapper') -> None:
+        edge = self.get_edge(edge_id)
+        assert edge.node_ids[OUT] is None
+
+        new_edge_ids = {}
+        new_node_ids = {}
+        for node in graph.nodes:
+            new_node = deepcopy(node)
+            new_node_id = self.get_next_node_id()
+            new_node.node.id = new_node_id
+            new_node_ids[node.get_id()] = new_node_id
+            self.add_node(new_node)
+
+        for edge in graph.edges:
+            new_edge = deepcopy(edge)
+            new_edge_id = self.get_next_edge_id()
+            new_edge.node_ids[IN] = new_node_ids[edge.node_ids[IN]]
+            new_edge.node_ids[OUT] = new_node_ids[edge.node_ids[OUT]]
+            new_edge_ids[edge.get_id()] = new_edge_id
+            self.add_edge(new_edge)
 
     def __len__(self):
         return len(self.nodes)
