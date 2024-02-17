@@ -17,6 +17,7 @@ class GraphWrapper:
     graph: Graph
     nodes: list[NodeWrapper]
     edges: list[EdgeWrapper]
+    source_edge_ref_id: int | None
     source_edge_id: int | None
 
     _node_lookup: dict[int, NodeWrapper]
@@ -44,6 +45,7 @@ class GraphWrapper:
         self._init_edges(self.graph.edges)
 
         # todo: this is convoluted
+        self.source_edge_ref_id = source_edge_ref_id
         if source_edge_ref_id is not None:
             # Ref ID != graphson ID, so we need to find the edge with the matching ref ID
             source_edge = [edge for edge in self.edges if edge.get_ref_id() == source_edge_ref_id]
@@ -342,6 +344,7 @@ class GraphWrapper:
         self.marked_edge_ids[root_edge_id] = path
         root_edge = self.get_edge(root_edge_id)
         subtree: GraphWrapper = self.get_subtree(root_edge.get_dst_id())
+        root_edge.node_ids[OUT] = None
         for edge in subtree.edges:
             self.remove_edge(edge)
         for node in subtree.nodes:
@@ -349,6 +352,8 @@ class GraphWrapper:
         return subtree
 
     def prune(self, alpha: float, epsilon: float) -> 'GraphWrapper':
+        sizes = []
+        depths = []
         num_leaves = 0
         local_sensitivity: float = 1 / alpha
         # (edge_id, list[edge_id_path]) tuples
@@ -369,6 +374,8 @@ class GraphWrapper:
             prune_edge = np.random.choice([True, False], p=[p, 1 - p])
             # If we prune, don't add children to queue
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root
+                sizes.append(subtree_size)
+                depths.append(len(path))
                 pruned_tree = self._prune_tree(edge_id, self._path_to_string(path))
                 visited_edge_ids.update(e.get_id() for e in pruned_tree.edges)
                 # print(f'Pruned {len(pruned_tree)} with p={p}')
@@ -394,7 +401,7 @@ class GraphWrapper:
                 num_leaves += 1
                 continue
         # print(f'Pruned {len(self._marked_edges)} subgraphs, and added {num_leaves} leaf samples')
-        return self
+        return self, sizes, depths
 
     def _path_to_string(self, path: list[int]) -> str:
         tokens = []
@@ -444,6 +451,23 @@ class GraphWrapper:
                         graph: 'GraphWrapper') -> None:
         edge = self.get_edge(edge_id)
         assert edge.node_ids[OUT] is None
+
+        new_edge_ids = {}
+        new_node_ids = {}
+        for node in graph.nodes:
+            new_node = deepcopy(node)
+            new_node_id = self.get_next_node_id()
+            new_node.node.id = new_node_id
+            new_node_ids[node.get_id()] = new_node_id
+            self.add_node(new_node)
+
+        for edge in graph.edges:
+            new_edge = deepcopy(edge)
+            new_edge_id = self.get_next_edge_id()
+            new_edge.node_ids[IN] = new_node_ids[edge.node_ids[IN]]
+            new_edge.node_ids[OUT] = new_node_ids[edge.node_ids[OUT]]
+            new_edge_ids[edge.get_id()] = new_edge_id
+            self.add_edge(new_edge)
 
     def __len__(self):
         return len(self.nodes)
