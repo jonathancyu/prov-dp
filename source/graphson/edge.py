@@ -14,6 +14,7 @@ class Edge(GraphsonObject):
     optype: str = Field(..., alias='OPTYPE')
     label: str = Field(..., alias='_label')
     time: int = Field(..., alias='EVENT_START')
+    marked: bool = False
 
     def __repr__(self):
         return f'{self.src_id}-{self.optype}-{self.dst_id}'
@@ -37,6 +38,8 @@ class Edge(GraphsonObject):
         }
         if self.optype == 'EPHEMERAL':
             args['color'] = 'blue'
+        if self.marked:
+            args['color'] = 'red'
         # if self.time is not None:
         #     args['label'] += format_timestamp(self.time)
         args['label'] += self.label

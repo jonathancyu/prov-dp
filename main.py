@@ -11,7 +11,7 @@ def main(args):
     random.seed(42)
     input_paths = list(args.input_dir.glob('*.json'))
     tree_shaker = GraphProcessor(epsilon=1, delta=0.5, alpha=1)
-    perturbed_graphs = tree_shaker.perturb_graphs(input_paths)
+    perturbed_graphs = tree_shaker.perturb_graphs(input_paths[:10])
     with open(args.output_dir / 'perturbed_graphs.txt', 'wb') as f:
         pickle.dump(perturbed_graphs, f)
 

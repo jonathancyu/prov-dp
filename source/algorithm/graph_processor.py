@@ -3,6 +3,7 @@ from itertools import product
 from pathlib import Path
 
 import numpy as np
+from tqdm import tqdm
 
 from . import IN
 from .graph_model import GraphModel
@@ -29,15 +30,15 @@ class GraphProcessor:
 
     def perturb_graphs(self, paths: list[Path]) -> list[GraphWrapper]:
         # Load graphs
-        graphs = list(map_pool(
+        graphs = map_pool(
             GraphWrapper.load_file,
             paths,
             'Loading graphs'
-        ))
+        )
         # === Preprocess graphs === #
         preprocessed_graphs = map_pool(
             GraphWrapper.preprocess,
-            graphs,
+            list(graphs),
             'Preprocessing graphs'
         )
         del graphs
@@ -93,18 +94,27 @@ class GraphProcessor:
         # Add graphs back (epsilon_m)
         sizes = []
         num_marked_edges = []
-        for graph in pruned_graphs:
-            print(f'Processing graph {graph.source_edge_ref_id}')
+        count_from_same_graph = []
+        for graph in tqdm(pruned_graphs):
+            from_same_graph = 0
             num_marked_edges.append(len(graph.marked_edge_ids))
             for marked_edge_id, path in graph.marked_edge_ids.items():
-                print(f'    {marked_edge_id}')
                 subgraph = model.predict(path)
+                if subgraph.source_edge_ref_id == graph.source_edge_ref_id:
+                    from_same_graph += 1
                 sizes.append(len(subgraph))
                 graph.insert_subgraph(marked_edge_id, subgraph)
+            count_from_same_graph.append(from_same_graph)
 
         print(f'Subgraph size - avg: {np.mean(sizes):.2f}, min: {np.min(sizes)}, max: {np.max(sizes)}, '
               f'std: {np.std(sizes):.2f}')
         print(f'Num marked edges - avg: {np.mean(num_marked_edges):.2f}, min: {np.min(num_marked_edges)}, ' +
               f'max: {np.max(num_marked_edges)}, std: {np.std(num_marked_edges):.2f}')
-
+        print(f'Num marked edges from same graph - avg: {np.mean(count_from_same_graph):.2f}, min: {np.min(count_from_same_graph)}, '
+              f'max: {np.max(count_from_same_graph)}, std: {np.std(count_from_same_graph):.2f}')
+        from_same_graph_percentages = [x / y for x, y in zip(count_from_same_graph, num_marked_edges)]
+        print(f'Percentage of marked edges from same graph - avg: {np.mean(from_same_graph_percentages):.2f}, min: {np.min(from_same_graph_percentages)}, '
+              f'max: {np.max(from_same_graph_percentages)}, std: {np.std(from_same_graph_percentages):.2f}')
+        print()
+        model.print_stats()
         return pruned_graphs

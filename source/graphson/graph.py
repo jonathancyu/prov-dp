@@ -47,6 +47,9 @@ class Graph(BaseModel):
             dot_graph.node(str(node.id), **node.to_dot_args())
 
         for edge in sorted_edges:
+            if edge.dst_id is None or edge.src_id is None:
+                print(edge.id)
+                continue
             add_to_graph(self.get_node(edge.src_id))
             dot_graph.edge(str(edge.src_id), str(edge.dst_id), **edge.to_dot_args())
             add_to_graph(self.get_node(edge.dst_id))
@@ -57,7 +60,10 @@ class Graph(BaseModel):
         return dot_graph
 
     def get_node(self, node_id: int):
-        return self._node_lookup[node_id]
+        for node in self.nodes:
+            if node.id == node_id:
+                return node
+        raise ValueError(f'Node with ID {node_id} not found')
 
     def _add_node(self,
                   node_id: int,

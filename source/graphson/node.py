@@ -22,6 +22,7 @@ class NodeType(Enum):
 class Node(GraphsonObject):
     id: int = Field(..., alias='_id')
     type: NodeType = Field(..., alias='TYPE')
+    marked: bool = False
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -67,4 +68,6 @@ class Node(GraphsonObject):
                     'style': 'solid',
                     'label': 'ephemeral'
                 }
+        if self.marked:
+            args['color'] = 'greenyellow'
         return {key: sanitize(value) for key, value in args.items()}

@@ -19,6 +19,7 @@ class GraphWrapper:
     edges: list[EdgeWrapper]
     source_edge_ref_id: int | None
     source_edge_id: int | None
+    root_node_id: int | None
 
     _node_lookup: dict[int, NodeWrapper]
     _edge_lookup: dict[int, EdgeWrapper]
@@ -126,6 +127,7 @@ class GraphWrapper:
         edge_id = edge.get_id()
         assert self.get_edge(edge_id) is None
         self.edges.append(edge)
+        self.graph.edges.append(edge.edge)
         self._edge_lookup[edge_id] = edge
         for direction in [IN, OUT]:
             opposite = OUT if direction == IN else OUT
@@ -137,6 +139,7 @@ class GraphWrapper:
 
     def add_node(self, node: NodeWrapper) -> None:
         self.nodes.append(node)
+        self.graph.nodes.append(node.node)
         self._node_lookup[node.get_id()] = node
 
     def remove_node(self, node: NodeWrapper) -> None:
@@ -263,14 +266,13 @@ class GraphWrapper:
                 new_node = deepcopy(node)
                 new_node_id = self.get_next_node_id() + len(nodes_to_add)
                 new_node.node.id = new_node_id
-                new_node.edge_ids = {IN: [edge_id], OUT: []}
+                new_node.add_incoming(edge_id)
                 nodes_to_add.append(new_node)
 
                 # Move edge to new node
                 edge = self.get_edge(edge_id)
-                edge.node_ids[OUT] = new_node_id
-                edge.edge.dst_id = new_node_id
-        # Apply changes
+                edge.set_dst_id(new_node_id)
+        # Apply node changes
         for node in nodes_to_remove:
             self.remove_node(node)
         for node in nodes_to_add:
@@ -344,7 +346,11 @@ class GraphWrapper:
         self.marked_edge_ids[root_edge_id] = path
         root_edge = self.get_edge(root_edge_id)
         subtree: GraphWrapper = self.get_subtree(root_edge.get_dst_id())
-        root_edge.node_ids[OUT] = None
+        subtree.source_edge_ref_id = self.source_edge_ref_id
+        root_node = self.get_node(root_edge.get_dst_id())
+        root_node.edge_ids[IN] = []
+        root_edge.set_dst_id(None)
+
         for edge in subtree.edges:
             self.remove_edge(edge)
         for node in subtree.nodes:
@@ -396,7 +402,10 @@ class GraphWrapper:
             else:
                 # If there are no children, this is a leaf, so add the path to the training data
                 leaf_graph = GraphWrapper()
-                leaf_graph.add_node(node)
+                leaf_graph.source_edge_ref_id = self.source_edge_ref_id
+                leaf_node = deepcopy(node)
+                leaf_node.edge_ids[IN] = []
+                leaf_graph.add_node(leaf_node)
                 self._training_data.append((path, leaf_graph))
                 num_leaves += 1
                 continue
@@ -446,28 +455,47 @@ class GraphWrapper:
         self.nodes.extend(graph.nodes)
         self.edges.extend(graph.edges)
 
+    def get_root_node_id(self) -> int:
+        root_nodes = [node for node in self.nodes if len(node.edge_ids[IN]) == 0]
+        if len(root_nodes) != 1:
+            pass
+        assert len(root_nodes) == 1
+        return root_nodes[0].get_id()
+
     def insert_subgraph(self,
-                        edge_id: int,
+                        root_edge_id: int,
                         graph: 'GraphWrapper') -> None:
-        edge = self.get_edge(edge_id)
-        assert edge.node_ids[OUT] is None
+        root_edge = self.get_edge(root_edge_id)
+        assert root_edge.node_ids[OUT] is None
 
         new_edge_ids = {}
         new_node_ids = {}
+        # Update node IDs to avoid collision in the current graph
         for node in graph.nodes:
+            node_id = node.get_id()
             new_node = deepcopy(node)
             new_node_id = self.get_next_node_id()
             new_node.node.id = new_node_id
-            new_node_ids[node.get_id()] = new_node_id
+            new_node_ids[node_id] = new_node_id
+            new_node.node.marked = True
             self.add_node(new_node)
 
+        # Update edge IDs to avoid collision in the current graph, and bring up to date with node IDs
         for edge in graph.edges:
             new_edge = deepcopy(edge)
             new_edge_id = self.get_next_edge_id()
             new_edge.node_ids[IN] = new_node_ids[edge.node_ids[IN]]
             new_edge.node_ids[OUT] = new_node_ids[edge.node_ids[OUT]]
             new_edge_ids[edge.get_id()] = new_edge_id
+            new_edge.edge.marked = True
             self.add_edge(new_edge)
+
+        # Attach root node to root edge
+        assert graph.get_root_node_id() in new_node_ids
+        new_root_node = new_node_ids[graph.get_root_node_id()]
+        root_edge = self.get_edge(root_edge_id)
+        assert root_edge is not None
+        root_edge.set_dst_id(new_root_node)
 
     def __len__(self):
         return len(self.nodes)

@@ -28,6 +28,9 @@ class GraphModel:
 
     base_model_path: Path
 
+    # Stats
+    _probabilities: list[dict[str,float]]
+
     def __init__(self,
                  paths: list[str],
                  graphs: list[GraphWrapper],
@@ -62,6 +65,8 @@ class GraphModel:
         self.device = get_device()
         self._init_model()
         self.model.to(self.device)
+
+        self._probabilities = []
 
 
     def _init_model(self):
@@ -162,5 +167,17 @@ class GraphModel:
             probabilities.append(np.linalg.norm(prediction - embedding, ord=1))
         probabilities /= np.sum(probabilities)
         choice = np.random.choice(len(probabilities), p=probabilities)
-        print(f'Predicted {choice} with probability {probabilities[i]}')
+        self._probabilities.append({
+            'mean': np.mean(probabilities),
+            'std': np.std(probabilities),
+            'min': np.min(probabilities),
+            'max': np.max(probabilities),
+        })
         return self.graphs[choice]
+
+    def print_stats(self) -> None:
+        print(f'Probability Distribution: (N={len(self._probabilities)})')
+        print(f'Mean: {np.mean([p["mean"] for p in self._probabilities])}')
+        print(f'Std: {np.mean([p["std"] for p in self._probabilities])}')
+        print(f'Min: {np.mean([p["min"] for p in self._probabilities])}')
+        print(f'Max: {np.mean([p["max"] for p in self._probabilities])}')
