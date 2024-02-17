@@ -14,8 +14,8 @@ class Graph(BaseModel):
     nodes: list[Node] = Field(alias='vertices', default_factory=list)
     edges: list[Edge] = Field(alias='edges', default_factory=list)
 
-    _included_nodes: set[Node]
-    _node_lookup: dict[int, Node]
+    __included_nodes: set[Node]
+    __node_lookup: dict[int, Node]
 
     @staticmethod
     def load_file(path_to_json: Path):
@@ -25,7 +25,7 @@ class Graph(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._node_lookup = {
+        self.__node_lookup = {
             node.id: node
             for node in self.nodes
         }
@@ -47,9 +47,6 @@ class Graph(BaseModel):
             dot_graph.node(str(node.id), **node.to_dot_args())
 
         for edge in sorted_edges:
-            if edge.dst_id is None or edge.src_id is None:
-                print(edge.id)
-                continue
             add_to_graph(self.get_node(edge.src_id))
             dot_graph.edge(str(edge.src_id), str(edge.dst_id), **edge.to_dot_args())
             add_to_graph(self.get_node(edge.dst_id))
@@ -60,15 +57,12 @@ class Graph(BaseModel):
         return dot_graph
 
     def get_node(self, node_id: int):
-        for node in self.nodes:
-            if node.id == node_id:
-                return node
-        raise ValueError(f'Node with ID {node_id} not found')
+        return self.__node_lookup[node_id]
 
-    def _add_node(self,
-                  node_id: int,
-                  callback: Callable[[Node], None]):
-        node = self._node_lookup.get(node_id)
-        if node not in self._included_nodes:
-            self._included_nodes.add(node)
+    def __add_node(self,
+                   node_id: int,
+                   callback: Callable[[Node], None]):
+        node = self.__node_lookup.get(node_id)
+        if node not in self.__included_nodes:
+            self.__included_nodes.add(node)
             callback(node)

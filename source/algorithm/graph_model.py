@@ -29,7 +29,7 @@ class GraphModel:
     base_model_path: Path
 
     # Stats
-    _probabilities: list[dict[str,float]]
+    __probabilities: list[dict[str,float]]
 
     def __init__(self,
                  paths: list[str],
@@ -57,19 +57,19 @@ class GraphModel:
         assert len(paths) == len(graphs)
         self.paths = paths
         self.graphs = graphs
-        self.graph_embeddings = self._get_graph_embeddings()
+        self.graph_embeddings = self.__get_graph_embeddings()
         self.itos, self.stoi = build_vocab(paths)
         self.vocab_size = len(self.stoi)
 
         # Initialize model
         self.device = get_device()
-        self._init_model()
+        self.__init_model()
         self.model.to(self.device)
 
-        self._probabilities = []
+        self.__probabilities = []
 
 
-    def _init_model(self):
+    def __init_model(self):
         self.model = nn.Sequential(
             nn.Embedding(self.vocab_size, self.n_embedding),
             nn.Flatten(),
@@ -78,7 +78,7 @@ class GraphModel:
             nn.Linear(self.n_hidden, self.n_graph_embedding)
         )
 
-    def _get_graph_embeddings(self) -> list[np.array]:
+    def __get_graph_embeddings(self) -> list[np.array]:
         # Embed graphs using graphviz
         if not (self.base_model_path / 'graph2vec.pkl').exists():
             # Fit model
@@ -106,7 +106,7 @@ class GraphModel:
 
     def train(self, epochs: int):
         # Create dataset
-        X, Y = self._build_dataset(self.paths, self.graph_embeddings)
+        X, Y = self.__build_dataset(self.paths, self.graph_embeddings)
         print(f'X: {X.shape}, Y: {Y.shape}')
 
         # Train model
@@ -136,7 +136,7 @@ class GraphModel:
         torch.save(self.model.state_dict(), model_path)
         print(f'Saved model to {model_path}')
 
-    def _path_to_context(self, path: str) -> list[int]:
+    def __path_to_context(self, path: str) -> list[int]:
         path_tokens = tokenize(path.split(' '))
         path = [self.stoi[token] for token in path_tokens]
         context = [0] * self.context_length
@@ -144,12 +144,12 @@ class GraphModel:
             context[i] = path[i]
         return context
 
-    def _build_dataset(self,
-                       paths: list[str],
-                       graph_embeddings: list[np.array]) -> tuple[torch.tensor, torch.tensor]:
+    def __build_dataset(self,
+                        paths: list[str],
+                        graph_embeddings: list[np.array]) -> tuple[torch.tensor, torch.tensor]:
         X, Y = [], []
         for path, graph_embedding in zip(paths, graph_embeddings):
-            context = self._path_to_context(path)
+            context = self.__path_to_context(path)
             X.append(context)
             Y.append(graph_embedding)
 
@@ -158,7 +158,7 @@ class GraphModel:
     def predict(self, path: str) -> GraphWrapper:
         with torch.no_grad():
             self.model.eval()
-            context = self._path_to_context(path)
+            context = self.__path_to_context(path)
             prediction_tensor = self.model(torch.tensor([context], device=self.device))
             prediction = prediction_tensor.cpu().data.numpy()
 
@@ -168,7 +168,7 @@ class GraphModel:
             probabilities.append(np.linalg.norm(prediction - embedding, ord=1))
         probabilities /= np.sum(probabilities)
         choice = np.random.choice(len(probabilities), p=probabilities)
-        self._probabilities.append({
+        self.__probabilities.append({
             'mean': np.mean(probabilities),
             'std': np.std(probabilities),
             'min': np.min(probabilities),
@@ -177,8 +177,8 @@ class GraphModel:
         return self.graphs[choice]
 
     def print_stats(self) -> None:
-        print(f'Probability Distribution: (N={len(self._probabilities)})')
-        print(f'Mean: {np.mean([p["mean"] for p in self._probabilities])}')
-        print(f'Std: {np.mean([p["std"] for p in self._probabilities])}')
-        print(f'Min: {np.mean([p["min"] for p in self._probabilities])}')
-        print(f'Max: {np.mean([p["max"] for p in self._probabilities])}')
+        print(f'Probability Distribution: (N={len(self.__probabilities)})')
+        print(f'Mean: {np.mean([p["mean"] for p in self.__probabilities])}')
+        print(f'Std: {np.mean([p["std"] for p in self.__probabilities])}')
+        print(f'Min: {np.mean([p["min"] for p in self.__probabilities])}')
+        print(f'Max: {np.mean([p["max"] for p in self.__probabilities])}')

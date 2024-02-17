@@ -21,12 +21,12 @@ class GraphWrapper:
     source_edge_id: int | None
     root_node_id: int | None
 
-    _node_lookup: dict[int, NodeWrapper]
-    _edge_lookup: dict[int, EdgeWrapper]
+    __node_lookup: dict[int, NodeWrapper]
+    __edge_lookup: dict[int, EdgeWrapper]
 
-    _subtree_lookup: dict[int, 'GraphWrapper']
+    __subtree_lookup: dict[int, 'GraphWrapper']
     marked_edge_ids: dict[int, str]  # edge_id: path
-    _training_data: list[tuple[list[int], 'GraphWrapper']]  # (path, subtree) tuples
+    __training_data: list[tuple[list[int], 'GraphWrapper']]  # (path, subtree) tuples
 
     @staticmethod
     def load_file(json_path: Path) -> 'GraphWrapper':
@@ -42,8 +42,8 @@ class GraphWrapper:
 
         self.nodes = []
         self.edges = []
-        self._init_nodes(self.graph.nodes)
-        self._init_edges(self.graph.edges)
+        self.__init_nodes(self.graph.nodes)
+        self.__init_edges(self.graph.edges)
 
         # todo: this is convoluted
         self.source_edge_ref_id = source_edge_ref_id
@@ -55,13 +55,13 @@ class GraphWrapper:
         else:
             self.source_edge_id = None
 
-        self._set_node_times()
-        self._subtree_lookup = {}
+        self.__set_node_times()
+        self.__subtree_lookup = {}
         self.marked_edge_ids = {}
-        self._training_data = []
+        self.__training_data = []
 
     # TODO: split this func, too many responsibilities
-    def _set_node_times(self) -> None:
+    def __set_node_times(self) -> None:
         included_nodes: set[int] = set()
         sorted_edges = sorted(self.edges, key=lambda e: e.get_time(), reverse=True)
         for edge in sorted_edges:
@@ -90,7 +90,7 @@ class GraphWrapper:
         :return: Subtree rooted at the given node
         """
         # Check if we've already computed this subtree
-        subtree = self._subtree_lookup.get(root_node_id)
+        subtree = self.__subtree_lookup.get(root_node_id)
         if subtree is not None:
             return subtree
         visited_node_ids = visited_node_ids or []
@@ -112,7 +112,7 @@ class GraphWrapper:
                 subgraph.add_graph(next_subgraph)
 
         # Cache result
-        self._subtree_lookup[root_node_id] = subgraph
+        self.__subtree_lookup[root_node_id] = subgraph
 
         return subgraph
 
@@ -128,7 +128,7 @@ class GraphWrapper:
         assert self.get_edge(edge_id) is None
         self.edges.append(edge)
         self.graph.edges.append(edge.edge)
-        self._edge_lookup[edge_id] = edge
+        self.__edge_lookup[edge_id] = edge
         for direction in [IN, OUT]:
             opposite = OUT if direction == IN else OUT
             if node := self.get_node(edge.node_ids[direction]):
@@ -140,16 +140,16 @@ class GraphWrapper:
     def add_node(self, node: NodeWrapper) -> None:
         self.nodes.append(node)
         self.graph.nodes.append(node.node)
-        self._node_lookup[node.get_id()] = node
+        self.__node_lookup[node.get_id()] = node
 
     def remove_node(self, node: NodeWrapper) -> None:
         self.nodes.remove(node)
-        self._node_lookup.pop(node.get_id())
+        self.__node_lookup.pop(node.get_id())
 
     def remove_edge(self, edge: EdgeWrapper) -> None:
         edge_id = edge.get_id()
         self.edges.remove(edge)
-        self._edge_lookup.pop(edge_id)
+        self.__edge_lookup.pop(edge_id)
         for direction in [IN, OUT]:
             opposite = OUT if direction == IN else IN
             if node := self.get_node(edge.node_ids[direction]):
@@ -161,26 +161,26 @@ class GraphWrapper:
             edges=[edge.edge for edge in self.edges]
         ).to_dot()
 
-    def _init_nodes(self, nodes: list[Node]):
-        self._node_lookup = {}
+    def __init_nodes(self, nodes: list[Node]):
+        self.__node_lookup = {}
         for node in nodes:
             node_wrapper = NodeWrapper(node)
             self.nodes.append(node_wrapper)
-            self._node_lookup[node.id] = node_wrapper
+            self.__node_lookup[node.id] = node_wrapper
 
-    def _init_edges(self, edges: list[Edge]):
-        self._edge_lookup = {}
+    def __init_edges(self, edges: list[Edge]):
+        self.__edge_lookup = {}
         for edge in edges:
             edge_wrapper = EdgeWrapper(edge)
             self.edges.append(edge_wrapper)
-            self._edge_lookup[edge_wrapper.get_id()] = edge_wrapper
+            self.__edge_lookup[edge_wrapper.get_id()] = edge_wrapper
 
     def get_paths(self) -> list[list[EdgeWrapper]]:
         paths: dict[str, list[list[EdgeWrapper]]] = {
             IN: [], OUT: []
         }
         for direction in [IN, OUT]:
-            paths[direction].extend(self._get_paths_in_direction(self.get_edge(self.source_edge_id), direction))
+            paths[direction].extend(self.__get_paths_in_direction(self.get_edge(self.source_edge_id), direction))
 
         # Invert the IN (backtrack) paths
         paths[IN] = [path[::-1] for path in paths[IN]]
@@ -191,12 +191,12 @@ class GraphWrapper:
         path_combinations = itertools.product(paths[IN], paths[OUT])
         return [list(itertools.chain.from_iterable(path_pair)) for path_pair in path_combinations]
 
-    def _get_paths_in_direction(self,
-                                source: EdgeWrapper,
-                                direction: str,
-                                current_path: list[EdgeWrapper] = None,
-                                visited_ids: list[int] = None
-                                ) -> list[list[EdgeWrapper]]:
+    def __get_paths_in_direction(self,
+                                 source: EdgeWrapper,
+                                 direction: str,
+                                 current_path: list[EdgeWrapper] = None,
+                                 visited_ids: list[int] = None
+                                 ) -> list[list[EdgeWrapper]]:
         # copy current path to avoid mutation
         current_path = current_path or []
         visited_ids = visited_ids or []
@@ -215,7 +215,7 @@ class GraphWrapper:
         paths = []
         for edge_id in node.edge_ids[direction]:
             edge = self.get_edge(edge_id)
-            new_paths = self._get_paths_in_direction(edge, direction, current_path, visited_ids)
+            new_paths = self.__get_paths_in_direction(edge, direction, current_path, visited_ids)
             paths.extend(new_paths)
 
         return paths
@@ -226,7 +226,7 @@ class GraphWrapper:
     def get_next_edge_id(self) -> int:
         return max([edge.get_id() for edge in self.edges]) + 1
 
-    def _invert_edge(self, edge_id: int) -> None:
+    def __invert_edge(self, edge_id: int) -> None:
         edge = self.get_edge(edge_id)
         src_id, dst_id = edge.node_ids[IN], edge.node_ids[OUT]
         edge.invert()
@@ -242,7 +242,7 @@ class GraphWrapper:
         pass
 
     # Step 2. Invert all outgoing edges from files/IPs
-    def _invert_outgoing_file_edges(self) -> None:
+    def __invert_outgoing_file_edges(self) -> None:
         edges_to_invert = []
         for node in self.nodes:
             if node.get_type() == NodeType.PROCESS_LET:
@@ -250,10 +250,10 @@ class GraphWrapper:
             edges_to_invert.extend(node.edge_ids[OUT])
 
         for edge_id in edges_to_invert:
-            self._invert_edge(edge_id)
+            self.__invert_edge(edge_id)
 
     # Step 3. Duplicate file/IP nodes for each incoming edge
-    def _duplicate_file_ip_leaves(self) -> None:
+    def __duplicate_file_ip_leaves(self) -> None:
         nodes_to_remove = []
         nodes_to_add = []
         for node in self.nodes:
@@ -279,7 +279,7 @@ class GraphWrapper:
             self.add_node(node)
 
     # Step 4
-    def _add_ephemeral_root(self) -> None:
+    def __add_ephemeral_root(self) -> None:
         # Create root node
         raw_root_node = Node(
             _id=9999,
@@ -325,24 +325,24 @@ class GraphWrapper:
                 ))
             )
 
-    _preprocess_steps: list[callable] = [
+    __preprocess_steps: list[callable] = [
         original_graph,
-        _invert_outgoing_file_edges,
-        _duplicate_file_ip_leaves,
-        _add_ephemeral_root
+        __invert_outgoing_file_edges,
+        __duplicate_file_ip_leaves,
+        __add_ephemeral_root
     ]
 
     def preprocess(self, output_dir: Path = None) -> 'GraphWrapper':
-        for i, step in enumerate(self._preprocess_steps):
+        for i, step in enumerate(self.__preprocess_steps):
             step(self)
             if output_dir is not None:
                 self.to_dot().save(output_dir / f'{i+1}_{step.__name__.strip("_")}.dot')
 
         return self
 
-    def _prune_tree(self,
-                    root_edge_id: int,
-                    path: str) -> 'GraphWrapper':
+    def __prune_tree(self,
+                     root_edge_id: int,
+                     path: str) -> 'GraphWrapper':
         self.marked_edge_ids[root_edge_id] = path
         root_edge = self.get_edge(root_edge_id)
         subtree: GraphWrapper = self.get_subtree(root_edge.get_dst_id())
@@ -382,10 +382,10 @@ class GraphWrapper:
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root
                 sizes.append(subtree_size)
                 depths.append(len(path))
-                pruned_tree = self._prune_tree(edge_id, self._path_to_string(path))
+                pruned_tree = self.__prune_tree(edge_id, self.__path_to_string(path))
                 visited_edge_ids.update(e.get_id() for e in pruned_tree.edges)
                 # print(f'Pruned {len(pruned_tree)} with p={p}')
-                self._training_data.append((path, pruned_tree))
+                self.__training_data.append((path, pruned_tree))
                 continue
 
             # Otherwise, continue adding children to queue
@@ -406,13 +406,13 @@ class GraphWrapper:
                 leaf_node = deepcopy(node)
                 leaf_node.edge_ids[IN] = []
                 leaf_graph.add_node(leaf_node)
-                self._training_data.append((path, leaf_graph))
+                self.__training_data.append((path, leaf_graph))
                 num_leaves += 1
                 continue
         # print(f'Pruned {len(self._marked_edges)} subgraphs, and added {num_leaves} leaf samples')
-        return self, sizes, depths
+        return self, sizes, depths # TODO: make this less hacky
 
-    def _path_to_string(self, path: list[int]) -> str:
+    def __path_to_string(self, path: list[int]) -> str:
         tokens = []
         for edge_id in path:
             edge = self.get_edge(edge_id)
@@ -430,15 +430,15 @@ class GraphWrapper:
         :return: List of tuples of the form (tokenized path, root edge ID of subtree)
         """
         return [
-            (self._path_to_string(path), graph)
-            for path, graph in self._training_data
+            (self.__path_to_string(path), graph)
+            for path, graph in self.__training_data
         ]
 
     def get_node(self, node_id: int) -> NodeWrapper:
-        return self._node_lookup.get(node_id)
+        return self.__node_lookup.get(node_id)
 
     def get_edge(self, edge_id: int) -> EdgeWrapper:
-        return self._edge_lookup.get(edge_id)
+        return self.__edge_lookup.get(edge_id)
 
     def get_node_type(self, node_id: int) -> NodeType:
         return self.get_node(node_id).get_type()
