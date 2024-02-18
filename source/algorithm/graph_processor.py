@@ -7,12 +7,12 @@ from tqdm import tqdm
 
 from . import IN
 from .graph_model import GraphModel
-from .utility import map_pool
+from .utility import map_pool, print_stats
 from .wrappers import GraphWrapper, EdgeWrapper
 
 
 class GraphProcessor:
-    epsilon_p: float  # structural budget = delta * epsilon
+    epsilon_p: float  # structural budget = (  delta) * epsilon
     epsilon_m: float  # edge count budget = (1-delta) * epsilon
     delta: float
     alpha: float
@@ -21,12 +21,46 @@ class GraphProcessor:
                  epsilon: float,
                  delta: float,
                  alpha: float,
-                 output_path: Path = Path('.')):
+                 args: any):
+        self.args = args
+
         self.epsilon_p = delta * epsilon
         self.epsilon_m = (1-delta) * epsilon
         self.delta = delta
         self.alpha = alpha
-        self.output_path = output_path
+        self.output_path = args.output_dir
+
+    __process_steps: list[callable] = [
+        GraphWrapper.load_file,
+        GraphWrapper.preprocess,
+        GraphWrapper.prune
+    ]
+
+    def prune_from_paths(self, paths: list[Path]) -> list[GraphWrapper]:
+        previous = None
+        result: list = paths
+
+        for i, step in enumerate(self.__process_steps):
+            if self.args.single_threaded:
+                # Do a simple loop
+                result = [
+                    step(graph)
+                    for graph in tqdm(result, GraphProcessor.__format_step(i, step))
+                ]
+            else:
+                # Using map_pool pickles the arguments and results, which consumes a lot of memory
+                result = list(map_pool(
+                    step,
+                    previous,
+                    GraphProcessor.__format_step(i, step)
+                ))
+            del previous  # Release memory from de-pickled results
+            previous = result
+        return result
+
+    @staticmethod
+    def __format_step(i, step):
+        return f'({i+1}) {step.__name__.strip("_")}'
 
     def perturb_graphs(self, paths: list[Path]) -> list[GraphWrapper]:
         # Load graphs
@@ -56,12 +90,9 @@ class GraphProcessor:
             num_pruned.append(len(graph.edges))
             pruned_graphs.append(graph)
             sizes.extend(size)
-        print(f'Pruned graph size (N={len(sizes)}) - avg: {np.mean(sizes):.2f}, min: {np.min(sizes)}, max: {np.max(sizes)}, std: {np.std(sizes):.2f}')
-        print(f'Num pruned edges (N={len(num_pruned)}) - avg: {np.mean(num_pruned):.2f}, min: {np.min(num_pruned)}, max: {np.max(num_pruned)}, std: {np.std(num_pruned):.2f}')
-        # del preprocessed_graphs
-        # pruned_graphs = []
-        # for graph in preprocessed_graphs:
-        #     pruned_graphs.append(GraphWrapper.prune(graph, self.alpha, self.epsilon_p))
+        print_stats('Pruned graph size', sizes)
+        print_stats('Num pruned edges', num_pruned)
+        del preprocessed_graphs
 
         # === Create training data === #
         train_data: list[tuple[str, GraphWrapper]] = list(map_pool(
@@ -89,32 +120,34 @@ class GraphProcessor:
              context_length=8,
              base_model_path=self.output_path / 'models'
         )
-        model.train(epochs=1000)
+        model.train(epochs=10)
 
-        # Add graphs back (epsilon_m)
+        # Add graphs back (epsilon_m) # TODO: diff privacy here
         sizes = []
         num_marked_edges = []
         count_from_same_graph = []
         for graph in tqdm(pruned_graphs):
+            # Stats
             from_same_graph = 0
             num_marked_edges.append(len(graph.marked_edge_ids))
+            # Re-attach a random to each marked edge
             for marked_edge_id, path in graph.marked_edge_ids.items():
+                # Predict a subgraph
                 subgraph = model.predict(path)
+                # Attach to the marked edge
+                graph.insert_subgraph(marked_edge_id, subgraph)
+
+                # Stats
+                sizes.append(len(subgraph))
                 if subgraph.source_edge_ref_id == graph.source_edge_ref_id:
                     from_same_graph += 1
-                sizes.append(len(subgraph))
-                graph.insert_subgraph(marked_edge_id, subgraph)
             count_from_same_graph.append(from_same_graph)
 
-        print(f'Subgraph size - avg: {np.mean(sizes):.2f}, min: {np.min(sizes)}, max: {np.max(sizes)}, '
-              f'std: {np.std(sizes):.2f}')
-        print(f'Num marked edges - avg: {np.mean(num_marked_edges):.2f}, min: {np.min(num_marked_edges)}, ' +
-              f'max: {np.max(num_marked_edges)}, std: {np.std(num_marked_edges):.2f}')
-        print(f'Num marked edges from same graph - avg: {np.mean(count_from_same_graph):.2f}, min: {np.min(count_from_same_graph)}, '
-              f'max: {np.max(count_from_same_graph)}, std: {np.std(count_from_same_graph):.2f}')
+        print_stats('Subgraph size', sizes)
+        print_stats('# marked edges', num_marked_edges)
+        print_stats('# unmoved subgraphs', count_from_same_graph)
         from_same_graph_percentages = [x / y for x, y in zip(count_from_same_graph, num_marked_edges)]
-        print(f'Percentage of marked edges from same graph - avg: {np.mean(from_same_graph_percentages):.2f}, min: {np.min(from_same_graph_percentages)}, '
-              f'max: {np.max(from_same_graph_percentages)}, std: {np.std(from_same_graph_percentages):.2f}')
+        print_stats('% unmoved subgraphs', from_same_graph_percentages)
         print()
         model.print_stats()
         return pruned_graphs

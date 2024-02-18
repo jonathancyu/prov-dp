@@ -2,6 +2,7 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import TypeVar, Generator
 
 import networkx as nx
+import numpy as np
 import torch
 from tqdm import tqdm
 
@@ -74,3 +75,8 @@ def build_vocab(paths: list[str]) -> tuple[list[str], dict[str, int]]:
     tokens = ['.'] + list(token_set)
     print(f'Found {len(tokens)} tokens and {len(distinct_paths)} distinct paths in {len(paths)} entries')
     return tokens, {token: i for i, token in enumerate(tokens)}
+
+
+def print_stats(name: str, samples: list) -> str:
+    print(f'{name} (N={len(samples)}) - mean: {np.mean(samples):.2f}, std: {np.std(samples):.2f}, '
+          f'min: {np.min(samples)}, max: {np.max(samples)}')

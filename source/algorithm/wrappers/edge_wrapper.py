@@ -5,6 +5,7 @@ from .node_wrapper import IN, OUT
 
 class EdgeWrapper:
     edge: Edge
+    node_ids: dict[str, int | None]
 
     def __init__(self, edge: Edge):
         self.edge = edge
@@ -23,6 +24,9 @@ class EdgeWrapper:
     def get_id(self) -> int:
         return self.edge.id
 
+    def set_id(self, id: int) -> None:
+        self.edge.id = id
+
     def get_ref_id(self) -> int:
         return int(self.edge.model_extra['REF_ID'])
 
@@ -32,11 +36,11 @@ class EdgeWrapper:
     def get_dst_id(self) -> int:
         return self.edge.dst_id
 
-    def set_src_id(self, src_id: int) -> None:
+    def set_src_id(self, src_id: int | None) -> None:
         self.edge.src_id = src_id
         self.node_ids[IN] = src_id
 
-    def set_dst_id(self, dst_id: int) -> None:
+    def set_dst_id(self, dst_id: int | None) -> None:
         self.edge.dst_id = dst_id
         self.node_ids[OUT] = dst_id
 

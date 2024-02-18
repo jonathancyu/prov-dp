@@ -41,7 +41,8 @@ class GraphModel:
                  batch_size: int = 2048,
                  learning_rate: float = 0.01,
                  momentum: float = 0.9,
-                 base_model_path: Path = Path('.')):
+                 base_model_path: Path = Path('.'),
+                 load_graphson: bool = False) -> None:
         self.base_model_path = base_model_path
         self.base_model_path.mkdir(exist_ok=True, parents=True)
         # Set model parameters
@@ -57,7 +58,7 @@ class GraphModel:
         assert len(paths) == len(graphs)
         self.paths = paths
         self.graphs = graphs
-        self.graph_embeddings = self.__get_graph_embeddings()
+        self.graph_embeddings: np.ndarray = self.__get_graph_embeddings(load_graphson)
         self.itos, self.stoi = build_vocab(paths)
         self.vocab_size = len(self.stoi)
 
@@ -68,7 +69,6 @@ class GraphModel:
 
         self.__probabilities = []
 
-
     def __init_model(self):
         self.model = nn.Sequential(
             nn.Embedding(self.vocab_size, self.n_embedding),
@@ -78,9 +78,15 @@ class GraphModel:
             nn.Linear(self.n_hidden, self.n_graph_embedding)
         )
 
-    def __get_graph_embeddings(self) -> list[np.array]:
+    def __get_graph_embeddings(self, load_graphson: bool) -> np.ndarray:
+        pickle_path = self.base_model_path / 'graph_model.pkl'
         # Embed graphs using graphviz
-        if not (self.base_model_path / 'graph2vec.pkl').exists():
+        if load_graphson and pickle_path.exists():
+            # Load model
+            with open(pickle_path, 'rb') as file:
+                graph2vec = pickle.load(file)
+            print(f'Loaded graph2vec from {pickle_path}')
+        else:
             # Fit model
             nx_graphs = [to_nx(graph) for graph in self.graphs]
             graph2vec = Graph2Vec(
@@ -93,13 +99,12 @@ class GraphModel:
             print('Fitting graph2vec')
             graph2vec.fit(nx_graphs)
             # Save model
-            with open(self.base_model_path / 'graph2vec.pkl', 'wb') as file:
+            with open(pickle_path, 'wb') as file:
                 pickle.dump(graph2vec, file)
-        else:
-            # Load model
-            with open(self.base_model_path / 'graph2vec.pkl', 'rb') as file:
-                graph2vec = pickle.load(file)
-        print('Finished loading graph2vec')
+
+            print(f'Saved graph2vec to {pickle_path}')
+
+        # This return a list of embeddings, one for each graph in self.graphs
         graph_embeddings = graph2vec.get_embedding()
         assert len(graph_embeddings) == len(self.graphs)
         return graph_embeddings
@@ -107,7 +112,6 @@ class GraphModel:
     def train(self, epochs: int):
         # Create dataset
         X, Y = self.__build_dataset(self.paths, self.graph_embeddings)
-        print(f'X: {X.shape}, Y: {Y.shape}')
 
         # Train model
         self.model.train()
@@ -146,14 +150,15 @@ class GraphModel:
 
     def __build_dataset(self,
                         paths: list[str],
-                        graph_embeddings: list[np.array]) -> tuple[torch.tensor, torch.tensor]:
+                        graph_embeddings: np.ndarray) -> tuple[torch.tensor, torch.tensor]:
+        assert len(paths) == len(graph_embeddings)
         X, Y = [], []
         for path, graph_embedding in zip(paths, graph_embeddings):
             context = self.__path_to_context(path)
             X.append(context)
             Y.append(graph_embedding)
 
-        return torch.tensor(X, device=self.device), torch.tensor(Y, device=self.device)
+        return torch.tensor(np.array(X), device=self.device), torch.tensor(np.array(Y), device=self.device)
 
     def predict(self, path: str) -> GraphWrapper:
         with torch.no_grad():
@@ -162,11 +167,12 @@ class GraphModel:
             prediction_tensor = self.model(torch.tensor([context], device=self.device))
             prediction = prediction_tensor.cpu().data.numpy()
 
-        probabilities = []
-        for i in range(len(self.graph_embeddings)):
-            embedding = self.graph_embeddings[i]
-            probabilities.append(np.linalg.norm(prediction - embedding, ord=1))
-        probabilities /= np.sum(probabilities)
+        # Compute a probability distribution based on the distance to the prediction
+        distances = np.linalg.norm(self.graph_embeddings - prediction, ord=1, axis=1)
+        inverse_distances = 1 / distances  # Low distance => high probability
+        probabilities = inverse_distances / np.sum(inverse_distances)
+
+        # Sample based on the computed distribution
         choice = np.random.choice(len(probabilities), p=probabilities)
         self.__probabilities.append({
             'mean': np.mean(probabilities),
