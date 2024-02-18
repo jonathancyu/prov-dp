@@ -22,28 +22,38 @@ class GraphProcessor:
     __depths: list[int]
 
     # Processing pipeline
+    __single_threaded: bool
     __process_steps: list[callable]
 
     # Step labels
     __step_number: int
 
-    # Prediction batch size
+    # Checkpoint flags
+    __load_perturbed_graphs: bool
+    __load_graph2vec: bool
+    __load_model: bool
+
+    # Model parameters
+    __num_epochs: int
     __prediction_batch_size: int
+
 
     def __init__(self,
                  epsilon: float,
                  delta: float,
                  alpha: float,
-                 args: any):
-        self.args = args
+                 output_dir: Path = Path('.'),
+                 single_threaded: bool = False,
+                 load_perturbed_graphs: bool = False,
+                 load_graph2vec: bool = False,
+                 load_model: bool = False,
+                 num_epochs: int = 10,
+                 prediction_batch_size: int = 10):
 
         self.epsilon_p = delta * epsilon
         self.epsilon_m = (1-delta) * epsilon
         self.delta = delta
         self.alpha = alpha
-        self.output_path = args.output_dir
-        self.output_path.mkdir(exist_ok=True, parents=True)
-
         self.__sizes = []
         self.__depths = []
 
@@ -55,29 +65,33 @@ class GraphProcessor:
 
         self.__step_number = 0
 
-        self.__prediction_batch_size = args.prediction_batch_size
+        # TODO: there's gotta be a cleaner way to do this...
+        # argparse args
+        self.output_dir = output_dir
+        self.output_dir.mkdir(exist_ok=True, parents=True)
+
+        # Algorithm configuration
+        self.__single_threaded = single_threaded
+        self.__num_epochs = num_epochs
+        self.__prediction_batch_size = prediction_batch_size
+
+        # Model parameters
+        self.__num_epochs = num_epochs
+        self.__prediction_batch_size = prediction_batch_size
+
+        # Checkpoint flags
+        self.__load_perturbed_graphs = load_perturbed_graphs
+        self.__load_graph2vec = load_graph2vec
+        self.__load_model = load_model
 
     def __step(self) -> str:
-        # Step counter for tqdm bars
+        # Step counter for logging
         self.__step_number += 1
         return f'({self.__step_number})'
 
-    def prune_from_paths(self, paths: list[Path]) -> list[tuple[GraphWrapper, int, int]]:
-        previous = paths
-        result: list = []
-        for i, step in enumerate(self.__process_steps):
-            step_label = f'({i+1}) {step.__name__.strip("_")}'
-            result = list(self.map(
-                step,
-                previous,
-                step_label
-            ))
-            del previous  # Release memory from de-pickled results
-            previous = result
-        return result
-
+    # Run each step for a single graph
     def process_graph(self, path: Path) -> tuple[list[GraphWrapper], list[tuple[str, GraphWrapper]]]:
-        # Apply n
+        # Apply each step sequentially
         result = path
         for step in self.__process_steps:
             result = step(result)
@@ -119,8 +133,8 @@ class GraphProcessor:
         return pruned_graphs, train_data
 
     def perturb_graphs(self, paths: list[Path]) -> list[GraphWrapper]:
-        pruned_graph_path = self.output_path / 'pruned_graphs.pkl'
-        if self.args.load_perturbed_graphs and pruned_graph_path.exists():
+        pruned_graph_path = self.output_dir / 'pruned_graphs.pkl'
+        if self.__load_perturbed_graphs and pruned_graph_path.exists():
             # Load graphs and training data from file
             print(f'{self.__step()} Loading pruned graphs and training data from {pruned_graph_path}')
             with open(pruned_graph_path, 'rb') as f:
@@ -148,10 +162,11 @@ class GraphProcessor:
              paths=paths,
              graphs=graphs,
              context_length=8,
-             base_model_path=self.output_path / 'models',
-             load_graph2vec=self.args.load_graph2vec
+             base_model_path=self.output_dir / 'models',
+             load_graph2vec=self.__load_graph2vec,
+             load_model=self.__load_model
         )
-        model.train(epochs=10)
+        model.train(epochs=self.__num_epochs)
 
         # Add graphs back (epsilon_m) # TODO: diff privacy here
         sizes = []
@@ -190,7 +205,7 @@ class GraphProcessor:
             func: callable,
             items: list,
             desc: str = '') -> Generator:
-        if self.args.single_threaded:
+        if self.__single_threaded:
             # Do a simple loop
             for graph in tqdm(items, desc=desc):
                 yield func(graph)

@@ -14,7 +14,7 @@ from ..utility import logistic_function
 
 # TODO: Should this be called "Tree", and preprocessing happens in the constructor: might be too complicated
 class GraphWrapper:
-    __graph: Graph
+    graph: Graph
     nodes: list[NodeWrapper]
     edges: list[EdgeWrapper]
     source_edge_ref_id: int | None
@@ -43,17 +43,19 @@ class GraphWrapper:
     def __init__(self,
                  graph: Graph = None,
                  source_edge_ref_id: int = None):
-        self.__graph = graph or Graph()
+        self.graph = graph or Graph()
         self.nodes = []
         self.edges = []
-        self.__init_nodes(self.__graph.nodes)
-        self.__init_edges(self.__graph.edges)
+        self.__init_nodes(self.graph.nodes)
+        self.__init_edges(self.graph.edges)
         self.__init_source_edge(source_edge_ref_id)
 
         # Algorithm-specific fields
         self.__subtree_lookup = {}
         self.marked_edge_ids = {}
         self.__training_data: list[tuple[list[int], GraphWrapper]] = []
+
+        assert self.graph is not None
 
     def __init_nodes(self, nodes: list[Node]):
         # Create a lookup by node ID
@@ -139,7 +141,7 @@ class GraphWrapper:
         self.edges.append(edge)
         self.__edge_lookup[edge_id] = edge
         if deep:  # Specified during GraphWrapper initialization, when the raw Graph object is already populated
-            self.__graph.edges.append(edge.edge)
+            self.graph.edges.append(edge.edge)
 
         # Add edge to src node's outgoing list
         src_node = self.get_node(edge.get_src_id())  # TODO: can simplify logic if get_outgoing is a set
@@ -157,7 +159,7 @@ class GraphWrapper:
         self.nodes.append(node)
         self.__node_lookup[node.get_id()] = node
         if deep:  # Specified during GraphWrapper initialization, when the raw Graph object is already populated
-            self.__graph.nodes.append(node.node)
+            self.graph.nodes.append(node.node)
 
     def remove_node(self, node: NodeWrapper) -> None:
         # Removes node from

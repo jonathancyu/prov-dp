@@ -20,6 +20,10 @@ class GraphModel:
     n_hidden: int
     n_graph_embedding: int
 
+    # Checkpoint flags
+    __load_graph2vec: bool
+    __load_model: bool
+
     # Dataset info
     paths: list[str]
     graphs: list[GraphWrapper]
@@ -42,7 +46,8 @@ class GraphModel:
                  learning_rate: float = 0.01,
                  momentum: float = 0.9,
                  base_model_path: Path = Path('.'),
-                 load_graph2vec: bool = False):
+                 load_graph2vec: bool = False,
+                 load_model: bool = False):
 
         self.base_model_path = base_model_path
         self.base_model_path.mkdir(exist_ok=True, parents=True)
@@ -55,11 +60,15 @@ class GraphModel:
         self.momentum = momentum
         self.batch_size = batch_size
 
+        # Checkpoint flags
+        self.__load_graph2vec = load_graph2vec
+        self.__load_model = load_model
+
         # Build vocabulary
         assert len(paths) == len(graphs)
         self.paths = paths
         self.graphs = graphs
-        self.graph_embeddings: np.ndarray = self.__get_graph_embeddings(load_graph2vec)
+        self.graph_embeddings: np.ndarray = self.__get_graph_embeddings()
         self.itos, self.stoi = GraphModel.build_vocab(paths)
         self.vocab_size = len(self.stoi)
         # Initialize model
@@ -69,7 +78,7 @@ class GraphModel:
 
         # Create dataset tensors
         assert len(paths) == len(self.graph_embeddings)
-        self.__path_tensor = torch.tensor(
+        self.__context_tensor = torch.tensor(
             [self.__path_to_context(path) for path in paths],
             device=self.device
         )
@@ -121,10 +130,10 @@ class GraphModel:
             nn.Linear(self.n_hidden, self.n_graph_embedding)
         )
 
-    def __get_graph_embeddings(self, load_graph2vec: bool) -> np.ndarray:
+    def __get_graph_embeddings(self) -> np.ndarray:
         graph2vec_path = self.base_model_path / 'graph2vec.pkl'
         # Embed graphs using graphviz
-        if load_graph2vec and graph2vec_path.exists():
+        if self.__load_graph2vec and graph2vec_path.exists():
             # Load model
             with open(graph2vec_path, 'rb') as file:
                 graph2vec = pickle.load(file)
@@ -154,9 +163,9 @@ class GraphModel:
         assert len(graph_embeddings) == len(self.graphs)
         return graph_embeddings
 
-    def train(self, epochs: int):
+    def __train_model(self, epochs: int):
         # Input: path context tensor, output: graph embedding
-        X, Y = self.__path_tensor, self.__graph_embeddings
+        X, Y = self.__context_tensor, self.__graph_embeddings
 
         # Train model
         self.model.train()
@@ -185,10 +194,20 @@ class GraphModel:
                 print(f'  ({epoch+1:{num_digits}d}/{epochs:{num_digits}d}) log(loss) = {np.average(loss_samples):.6f}')
                 loss_samples = []
 
-        # Save model parameters
+    def train(self, epochs: int):
         model_path = self.base_model_path / 'graph_model.tar'
-        torch.save(self.model.state_dict(), model_path)
-        print(f'  Saved model to {model_path}')
+
+        # Try to use trained model checkpoint
+        if self.__load_model and model_path.exists():
+            with open(model_path, 'rb') as file:
+                self.model.load_state_dict(torch.load(file))
+            print(f'  Loaded model from {model_path}')
+        # Otherwise, train the model
+        else:
+            self.__train_model(epochs)
+            # Save model parameters
+            torch.save(self.model.state_dict(), model_path)
+            print(f'  Saved model to {model_path}')
 
     def __path_to_context(self, path: str) -> list[int]:
         # Convert a string path into a list of tokenized integers
