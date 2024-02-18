@@ -1,5 +1,5 @@
 import warnings
-from typing import Generator
+from typing import Iterator
 
 import numpy as np
 
@@ -18,7 +18,7 @@ def logistic_function(x: float) -> float:
             return 0
 
 
-def batch_list(input_list: list, batch_size: int) -> Generator[list]:
+def batch_list(input_list: list, batch_size: int) -> Iterator[list]:
     num_elements = len(input_list)
     for start in range(0, num_elements, batch_size):
         yield input_list[start:start + batch_size]
