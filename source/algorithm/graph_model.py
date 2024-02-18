@@ -167,24 +167,28 @@ class GraphModel:
             context[i] = path[i]
         return context
 
+    @torch.no_grad()
     def predict(self, paths: list[str]) -> list[GraphWrapper]:
         # Convert the path to a context tensor and predict a graph embedding
         batch_size = len(paths)
-        with torch.no_grad():
-            self.model.eval()
-            batch = torch.tensor(
-                [self.__path_to_context(path) for path in paths],
-                device=self.device)
-            predictions = self.model(batch) # row x n_graph_embedding
+        self.model.eval()
+        batch = torch.tensor(
+            [self.__path_to_context(path) for path in paths],
+            device=self.device)
+        predictions = self.model(batch) # row x n_graph_embedding
 
         # Compute a probability distribution based on the distance to the prediction
         # batch_size x len(graph_embeddings) x n_graph_embedding
         # M[i,j,k] = prediction_[i]_k - graph_embeddings[j]_k
         embedding_differences = self.__graph_embeddings.unsqueeze(0) - predictions.unsqueeze(1)
+
         # batch_size x len(graph_embeddings)
         # M[i,j] = distance[prediction_i,embedding_j]
         distances = torch.norm(embedding_differences, dim=2)
-        probabilities = 1 / distances
+
+        # batch_size x len(graph_embeddings)
+        probabilities = 1 / distances  # high distance -> low probability
+
         # batch_size x 1
         choice_tensor = torch.multinomial(probabilities, num_samples=1)
         choices = choice_tensor.cpu().numpy().flatten()

@@ -159,9 +159,9 @@ class GraphProcessor:
             from_same_graph = 0
             edge_ids = list(graph.marked_edge_ids.keys())
             # Re-attach a random to each marked edge
-            batch_size = model.batch_size
-            for batch_start in range(0, len(edge_ids), batch_size):
-                batch_ids = edge_ids[batch_start:batch_start + batch_size]
+            PREDICTION_BATCH_SIZE = 10
+            for batch_start in range(0, len(edge_ids), PREDICTION_BATCH_SIZE):
+                batch_ids = edge_ids[batch_start:batch_start + PREDICTION_BATCH_SIZE]
                 predictions = model.predict([graph.marked_edge_ids[batch_id] for batch_id in batch_ids])
 
                 for i, subgraph in enumerate(predictions):

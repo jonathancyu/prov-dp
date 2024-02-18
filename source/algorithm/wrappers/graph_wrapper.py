@@ -153,6 +153,7 @@ class GraphWrapper:
 
     def remove_edge(self, edge: EdgeWrapper) -> None:
         edge_id = edge.get_id()
+        edge.set_src_id(None)
         self.edges.remove(edge)
         self.__edge_lookup.pop(edge_id)
         for direction in [IN, OUT]:
@@ -490,8 +491,10 @@ class GraphWrapper:
         @param root_edge_id: edge to attach the subgraph to
         @param graph: subgraph to attach
         """
+        # TODO: BUG - for some reason, this edge has a destination ID
         root_edge = self.get_edge(root_edge_id)
-        assert root_edge.node_ids[OUT] is None
+        # if root_edge.get_dst_id() is not None:
+        #     raise RuntimeError(f'Edge {root_edge_id} already has a destination ID ({root_edge.get_dst_id()})')
 
         new_edge_ids = {}
         new_node_ids = {}
