@@ -7,9 +7,10 @@ import numpy as np
 from graphviz import Digraph
 
 from source.graphson import Graph, NodeType, Node, EdgeType, Edge
-from utility import get_edge_ref_id, logistic_function
+from utility import logistic_function
 from .node_wrapper import NodeWrapper, IN, OUT
 from .edge_wrapper import EdgeWrapper
+from ..utility import get_edge_ref_id
 
 
 # TODO: Should this be called "Tree", and preprocessing happens in the constructor: might be too complicated
@@ -39,47 +40,54 @@ class GraphWrapper:
                  graph: Graph = None,
                  source_edge_ref_id: int = None):
         self.graph = graph or Graph()
-
         self.nodes = []
         self.edges = []
         self.__init_nodes(self.graph.nodes)
         self.__init_edges(self.graph.edges)
+        self.__init_source_edge(source_edge_ref_id)
 
-        # todo: this is convoluted
-        self.source_edge_ref_id = source_edge_ref_id
-        if source_edge_ref_id is not None:
-            # Ref ID != graphson ID, so we need to find the edge with the matching ref ID
-            source_edge = [edge for edge in self.edges if edge.get_ref_id() == source_edge_ref_id]
-            assert len(source_edge) == 1
-            self.source_edge_id = source_edge[0].get_id()
-        else:
-            self.source_edge_id = None
-
-        self.__set_node_times()
+        # Algorithm-specific fields
         self.__subtree_lookup = {}
         self.marked_edge_ids = {}
-        self.__training_data: list[tuple[str, GraphWrapper]] = []
+        self.__training_data: list[tuple[list[int], GraphWrapper]] = []
 
-    # TODO: split this func, too many responsibilities
-    def __set_node_times(self) -> None:
-        included_nodes: set[int] = set()
-        sorted_edges = sorted(self.edges, key=lambda e: e.get_time(), reverse=True)
-        for edge in sorted_edges:
-            src_node = self.get_node(edge.get_src_id())
-            dst_node = self.get_node(edge.get_dst_id())
-            if src_node is None or dst_node is None:  # TODO why does this occur?
-                continue
+    def __init_nodes(self, nodes: list[Node]):
+        # Create a lookup by node ID
+        self.__node_lookup = {}
+        for node in nodes:
+            node_wrapper = NodeWrapper(node)
+            self.nodes.append(node_wrapper)
+            self.__node_lookup[node.id] = node_wrapper
+
+    def __init_edges(self, edges: list[Edge]):
+        # Create a lookup by edge ID and add edge references to nodes
+        self.__edge_lookup = {}
+        for edge in edges:
+            edge_wrapper = EdgeWrapper(edge)
+            self.edges.append(edge_wrapper)
+            self.__edge_lookup[edge_wrapper.get_id()] = edge_wrapper
+
+            # Update attached node's edge_ids
             edge_id = edge.get_id()
-            # TODO: mvoe this to _add_edges
-            src_node.add_outgoing(edge_id)
-            dst_node.add_incoming(edge_id)
+            src_node = self.get_node(edge.get_src_id())
+            if src_node is not None:
+                src_node.add_outgoing(edge_id)
 
-            # TODO: Is this how we should set time?
-            for node_id in [edge.get_src_id(), edge.get_dst_id()]:
-                if node_id in included_nodes:
-                    continue
-                node = self.get_node(node_id)
-                node.time = edge.get_time()
+            dst_node = self.get_node(edge.get_dst_id())
+            if dst_node is not None:
+                dst_node.add_incoming(edge_id)
+
+    def __init_source_edge(self, source_edge_ref_id: int | None) -> None:
+        # Set the source_edge_ref_id to keep track of the original graph
+        self.source_edge_ref_id = source_edge_ref_id
+        if source_edge_ref_id is not None:
+            # Ref ID is not the same as graphson ID, so we need to find the edge with the matching ref ID
+            matches = [edge for edge in self.edges
+                       if edge.get_ref_id() == source_edge_ref_id]
+            assert len(matches) == 1
+            self.source_edge_id = matches[0].get_id()
+        else:
+            self.source_edge_id = None
 
     def get_subtree(self,
                     root_node_id: int,
@@ -102,16 +110,18 @@ class GraphWrapper:
         subgraph.add_node(root_node)
 
         # BFS recursively
-        for edge_id in root_node.edge_ids[OUT]:
+        for edge_id in root_node.get_outgoing():
             edge = self.get_edge(edge_id)
             next_node_id = edge.get_dst_id()
             if next_node_id in visited_node_ids:
                 continue
-            # Add
+            # Add edge to subgraph
             subgraph.add_edge(edge)
             next_subgraph = self.get_subtree(edge.get_dst_id(), visited_node_ids)
             if next_subgraph is not None:
-                subgraph.add_graph(next_subgraph)
+                # TODO: is it possible for this to cause issues down the line by not deep copying?
+                subgraph.edges.extend(next_subgraph.edges)
+                subgraph.nodes.extend(next_subgraph.nodes)
 
         # Cache result
         self.__subtree_lookup[root_node_id] = subgraph
@@ -130,16 +140,19 @@ class GraphWrapper:
     def add_edge(self, edge: EdgeWrapper) -> None:
         edge_id = edge.get_id()
         assert self.get_edge(edge_id) is None
+
+        # Add edge to graph and lookup
         self.edges.append(edge)
         self.graph.edges.append(edge.edge)
         self.__edge_lookup[edge_id] = edge
-        for direction in [IN, OUT]:
-            opposite = OUT if direction == IN else OUT
-            if node := self.get_node(edge.node_ids[direction]):
-                edge_ids = node.edge_ids[opposite]
-                if edge_id in edge_ids:
-                    continue
-                node.edge_ids[opposite].append(edge_id)
+
+        # Add edge to node's edge_ids
+        in_node = self.get_node(edge.node_ids[IN])
+        if edge_id not in in_node.get_outgoing():
+            in_node.add_outgoing(edge_id)
+        out_node = self.get_node(edge.node_ids[OUT])
+        if edge_id not in out_node.get_incoming():
+            out_node.add_incoming(edge_id)
 
     def add_node(self, node: NodeWrapper) -> None:
         self.nodes.append(node)
@@ -152,79 +165,17 @@ class GraphWrapper:
         self.__node_lookup.pop(node.get_id())
 
     def remove_edge(self, edge: EdgeWrapper) -> None:
+        # This does NOT update the node's edge_ids
         edge_id = edge.get_id()
         edge.set_src_id(None)
         self.edges.remove(edge)
         self.__edge_lookup.pop(edge_id)
-        for direction in [IN, OUT]:
-            opposite = OUT if direction == IN else IN
-            if node := self.get_node(edge.node_ids[direction]):
-                node.edge_ids[opposite].remove(edge_id)
 
     def to_dot(self) -> Digraph:
         return Graph(
             vertices=[node.node for node in self.nodes],
             edges=[edge.edge for edge in self.edges]
         ).to_dot()
-
-    def __init_nodes(self, nodes: list[Node]):
-        self.__node_lookup = {}
-        for node in nodes:
-            node_wrapper = NodeWrapper(node)
-            self.nodes.append(node_wrapper)
-            self.__node_lookup[node.id] = node_wrapper
-
-    def __init_edges(self, edges: list[Edge]):
-        self.__edge_lookup = {}
-        for edge in edges:
-            edge_wrapper = EdgeWrapper(edge)
-            self.edges.append(edge_wrapper)
-            self.__edge_lookup[edge_wrapper.get_id()] = edge_wrapper
-
-    def get_paths(self) -> list[list[EdgeWrapper]]:
-        paths: dict[str, list[list[EdgeWrapper]]] = {
-            IN: [], OUT: []
-        }
-        for direction in [IN, OUT]:
-            paths[direction].extend(self.__get_paths_in_direction(self.get_edge(self.source_edge_id), direction))
-
-        # Invert the IN (backtrack) paths
-        paths[IN] = [path[::-1] for path in paths[IN]]
-        # Trim source edge so that it's not included twice
-        paths[OUT] = [path[:-1] for path in paths[OUT]]
-
-        # Combine the paths into a single list and return
-        path_combinations = itertools.product(paths[IN], paths[OUT])
-        return [list(itertools.chain.from_iterable(path_pair)) for path_pair in path_combinations]
-
-    def __get_paths_in_direction(self,
-                                 source: EdgeWrapper,
-                                 direction: str,
-                                 current_path: list[EdgeWrapper] = None,
-                                 visited_ids: list[int] = None
-                                 ) -> list[list[EdgeWrapper]]:
-        # copy current path to avoid mutation
-        current_path = current_path or []
-        visited_ids = visited_ids or []
-        source_ref_id = source.get_id()
-        if source in current_path or source_ref_id in visited_ids:
-            return []
-        visited_ids.append(source.get_id())
-        current_path = (current_path or []) + [source]
-
-        node_id = source.node_ids[direction]
-        node = self.get_node(node_id)
-
-        if len(node.edge_ids[direction]) == 0:
-            return [current_path]
-
-        paths = []
-        for edge_id in node.edge_ids[direction]:
-            edge = self.get_edge(edge_id)
-            new_paths = self.__get_paths_in_direction(edge, direction, current_path, visited_ids)
-            paths.extend(new_paths)
-
-        return paths
 
     def get_next_node_id(self) -> int:
         return max([node.get_id() for node in self.nodes]) + 1
@@ -265,19 +216,20 @@ class GraphWrapper:
         for node in self.nodes:
             if node.get_type() == NodeType.PROCESS_LET:
                 continue
-            # Mark original node for removal, then create a duplicate node for each edge
+            # Mark original node for removal
             nodes_to_remove.append(node)
+            # Create a duplicate node for each edge
             for edge_id in node.edge_ids[IN]:
-                # Create new node
-                new_node = deepcopy(node)
+                # Point edge to a new node ID
                 new_node_id = self.get_next_node_id() + len(nodes_to_add)
-                new_node.node.id = new_node_id
-                new_node.add_incoming(edge_id)
-                nodes_to_add.append(new_node)
-
-                # Move edge to new node
                 edge = self.get_edge(edge_id)
                 edge.set_dst_id(new_node_id)
+                # Create new node with that ID
+                new_node = deepcopy(node)
+                new_node.set_id(new_node_id)
+                new_node.set_incoming([edge_id])
+                nodes_to_add.append(new_node)
+
         # Apply node changes
         for node in nodes_to_remove:
             self.remove_node(node)
@@ -316,7 +268,7 @@ class GraphWrapper:
         # Add disjoint trees to root's children
         for node in self.nodes:
             # If this is an ephemeral node, or if it's not a root node, skip
-            if len(node.edge_ids[IN]) > 0 or node in [root_node, root_parent_node]:
+            if len(node.get_incoming()) > 0 or node in [root_node, root_parent_node]:
                 continue
 
             # Create edge from ephemeral root to subtree root
@@ -356,9 +308,9 @@ class GraphWrapper:
         subtree: GraphWrapper = self.get_subtree(root_edge.get_dst_id())
         subtree.source_edge_ref_id = self.source_edge_ref_id
         # Detach root node from parent graph
-        root_node = self.get_node(root_edge.get_dst_id())
-        root_node.edge_ids[IN] = []
         root_edge.set_dst_id(None)
+        root_node = self.get_node(root_edge.get_dst_id())
+        root_node.set_incoming([])
 
         # Remove all subtree nodes and elements from the parent graph
         for edge in subtree.edges:
@@ -374,7 +326,7 @@ class GraphWrapper:
         local_sensitivity: float = 1 / alpha
         # Breadth first search through the graph, keeping track of the path to the current node
         # (edge_id, list[edge_id_path]) tuples
-        queue = deque([(self.source_edge_id, [])])
+        queue: deque[tuple[int, list[int]]] = deque([(self.source_edge_id, [])])
         visited_edge_ids: set[int] = set()
         while len(queue) > 0:
 
@@ -410,7 +362,7 @@ class GraphWrapper:
             # Otherwise, continue adding children to queue
             node_id = edge.node_ids[OUT]
             node = self.get_node(node_id)
-            next_edge_ids = node.edge_ids[OUT]
+            next_edge_ids = node.get_outgoing()
 
             # If this isn't a leaf, then continue and add the next edges to the queue
             if len(next_edge_ids) > 0:
@@ -421,15 +373,19 @@ class GraphWrapper:
             # If this is a leaf, add the path and current graph to the training data
             else:
                 num_leaves += 1
-                # Copy the leaf into its own graph
+                # Deep copy the leaf to modify it
+                leaf_node = deepcopy(node)
+                leaf_node.set_incoming([])
+
+                # Add the leaf to its own graph
                 leaf_graph = GraphWrapper()
                 leaf_graph.source_edge_ref_id = self.source_edge_ref_id
-                leaf_node = deepcopy(node)
-                leaf_node.edge_ids[IN] = []
                 leaf_graph.add_node(leaf_node)
-                # add the (path, graph) tuple to the training data
+
+                # Add the (path, graph) tuple to the training data
                 self.__training_data.append((path, leaf_graph))
                 continue
+
         # print(f'Pruned {len(self._marked_edges)} subgraphs, and added {num_leaves} leaf samples')
         return self, sizes, depths # TODO: make this less hacky
 
@@ -471,13 +427,8 @@ class GraphWrapper:
             dst_type=self.get_node(edge.get_dst_id()).get_type()
         )
 
-    # TODO: is it possible for this to cause issues down the line by not deep copying?
-    def add_graph(self, graph: 'GraphWrapper') -> None:
-        self.nodes.extend(graph.nodes)
-        self.edges.extend(graph.edges)
-
     def get_root_node_id(self) -> int:
-        root_nodes = [node for node in self.nodes if len(node.edge_ids[IN]) == 0]
+        root_nodes = [node for node in self.nodes if len(node.get_incoming()) == 0]
         if len(root_nodes) != 1:
             raise RuntimeError(f'Expected 1 root node, got {len(root_nodes)}: '
                                ', '.join([node.get_token() for node in root_nodes]))
@@ -517,10 +468,14 @@ class GraphWrapper:
             new_edge = deepcopy(edge)
             new_edge_id = self.get_next_edge_id()
             new_edge.set_id(new_edge_id)
-            new_edge.node_ids = {
-                IN: new_node_ids[edge.node_ids[IN]],
-                OUT: new_node_ids[edge.node_ids[OUT]]
-            }
+            # Update the edge's node IDs to match the new graph
+            new_edge.node_ids = {}
+            for direction in [IN, OUT]:
+                if edge.node_ids[direction] is None:
+                    print(edge.get_token(), direction)
+                    continue
+                new_edge.node_ids[direction] = new_node_ids[edge.node_ids[direction]]
+
             # Add the ID to the lookup
             new_edge_ids[edge.get_id()] = new_edge_id
             self.add_edge(new_edge)

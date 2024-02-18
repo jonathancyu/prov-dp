@@ -119,11 +119,11 @@ class GraphProcessor:
         pruned_graph_path = self.output_path / 'pruned_graphs.pkl'
         if self.args.load_perturbed_graphs and pruned_graph_path.exists():
             # Load graphs and training data from file
-            print(f'{self.__step()} Loading pruned graphs and training data')
+            print(f'{self.__step()} Loading pruned graphs and training data from {pruned_graph_path}')
             with open(pruned_graph_path, 'rb') as f:
+
                 pruned_graphs, train_data = pickle.load(f)
-                print(f'  Loaded {len(pruned_graphs)} graphs '
-                      f'and {len(train_data)} training samples from {pruned_graph_path}')
+                print(f'  Loaded {len(pruned_graphs)} graphs and {len(train_data)} training samples')
         else:
             # Perturb graphs and write graphs and training data to file
             pruned_graphs, train_data = self.load_and_prune_graphs(paths)

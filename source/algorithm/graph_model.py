@@ -111,9 +111,9 @@ class GraphModel:
             print('  Fitting graph2vec')
             start = time.time()
             graph2vec.fit(nx_graphs)
-            # Save model
             print(f'  Fitted graph2vec in {time.time() - start:.4f} seconds')
 
+            # Save model
             with open(graph2vec_path, 'wb') as file:
                 pickle.dump(graph2vec, file)
             print(f'  Saved graph2vec to {graph2vec_path}')
@@ -153,6 +153,8 @@ class GraphModel:
                 num_digits = len(str(epochs))
                 print(f'  ({epoch+1:{num_digits}d}/{epochs:{num_digits}d}) log(loss) = {np.average(loss_samples):.6f}')
                 loss_samples = []
+
+        # Save model parameters
         model_path = self.base_model_path / 'graph_model.tar'
         torch.save(self.model.state_dict(), model_path)
         print(f'  Saved model to {model_path}')
@@ -169,8 +171,7 @@ class GraphModel:
 
     @torch.no_grad()
     def predict(self, paths: list[str]) -> list[GraphWrapper]:
-        # Convert the path to a context tensor and predict a graph embedding
-        batch_size = len(paths)
+        # Convert the batch of paths a context tensor and predict the
         self.model.eval()
         batch = torch.tensor(
             [self.__path_to_context(path) for path in paths],
@@ -179,7 +180,7 @@ class GraphModel:
 
         # Compute a probability distribution based on the distance to the prediction
         # batch_size x len(graph_embeddings) x n_graph_embedding
-        # M[i,j,k] = prediction_[i]_k - graph_embeddings[j]_k
+        # M[i,j,k] = prediction[i,k] - graph_embeddings[j,k]
         embedding_differences = self.__graph_embeddings.unsqueeze(0) - predictions.unsqueeze(1)
 
         # batch_size x len(graph_embeddings)
@@ -187,14 +188,17 @@ class GraphModel:
         distances = torch.norm(embedding_differences, dim=2)
 
         # batch_size x len(graph_embeddings)
+        # M[i, j] = P(graph_embeddings[j] | prediction_i)
         probabilities = 1 / distances  # high distance -> low probability
 
         # batch_size x 1
+        # M[i] = index of sampled graph for prediction_i
         choice_tensor = torch.multinomial(probabilities, num_samples=1)
         choices = choice_tensor.cpu().numpy().flatten()
 
         self.__log_distance_stats(distances)
-        # Map choice indices to subgraphs
+
+        # Map choice indices to graphs
         return [self.graphs[choice] for choice in choices]
 
     def __log_distance_stats(self, distances: torch.tensor) -> None:
@@ -212,6 +216,7 @@ class GraphModel:
             })
 
     def print_distance_stats(self) -> None:
-        print(f'Per-graph embedding distance distributions:')
+        print(f'  Per-graph embedding distance distributions:')
         for stat in ['Mean', 'Std', 'Min', 'Max']:
+            print('  ', end='')
             print_stats(stat, [p[stat.lower()] for p in self.__stats])

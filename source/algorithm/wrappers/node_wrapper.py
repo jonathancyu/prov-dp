@@ -9,7 +9,6 @@ OUT = 'OUT'
 class NodeWrapper:
     node: Node
     edge_ids: dict[str, list[int]]
-    time: int
 
     _in_degree: dict[EdgeType, int]
     _out_degree: dict[EdgeType, int]
@@ -26,6 +25,18 @@ class NodeWrapper:
     def add_outgoing(self, edge_id: int) -> None:
         self.edge_ids[OUT].append(edge_id)
 
+    def set_incoming(self, edge_ids: list[int]) -> None:
+        self.edge_ids[IN] = edge_ids
+
+    def set_outgoing(self, edge_ids: list[int]) -> None:
+        self.edge_ids[OUT] = edge_ids
+
+    def get_incoming(self) -> list[int]:
+        return self.edge_ids[IN]
+
+    def get_outgoing(self) -> list[int]:
+        return self.edge_ids[OUT]
+
     def get_in_degree(self) -> int:
         return len(self.edge_ids[IN])
 
@@ -34,6 +45,9 @@ class NodeWrapper:
 
     def get_id(self) -> int:
         return self.node.id
+
+    def set_id(self, new_id: int) -> None:
+        self.node.id = new_id
 
     def get_type(self) -> NodeType:
         return self.node.type
