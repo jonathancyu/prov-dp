@@ -1,16 +1,15 @@
-import itertools
 from collections import deque
 from copy import deepcopy
 from pathlib import Path
 
+import graphviz as gv
+import networkx as nx
 import numpy as np
-from graphviz import Digraph
 
 from source.graphson import Graph, NodeType, Node, EdgeType, Edge
-from utility import logistic_function
-from .node_wrapper import NodeWrapper, IN, OUT
 from .edge_wrapper import EdgeWrapper
-from ..utility import get_edge_ref_id
+from .node_wrapper import NodeWrapper
+from ..utility import logistic_function
 
 
 # TODO: Should this be called "Tree", and preprocessing happens in the constructor: might be too complicated
@@ -31,9 +30,14 @@ class GraphWrapper:
 
     @staticmethod
     def load_file(json_path: Path) -> 'GraphWrapper':
+        split = str(json_path.stem).split('-')
+        ref_id = -1
+        if len(split) == 3:
+            ref_id = int(split[1])
+
         return GraphWrapper(
             Graph.load_file(json_path),
-            get_edge_ref_id(str(json_path.stem))
+            ref_id
         )
 
     def __init__(self,
@@ -146,13 +150,15 @@ class GraphWrapper:
         self.graph.edges.append(edge.edge)
         self.__edge_lookup[edge_id] = edge
 
-        # Add edge to node's edge_ids
-        in_node = self.get_node(edge.node_ids[IN])
-        if edge_id not in in_node.get_outgoing():
-            in_node.add_outgoing(edge_id)
-        out_node = self.get_node(edge.node_ids[OUT])
-        if edge_id not in out_node.get_incoming():
-            out_node.add_incoming(edge_id)
+        # Add edge to src node's outgoing list
+        src_node = self.get_node(edge.get_src_id())  # TODO: can simplify logic if get_outgoing is a set
+        if edge_id not in src_node.get_outgoing():
+            src_node.add_outgoing(edge_id)
+
+        # Add edge to dst node's incoming list
+        dst_node = self.get_node(edge.get_dst_id())
+        if edge_id not in dst_node.get_incoming():
+            dst_node.add_incoming(edge_id)
 
     def add_node(self, node: NodeWrapper) -> None:
         self.nodes.append(node)
@@ -171,12 +177,6 @@ class GraphWrapper:
         self.edges.remove(edge)
         self.__edge_lookup.pop(edge_id)
 
-    def to_dot(self) -> Digraph:
-        return Graph(
-            vertices=[node.node for node in self.nodes],
-            edges=[edge.edge for edge in self.edges]
-        ).to_dot()
-
     def get_next_node_id(self) -> int:
         return max([node.get_id() for node in self.nodes]) + 1
 
@@ -185,14 +185,14 @@ class GraphWrapper:
 
     def __invert_edge(self, edge_id: int) -> None:
         edge = self.get_edge(edge_id)
-        src_id, dst_id = edge.node_ids[IN], edge.node_ids[OUT]
+        src_id, dst_id = edge.get_src_id(), edge.get_dst_id()
         edge.invert()
 
         src_node, dst_node = self.get_node(src_id), self.get_node(dst_id)
-        src_node.edge_ids[OUT].remove(edge_id)
-        src_node.edge_ids[IN].append(edge_id)
-        dst_node.edge_ids[IN].remove(edge_id)
-        dst_node.edge_ids[OUT].append(edge_id)
+        src_node.remove_outgoing(edge_id)
+        src_node.add_incoming(edge_id)
+        dst_node.remove_incoming(edge_id)
+        dst_node.add_outgoing(edge_id)
 
     # Step 1. Original graph
     def original_graph(self) -> None:
@@ -204,7 +204,7 @@ class GraphWrapper:
         for node in self.nodes:
             if node.get_type() == NodeType.PROCESS_LET:
                 continue
-            edges_to_invert.extend(node.edge_ids[OUT])
+            edges_to_invert.extend(node.get_outgoing())
 
         for edge_id in edges_to_invert:
             self.__invert_edge(edge_id)
@@ -218,8 +218,8 @@ class GraphWrapper:
                 continue
             # Mark original node for removal
             nodes_to_remove.append(node)
-            # Create a duplicate node for each edge
-            for edge_id in node.edge_ids[IN]:
+            # Create a duplicate node for each incoming edge
+            for edge_id in node.get_incoming():
                 # Point edge to a new node ID
                 new_node_id = self.get_next_node_id() + len(nodes_to_add)
                 edge = self.get_edge(edge_id)
@@ -255,12 +255,12 @@ class GraphWrapper:
 
         # Create root edge for BFS
         source_edge = EdgeWrapper(Edge(
-                _id=self.get_next_edge_id(),
-                _outV=root_parent_node.get_id(),
-                _inV=root_node.get_id(),
-                OPTYPE='EPHEMERAL',
-                _label='EPHEMERAL',
-                EVENT_START=-1
+            _id=self.get_next_edge_id(),
+            _outV=root_parent_node.get_id(),
+            _inV=root_node.get_id(),
+            OPTYPE='EPHEMERAL',
+            _label='EPHEMERAL',
+            EVENT_START=-1
         ))
         self.add_edge(source_edge)
         self.source_edge_id = source_edge.get_id()
@@ -294,7 +294,7 @@ class GraphWrapper:
         for i, step in enumerate(self.__preprocess_steps):
             step(self)
             if output_dir is not None:
-                self.to_dot().save(output_dir / f'{i+1}_{step.__name__.strip("_")}.dot')
+                self.to_dot().save(output_dir / f'{i + 1}_{step.__name__.strip("_")}.dot')
 
         return self
 
@@ -360,7 +360,7 @@ class GraphWrapper:
                 continue
 
             # Otherwise, continue adding children to queue
-            node_id = edge.node_ids[OUT]
+            node_id = edge.get_dst_id()
             node = self.get_node(node_id)
             next_edge_ids = node.get_outgoing()
 
@@ -387,7 +387,7 @@ class GraphWrapper:
                 continue
 
         # print(f'Pruned {len(self._marked_edges)} subgraphs, and added {num_leaves} leaf samples')
-        return self, sizes, depths # TODO: make this less hacky
+        return self, sizes, depths  # TODO: make this less hacky
 
     def __path_to_string(self, path: list[int]) -> str:
         tokens = []
@@ -442,11 +442,6 @@ class GraphWrapper:
         @param root_edge_id: edge to attach the subgraph to
         @param graph: subgraph to attach
         """
-        # TODO: BUG - for some reason, this edge has a destination ID
-        root_edge = self.get_edge(root_edge_id)
-        # if root_edge.get_dst_id() is not None:
-        #     raise RuntimeError(f'Edge {root_edge_id} already has a destination ID ({root_edge.get_dst_id()})')
-
         new_edge_ids = {}
         new_node_ids = {}
         # Update node IDs to avoid collision in the current graph
@@ -469,12 +464,10 @@ class GraphWrapper:
             new_edge_id = self.get_next_edge_id()
             new_edge.set_id(new_edge_id)
             # Update the edge's node IDs to match the new graph
-            new_edge.node_ids = {}
-            for direction in [IN, OUT]:
-                if edge.node_ids[direction] is None:
-                    print(edge.get_token(), direction)
-                    continue
-                new_edge.node_ids[direction] = new_node_ids[edge.node_ids[direction]]
+            new_edge.node_ids = {
+                direction: new_node_ids.get(edge.node_ids[direction], None)
+                for direction in edge.node_ids
+            }
 
             # Add the ID to the lookup
             new_edge_ids[edge.get_id()] = new_edge_id
@@ -483,11 +476,40 @@ class GraphWrapper:
             new_edge.edge.marked = True
 
         # Attach root node to root edge
-        assert graph.get_root_node_id() in new_node_ids
-        new_root_node = new_node_ids[graph.get_root_node_id()]
         root_edge = self.get_edge(root_edge_id)
-        assert root_edge is not None
-        root_edge.set_dst_id(new_root_node)
+        # TODO: BUG - for some reason, this edge has a destination ID
+        # if root_edge.get_dst_id() is not None:
+        #     raise RuntimeError(f'Edge {root_edge_id} already has a destination ID ({root_edge.get_dst_id()})')
+        root_edge.set_dst_id(new_node_ids[graph.get_root_node_id()])
 
     def __len__(self):
         return len(self.nodes)
+
+    # Exporter functions
+    def to_dot(self) -> gv.Digraph:
+        return Graph(
+            vertices=[node.node for node in self.nodes],
+            edges=[edge.edge for edge in self.edges]
+        ).to_dot()
+
+    def to_nx(self) -> nx.DiGraph:
+
+        digraph: nx.DiGraph = nx.DiGraph()
+
+        # NetworkX node IDs must index at 0
+        node_ids = {node.get_id(): i
+                    for i, node in enumerate(self.nodes)}
+        for node in self.nodes:
+            digraph.add_node(node_ids[node.get_id()],
+                             feature=node.get_token()
+                             )
+        for edge in self.edges:
+            # If an edge has a null node, don't include it.
+            # This occurs when we've pruned a subgraph
+            if None in edge.node_ids.values():
+                continue
+            digraph.add_edge(node_ids[edge.get_src_id()],
+                             node_ids[edge.get_dst_id()],
+                             feature=edge.get_token()
+                             )
+        return digraph

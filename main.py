@@ -29,6 +29,8 @@ if __name__ == '__main__':
     arg_parser.add_argument('-s', '--single_threaded', action='store_true',
                             help='Disable multiprocessing (for debugging)')
     arg_parser.add_argument('-N', '--num_graphs', type=int, default=None)
+    arg_parser.add_argument('-pb', '-prediction_batch_size', type=int, default=10)
+
     # Checkpoint flags
     arg_parser.add_argument('-p', '--load_perturbed_graphs', action='store_true',
                             help='Load perturbed graphs from output directory')

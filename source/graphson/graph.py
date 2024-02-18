@@ -43,8 +43,8 @@ class Graph(BaseModel):
         included_nodes: set[Node] = set()
         sorted_edges = sorted(self.edges, key=lambda e: e.time)
 
-        def add_to_graph(node: Node):
-            dot_graph.node(str(node.id), **node.to_dot_args())
+        def add_to_graph(new_node: Node):
+            dot_graph.node(str(new_node.id), **new_node.to_dot_args())
 
         for edge in sorted_edges:
             add_to_graph(self.get_node(edge.src_id))

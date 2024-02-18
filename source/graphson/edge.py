@@ -2,7 +2,6 @@ from pydantic import Field
 
 from .graphsonobject import GraphsonObject
 from .node import NodeType
-from .utility import format_timestamp
 
 EDGE_ID_SEQUENCE = 5000
 
@@ -31,7 +30,7 @@ class Edge(GraphsonObject):
         return Edge(_id=new_id, _inV=src_id, _outV=dst_id, OPTYPE=optype, EVENT_START=time)
 
     def to_dot_args(self) -> dict[str, any]:
-        model = self.model_dump(by_alias=True, exclude={'time'})
+        # model = self.model_dump(by_alias=True, exclude={'time'})
         args = {
             'color': 'black',
             'label': ''

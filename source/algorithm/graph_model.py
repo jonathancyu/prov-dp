@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from karateclub import Graph2Vec
 
 from source.algorithm import GraphWrapper
-from source.algorithm.utility import tokenize, build_vocab, get_device, to_nx, print_stats
+from source.algorithm.utility import print_stats
 
 
 class GraphModel:
@@ -29,7 +29,7 @@ class GraphModel:
     base_model_path: Path
 
     # Stats
-    __stats: list[dict[str,float]]
+    __stats: list[dict[str, float]]
 
     def __init__(self,
                  paths: list[str],
@@ -60,10 +60,10 @@ class GraphModel:
         self.paths = paths
         self.graphs = graphs
         self.graph_embeddings: np.ndarray = self.__get_graph_embeddings(load_graph2vec)
-        self.itos, self.stoi = build_vocab(paths)
+        self.itos, self.stoi = GraphModel.build_vocab(paths)
         self.vocab_size = len(self.stoi)
         # Initialize model
-        self.device = get_device()
+        self.device = GraphModel.get_device()
         self.__init_model()
         self.model.to(self.device)
 
@@ -79,6 +79,37 @@ class GraphModel:
         )
 
         self.__stats = []
+
+    @staticmethod
+    def get_device():
+        if torch.cuda.is_available():
+            return torch.device('cuda')
+        elif torch.backends.mps.is_available():
+            return torch.device('mps')
+        else:
+            return torch.device('cpu')
+
+    @staticmethod
+    def tokenize(path):
+        assert len(path) % 2 == 0
+        return [f'{path[idx]}|{path[idx + 1]}' for idx in range(0, len(path), 2)]
+
+    @staticmethod
+    def build_vocab(paths: list[str]) -> tuple[list[str], dict[str, int]]:
+        """
+        Builds the vocabulary for the model.
+        :param paths: list of paths
+        :return: integer to string, and string to integer mappings
+        """
+        token_set = set()
+        distinct_paths = set()
+        for path in paths:
+            path = GraphModel.tokenize(path.split(' '))
+            token_set.update(path)
+            distinct_paths.add(' '.join(path))
+        tokens = ['.'] + list(token_set)
+        print(f'  Found {len(tokens)} tokens and {len(distinct_paths)} distinct paths in {len(paths)} entries')
+        return tokens, {token: i for i, token in enumerate(tokens)}
 
     def __init_model(self):
         # Multi-layer perceptron
@@ -100,7 +131,7 @@ class GraphModel:
             print(f'  Loaded graph2vec from {graph2vec_path}')
         else:
             # Fit model
-            nx_graphs = [to_nx(graph) for graph in self.graphs]
+            nx_graphs = [graph.to_nx() for graph in self.graphs]
             graph2vec = Graph2Vec(
                 wl_iterations=80,
                 attributed=True,
@@ -161,7 +192,7 @@ class GraphModel:
 
     def __path_to_context(self, path: str) -> list[int]:
         # Convert a string path into a list of tokenized integers
-        path_tokens = tokenize(path.split(' '))
+        path_tokens = GraphModel.tokenize(path.split(' '))
         path = [self.stoi[token] for token in path_tokens]
         context = [0] * self.context_length
         # Pad the context with 0s and truncate to context_length
@@ -176,7 +207,7 @@ class GraphModel:
         batch = torch.tensor(
             [self.__path_to_context(path) for path in paths],
             device=self.device)
-        predictions = self.model(batch) # row x n_graph_embedding
+        predictions = self.model(batch)  # row x n_graph_embedding
 
         # Compute a probability distribution based on the distance to the prediction
         # batch_size x len(graph_embeddings) x n_graph_embedding

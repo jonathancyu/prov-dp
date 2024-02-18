@@ -4,6 +4,7 @@ input/
 output/
 __pycache__/
 .idea/
+.pytest_cache
 
 # File types
 *.dot

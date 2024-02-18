@@ -2,15 +2,13 @@ import pickle
 from concurrent.futures import ProcessPoolExecutor
 from itertools import chain
 from pathlib import Path
-from typing import TypeVar, Generator
+from typing import Generator
 
 from tqdm import tqdm
 
 from .graph_model import GraphModel
-from .utility import print_stats
+from .utility import print_stats, batch_list
 from .wrappers import GraphWrapper
-
-T = TypeVar('T')
 
 
 class GraphProcessor:
@@ -28,6 +26,9 @@ class GraphProcessor:
 
     # Step labels
     __step_number: int
+
+    # Prediction batch size
+    __prediction_batch_size: int
 
     def __init__(self,
                  epsilon: float,
@@ -53,6 +54,8 @@ class GraphProcessor:
         ]
 
         self.__step_number = 0
+
+        self.__prediction_batch_size = args.prediction_batch_size
 
     def __step(self) -> str:
         # Step counter for tqdm bars
@@ -130,7 +133,8 @@ class GraphProcessor:
             with open(pruned_graph_path, 'wb') as f:
                 # Save a (pruned_graphs, training_data) tuple
                 pickle.dump((pruned_graphs, train_data), f)
-                print(f'  Wrote {len(pruned_graphs)} graphs and {len(train_data)} training samples to {pruned_graph_path}')
+                print(f'  Wrote {len(pruned_graphs)} graphs and {len(train_data)} '
+                      f'training samples to {pruned_graph_path}')
 
         # Train model
         print(f'{self.__step()} Training model')
@@ -157,20 +161,20 @@ class GraphProcessor:
             # Stats
             num_marked_edges.append(len(graph.marked_edge_ids))
             from_same_graph = 0
-            edge_ids = list(graph.marked_edge_ids.keys())
-            # Re-attach a random to each marked edge
-            PREDICTION_BATCH_SIZE = 10
-            for batch_start in range(0, len(edge_ids), PREDICTION_BATCH_SIZE):
-                batch_ids = edge_ids[batch_start:batch_start + PREDICTION_BATCH_SIZE]
-                predictions = model.predict([graph.marked_edge_ids[batch_id] for batch_id in batch_ids])
 
+            # Re-attach a random to each marked edge in batches
+            edge_ids = list(graph.marked_edge_ids.keys())
+            for batch in batch_list(edge_ids, self.__prediction_batch_size):
+                # Get a prediction for each edge in the batch
+                predictions = model.predict([graph.marked_edge_ids[edge_id] for edge_id in batch])
+                # Attach predicted subgraph to the corresponding edge
                 for i, subgraph in enumerate(predictions):
                     graph.insert_subgraph(edge_ids[i], subgraph)
                     # Stats
                     sizes.append(len(subgraph))
                     if subgraph.source_edge_ref_id == graph.source_edge_ref_id:
                         from_same_graph += 1
-
+            # Stats
             count_from_same_graph.append(from_same_graph)
 
         print_stats('Subgraph size', sizes)
@@ -184,7 +188,7 @@ class GraphProcessor:
 
     def map(self,
             func: callable,
-            items: list[T],
+            items: list,
             desc: str = '') -> Generator:
         if self.args.single_threaded:
             # Do a simple loop

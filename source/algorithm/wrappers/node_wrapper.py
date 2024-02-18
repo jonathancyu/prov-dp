@@ -1,9 +1,5 @@
-from collections import Counter
-
 from source.graphson import Node, NodeType, EdgeType
-
-IN = 'IN'
-OUT = 'OUT'
+from .directions import IN, OUT
 
 
 class NodeWrapper:
@@ -36,6 +32,13 @@ class NodeWrapper:
 
     def get_outgoing(self) -> list[int]:
         return self.edge_ids[OUT]
+
+    def remove_incoming(self, edge_id: int):
+        self.edge_ids[IN].remove(edge_id)
+
+    def remove_outgoing(self, edge_id: int):
+        if edge_id in self.edge_ids[OUT]:
+            self.edge_ids[OUT].remove(edge_id)
 
     def get_in_degree(self) -> int:
         return len(self.edge_ids[IN])

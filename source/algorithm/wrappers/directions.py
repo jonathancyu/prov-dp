@@ -1,0 +1,2 @@
+IN = 'IN'
+OUT = 'OUT'
