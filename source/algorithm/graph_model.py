@@ -5,11 +5,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import tqdm
 from karateclub import Graph2Vec
 
 from source.algorithm import GraphWrapper
-from source.algorithm.utility import tokenize, build_vocab, get_device, to_nx
+from source.algorithm.utility import tokenize, build_vocab, get_device, to_nx, print_stats
 
 
 class GraphModel:
@@ -29,7 +28,7 @@ class GraphModel:
     base_model_path: Path
 
     # Stats
-    __probabilities: list[dict[str,float]]
+    __distances: list[dict[str,float]]
 
     def __init__(self,
                  paths: list[str],
@@ -67,7 +66,7 @@ class GraphModel:
         self.__init_model()
         self.model.to(self.device)
 
-        self.__probabilities = []
+        self.__distances = []
 
     def __init_model(self):
         self.model = nn.Sequential(
@@ -85,7 +84,7 @@ class GraphModel:
             # Load model
             with open(pickle_path, 'rb') as file:
                 graph2vec = pickle.load(file)
-            print(f'Loaded graph2vec from {pickle_path}')
+            print(f'  Loaded graph2vec from {pickle_path}')
         else:
             # Fit model
             nx_graphs = [to_nx(graph) for graph in self.graphs]
@@ -96,13 +95,13 @@ class GraphModel:
                 workers=4,
                 epochs=5
             )
-            print('Fitting graph2vec')
+            print('  Fitting graph2vec')
             graph2vec.fit(nx_graphs)
             # Save model
             with open(pickle_path, 'wb') as file:
                 pickle.dump(graph2vec, file)
 
-            print(f'Saved graph2vec to {pickle_path}')
+            print(f'  Saved graph2vec to {pickle_path}')
 
         # This return a list of embeddings, one for each graph in self.graphs
         graph_embeddings = graph2vec.get_embedding()
@@ -116,33 +115,38 @@ class GraphModel:
         # Train model
         self.model.train()
         optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
-        with tqdm.tqdm(total=epochs) as bar:
-            for epoch in range(epochs):
-                optimizer.zero_grad()
+        loss_samples = []
+        log_interval = epochs // 10
+        for epoch in range(epochs):
+            optimizer.zero_grad()
 
-                # Sample batch
-                ix = torch.randint(0, Y.shape[0], (self.batch_size,))
-                X_batch, Y_batch = X[ix], Y[ix]
+            # Sample batch
+            ix = torch.randint(0, Y.shape[0], (self.batch_size,))
+            X_batch, Y_batch = X[ix], Y[ix]
 
-                # Forward pass
-                output = self.model(X_batch)
+            # Forward pass
+            output = self.model(X_batch)
 
-                # Backward pass
-                loss = F.mse_loss(output, Y_batch)
-                loss.backward()
-                optimizer.step()
-                bar.update(1)
+            # Backward pass
+            loss = F.mse_loss(output, Y_batch)
+            loss.backward()
+            optimizer.step()
 
-                # Log loss
-                if epoch % 100 == 0:
-                    bar.set_description(f'Loss: {loss.item():.8f}')
+            # Log rolling average loss
+            loss_samples.append(loss.log().item())
+            if (epoch+1) % log_interval == 0:
+                num_digits = len(str(epochs))
+                print(f'  ({epoch+1:{num_digits}d}/{epochs:{num_digits}d}) log(loss) = {np.average(loss_samples):.6f}')
+                loss_samples = []
         model_path = self.base_model_path / 'graph_model.tar'
         torch.save(self.model.state_dict(), model_path)
-        print(f'Saved model to {model_path}')
+        print(f'  Saved model to {model_path}')
 
     def __path_to_context(self, path: str) -> list[int]:
+        # Convert a string path into a list of tokenized integers
         path_tokens = tokenize(path.split(' '))
         path = [self.stoi[token] for token in path_tokens]
+        # Pad the context with 0s and truncate to context_length
         context = [0] * self.context_length
         for i in range(min(self.context_length, len(path))):
             context[i] = path[i]
@@ -161,6 +165,7 @@ class GraphModel:
         return torch.tensor(np.array(X), device=self.device), torch.tensor(np.array(Y), device=self.device)
 
     def predict(self, path: str) -> GraphWrapper:
+        # Convert the path to a context tensor and predict a graph embedding
         with torch.no_grad():
             self.model.eval()
             context = self.__path_to_context(path)
@@ -168,23 +173,21 @@ class GraphModel:
             prediction = prediction_tensor.cpu().data.numpy()
 
         # Compute a probability distribution based on the distance to the prediction
-        distances = np.linalg.norm(self.graph_embeddings - prediction, ord=1, axis=1)
+        distances = np.linalg.norm(self.graph_embeddings - prediction, axis=1)
         inverse_distances = 1 / distances  # Low distance => high probability
         probabilities = inverse_distances / np.sum(inverse_distances)
 
         # Sample based on the computed distribution
         choice = np.random.choice(len(probabilities), p=probabilities)
-        self.__probabilities.append({
-            'mean': np.mean(probabilities),
-            'std': np.std(probabilities),
-            'min': np.min(probabilities),
-            'max': np.max(probabilities),
+        self.__distances.append({
+            'mean': np.mean(distances),
+            'std': np.std(distances),
+            'min': np.min(distances),
+            'max': np.max(distances)
         })
         return self.graphs[choice]
 
-    def print_stats(self) -> None:
-        print(f'Probability Distribution: (N={len(self.__probabilities)})')
-        print(f'Mean: {np.mean([p["mean"] for p in self.__probabilities])}')
-        print(f'Std: {np.mean([p["std"] for p in self.__probabilities])}')
-        print(f'Min: {np.mean([p["min"] for p in self.__probabilities])}')
-        print(f'Max: {np.mean([p["max"] for p in self.__probabilities])}')
+    def print_distance_stats(self) -> None:
+        print(f'Per-graph embedding distance distributions:')
+        for stat in ['Mean', 'Std', 'Min', 'Max']:
+            print_stats(stat, [p[stat.lower()] for p in self.__distances])

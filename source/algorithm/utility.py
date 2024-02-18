@@ -73,10 +73,10 @@ def build_vocab(paths: list[str]) -> tuple[list[str], dict[str, int]]:
         token_set.update(path)
         distinct_paths.add(' '.join(path))
     tokens = ['.'] + list(token_set)
-    print(f'Found {len(tokens)} tokens and {len(distinct_paths)} distinct paths in {len(paths)} entries')
+    print(f'  Found {len(tokens)} tokens and {len(distinct_paths)} distinct paths in {len(paths)} entries')
     return tokens, {token: i for i, token in enumerate(tokens)}
 
 
-def print_stats(name: str, samples: list) -> str:
-    print(f'{name} (N={len(samples)}) - mean: {np.mean(samples):.2f}, std: {np.std(samples):.2f}, '
+def print_stats(name: str, samples: list) -> None:
+    print(f'  {name} (N={len(samples)}) - mean: {np.mean(samples)}, std: {np.std(samples)}, '
           f'min: {np.min(samples)}, max: {np.max(samples)}')

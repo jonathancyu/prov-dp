@@ -477,7 +477,9 @@ class GraphWrapper:
 
     def get_root_node_id(self) -> int:
         root_nodes = [node for node in self.nodes if len(node.edge_ids[IN]) == 0]
-        assert len(root_nodes) == 1
+        if len(root_nodes) != 1:
+            raise RuntimeError(f'Expected 1 root node, got {len(root_nodes)}: '
+                               ', '.join([node.get_token() for node in root_nodes]))
         return root_nodes[0].get_id()
 
     def insert_subgraph(self,
