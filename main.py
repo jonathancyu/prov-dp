@@ -28,8 +28,10 @@ if __name__ == '__main__':
     arg_parser.add_argument('-o', '--output_dir', type=Path, help='Path to output graph directory')
     arg_parser.add_argument('-s', '--single_threaded', action='store_true',
                             help='Disable multiprocessing (for debugging)')
-    arg_parser.add_argument('-N', '--num_graphs', type=int, default=None)
-    arg_parser.add_argument('-pb', '-prediction_batch_size', type=int, default=10)
+    arg_parser.add_argument('-N', '--num_graphs', type=int, default=None,
+                            help='Limit the number of graphs to process')
+    arg_parser.add_argument('-pb', '--prediction_batch_size', type=int, default=10,
+                            help='Batch size for path -> graph predictions')
 
     # Checkpoint flags
     arg_parser.add_argument('-p', '--load_perturbed_graphs', action='store_true',
