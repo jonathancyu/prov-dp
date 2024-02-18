@@ -41,6 +41,7 @@ class GraphProcessor:
         self.delta = delta
         self.alpha = alpha
         self.output_path = args.output_dir
+        self.output_path.mkdir(exist_ok=True, parents=True)
 
         self.__sizes = []
         self.__depths = []
@@ -97,7 +98,6 @@ class GraphProcessor:
         for graph, size, x in pruned_graphs_and_sizes_and_depths:
             num_pruned.append(len(graph.edges))
             pruned_graphs.append(graph)
-            assert isinstance(size, list)
             sizes.extend(size)
 
         print_stats('Pruned graph size', sizes)
@@ -119,14 +119,15 @@ class GraphProcessor:
         pruned_graph_path = self.output_path / 'pruned_graphs.pkl'
         if self.args.load_perturbed_graphs and pruned_graph_path.exists():
             # Load graphs and training data from file
+            print(f'{self.__step()} Loading pruned graphs and training data')
             with open(pruned_graph_path, 'rb') as f:
                 pruned_graphs, train_data = pickle.load(f)
                 print(f'  Loaded {len(pruned_graphs)} graphs '
                       f'and {len(train_data)} training samples from {pruned_graph_path}')
         else:
             # Perturb graphs and write graphs and training data to file
+            pruned_graphs, train_data = self.load_and_prune_graphs(paths)
             with open(pruned_graph_path, 'wb') as f:
-                pruned_graphs, train_data = self.load_and_prune_graphs(paths)
                 # Save a (pruned_graphs, training_data) tuple
                 pickle.dump((pruned_graphs, train_data), f)
                 print(f'  Wrote {len(pruned_graphs)} graphs and {len(train_data)} training samples to {pruned_graph_path}')
@@ -143,9 +144,10 @@ class GraphProcessor:
              paths=paths,
              graphs=graphs,
              context_length=8,
-             base_model_path=self.output_path / 'models'
+             base_model_path=self.output_path / 'models',
+             load_graph2vec=self.args.load_graph2vec
         )
-        model.train(epochs=1000)
+        model.train(epochs=10)
 
         # Add graphs back (epsilon_m) # TODO: diff privacy here
         sizes = []
@@ -153,20 +155,22 @@ class GraphProcessor:
         count_from_same_graph = []
         for graph in tqdm(pruned_graphs, desc=f'{self.__step()} Re-attaching subgraphs'):
             # Stats
-            from_same_graph = 0
             num_marked_edges.append(len(graph.marked_edge_ids))
+            from_same_graph = 0
+            edge_ids = list(graph.marked_edge_ids.keys())
             # Re-attach a random to each marked edge
-            # for i in range(0, len(graph.marked_edge_ids), self.args.batch_size):
+            batch_size = model.batch_size
+            for batch_start in range(0, len(edge_ids), batch_size):
+                batch_ids = edge_ids[batch_start:batch_start + batch_size]
+                predictions = model.predict([graph.marked_edge_ids[batch_id] for batch_id in batch_ids])
 
-            for marked_edge_id, path in graph.marked_edge_ids.items():
-                # Predict a subgraph
-                subgraph = model.predict(path)
-                # Attach to the marked edge
-                graph.insert_subgraph(marked_edge_id, subgraph)
-                # Stats
-                sizes.append(len(subgraph))
-                if subgraph.source_edge_ref_id == graph.source_edge_ref_id:
-                    from_same_graph += 1
+                for i, subgraph in enumerate(predictions):
+                    graph.insert_subgraph(edge_ids[i], subgraph)
+                    # Stats
+                    sizes.append(len(subgraph))
+                    if subgraph.source_edge_ref_id == graph.source_edge_ref_id:
+                        from_same_graph += 1
+
             count_from_same_graph.append(from_same_graph)
 
         print_stats('Subgraph size', sizes)
