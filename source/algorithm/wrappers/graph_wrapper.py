@@ -14,7 +14,7 @@ from ..utility import logistic_function
 
 # TODO: Should this be called "Tree", and preprocessing happens in the constructor: might be too complicated
 class GraphWrapper:
-    graph: Graph
+    __graph: Graph
     nodes: list[NodeWrapper]
     edges: list[EdgeWrapper]
     source_edge_ref_id: int | None
@@ -43,11 +43,11 @@ class GraphWrapper:
     def __init__(self,
                  graph: Graph = None,
                  source_edge_ref_id: int = None):
-        self.graph = graph or Graph()
+        self.__graph = graph or Graph()
         self.nodes = []
         self.edges = []
-        self.__init_nodes(self.graph.nodes)
-        self.__init_edges(self.graph.edges)
+        self.__init_nodes(self.__graph.nodes)
+        self.__init_edges(self.__graph.edges)
         self.__init_source_edge(source_edge_ref_id)
 
         # Algorithm-specific fields
@@ -59,27 +59,13 @@ class GraphWrapper:
         # Create a lookup by node ID
         self.__node_lookup = {}
         for node in nodes:
-            node_wrapper = NodeWrapper(node)
-            self.nodes.append(node_wrapper)
-            self.__node_lookup[node.id] = node_wrapper
+            self.add_node(NodeWrapper(node), deep=False)
 
     def __init_edges(self, edges: list[Edge]):
         # Create a lookup by edge ID and add edge references to nodes
         self.__edge_lookup = {}
-        for edge in edges:
-            edge_wrapper = EdgeWrapper(edge)
-            self.edges.append(edge_wrapper)
-            self.__edge_lookup[edge_wrapper.get_id()] = edge_wrapper
-
-            # Update attached node's edge_ids
-            edge_id = edge.get_id()
-            src_node = self.get_node(edge.get_src_id())
-            if src_node is not None:
-                src_node.add_outgoing(edge_id)
-
-            dst_node = self.get_node(edge.get_dst_id())
-            if dst_node is not None:
-                dst_node.add_incoming(edge_id)
+        for raw_edge in edges:
+            self.add_edge(EdgeWrapper(raw_edge), deep=False)
 
     def __init_source_edge(self, source_edge_ref_id: int | None) -> None:
         # Set the source_edge_ref_id to keep track of the original graph
@@ -98,7 +84,7 @@ class GraphWrapper:
                     visited_node_ids: list[int] = None) -> 'GraphWrapper':
         """
         :param root_node_id: ID of the root node
-        :param visited_node_ids: Accumulating of node IDs that have already been visited
+        :param visited_node_ids: Accumulating list of node IDs that have already been visited
         :return: Subtree rooted at the given node
         """
         # Check if we've already computed this subtree
@@ -108,10 +94,10 @@ class GraphWrapper:
         visited_node_ids = visited_node_ids or []
 
         # Create a new GraphWrapper object to store the tree
-        subgraph = GraphWrapper()
+        subtree = GraphWrapper()
         root_node = self.get_node(root_node_id)
         visited_node_ids.append(root_node_id)
-        subgraph.add_node(root_node)
+        subtree.add_node(root_node)
 
         # BFS recursively
         for edge_id in root_node.get_outgoing():
@@ -119,18 +105,20 @@ class GraphWrapper:
             next_node_id = edge.get_dst_id()
             if next_node_id in visited_node_ids:
                 continue
-            # Add edge to subgraph
-            subgraph.add_edge(edge)
+
+            # Get the next subgraph, then add the connecting edge, and subgraph to the accumulating subgraph
             next_subgraph = self.get_subtree(edge.get_dst_id(), visited_node_ids)
             if next_subgraph is not None:
                 # TODO: is it possible for this to cause issues down the line by not deep copying?
-                subgraph.edges.extend(next_subgraph.edges)
-                subgraph.nodes.extend(next_subgraph.nodes)
+                for new_node in next_subgraph.nodes:  # Nodes need to be added first
+                    subtree.add_node(new_node)
+                for new_edge in next_subgraph.edges + [edge]:
+                    subtree.add_edge(new_edge)
 
         # Cache result
-        self.__subtree_lookup[root_node_id] = subgraph
+        self.__subtree_lookup[root_node_id] = subtree
 
-        return subgraph
+        return subtree
 
     def get_tree_size(self, root_edge_id: int = None) -> int:
         root_edge_id = root_edge_id or self.source_edge_id
@@ -141,29 +129,35 @@ class GraphWrapper:
         # Return the size of the subtree rooted at that node
         return len(self.get_subtree(root_node_id))
 
-    def add_edge(self, edge: EdgeWrapper) -> None:
+    def add_edge(self,
+                 edge: EdgeWrapper,
+                 deep: bool = True) -> None:
         edge_id = edge.get_id()
         assert self.get_edge(edge_id) is None
 
         # Add edge to graph and lookup
         self.edges.append(edge)
-        self.graph.edges.append(edge.edge)
         self.__edge_lookup[edge_id] = edge
+        if deep:  # Specified during GraphWrapper initialization, when the raw Graph object is already populated
+            self.__graph.edges.append(edge.edge)
 
         # Add edge to src node's outgoing list
         src_node = self.get_node(edge.get_src_id())  # TODO: can simplify logic if get_outgoing is a set
-        if edge_id not in src_node.get_outgoing():
+        if src_node is not None:
             src_node.add_outgoing(edge_id)
 
         # Add edge to dst node's incoming list
         dst_node = self.get_node(edge.get_dst_id())
-        if edge_id not in dst_node.get_incoming():
+        if dst_node is not None:
             dst_node.add_incoming(edge_id)
 
-    def add_node(self, node: NodeWrapper) -> None:
+    def add_node(self,
+                 node: NodeWrapper,
+                 deep: bool = True) -> None:
         self.nodes.append(node)
-        self.graph.nodes.append(node.node)
         self.__node_lookup[node.get_id()] = node
+        if deep:  # Specified during GraphWrapper initialization, when the raw Graph object is already populated
+            self.__graph.nodes.append(node.node)
 
     def remove_node(self, node: NodeWrapper) -> None:
         # Removes node from
@@ -308,9 +302,9 @@ class GraphWrapper:
         subtree: GraphWrapper = self.get_subtree(root_edge.get_dst_id())
         subtree.source_edge_ref_id = self.source_edge_ref_id
         # Detach root node from parent graph
-        root_edge.set_dst_id(None)
         root_node = self.get_node(root_edge.get_dst_id())
         root_node.set_incoming([])
+        root_edge.set_dst_id(None)
 
         # Remove all subtree nodes and elements from the parent graph
         for edge in subtree.edges:

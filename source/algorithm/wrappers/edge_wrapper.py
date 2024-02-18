@@ -30,7 +30,7 @@ class EdgeWrapper:
         return int(self.edge.model_extra['REF_ID'])
 
     def get_src_id(self) -> int:
-        assert self.edge.src_id == self.get_src_id()
+        assert self.edge.src_id == self.node_ids[IN]
         return self.edge.src_id
 
     def get_dst_id(self) -> int:

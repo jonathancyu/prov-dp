@@ -15,11 +15,26 @@ class NodeWrapper:
             IN: [], OUT: []
         }
 
+    def __add_edge(self, edge_id: int, direction: str) -> None:
+        if edge_id is None or edge_id in self.edge_ids[direction]:
+            return
+        self.edge_ids[direction].append(edge_id)
+
     def add_incoming(self, edge_id: int) -> None:
-        self.edge_ids[IN].append(edge_id)
+        self.__add_edge(edge_id, IN)
 
     def add_outgoing(self, edge_id: int) -> None:
-        self.edge_ids[OUT].append(edge_id)
+        self.__add_edge(edge_id, OUT)
+
+    def __remove_edge(self, edge_id: int, direction: str) -> None:
+        if edge_id in self.edge_ids[direction]:
+            self.edge_ids[direction].remove(edge_id)
+
+    def remove_incoming(self, edge_id: int):
+        self.__remove_edge(edge_id, IN)
+
+    def remove_outgoing(self, edge_id: int):
+        self.__remove_edge(edge_id, OUT)
 
     def set_incoming(self, edge_ids: list[int]) -> None:
         self.edge_ids[IN] = edge_ids
@@ -32,13 +47,6 @@ class NodeWrapper:
 
     def get_outgoing(self) -> list[int]:
         return self.edge_ids[OUT]
-
-    def remove_incoming(self, edge_id: int):
-        self.edge_ids[IN].remove(edge_id)
-
-    def remove_outgoing(self, edge_id: int):
-        if edge_id in self.edge_ids[OUT]:
-            self.edge_ids[OUT].remove(edge_id)
 
     def get_in_degree(self) -> int:
         return len(self.edge_ids[IN])
