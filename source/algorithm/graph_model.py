@@ -1,4 +1,5 @@
 import pickle
+import time
 from pathlib import Path
 
 import numpy as np
@@ -41,7 +42,8 @@ class GraphModel:
                  learning_rate: float = 0.01,
                  momentum: float = 0.9,
                  base_model_path: Path = Path('.'),
-                 load_graphson: bool = False) -> None:
+                 load_graphson: bool = False):
+
         self.base_model_path = base_model_path
         self.base_model_path.mkdir(exist_ok=True, parents=True)
         # Set model parameters
@@ -60,15 +62,27 @@ class GraphModel:
         self.graph_embeddings: np.ndarray = self.__get_graph_embeddings(load_graphson)
         self.itos, self.stoi = build_vocab(paths)
         self.vocab_size = len(self.stoi)
-
         # Initialize model
         self.device = get_device()
-        self.__init_model()
+        self._init_model()
         self.model.to(self.device)
 
-        self.__distances = []
+        # Create dataset tensors
+        assert len(paths) == len(self.graph_embeddings)
+        self.__path_tensor = torch.tensor(
+            [self.__path_to_context(path) for path in paths],
+            device=self.device
+        )
+        self.__graph_embeddings = torch.tensor(
+            self.graph_embeddings,
+            device=self.device
+        )
 
+
+
+        self.__distances = []
     def __init_model(self):
+        # Multi-layer perceptron
         self.model = nn.Sequential(
             nn.Embedding(self.vocab_size, self.n_embedding),
             nn.Flatten(),
@@ -96,11 +110,13 @@ class GraphModel:
                 epochs=5
             )
             print('  Fitting graph2vec')
+            start = time.time()
             graph2vec.fit(nx_graphs)
             # Save model
+            print(f'  Fitted graph2vec in {time.time() - start:.4f} seconds')
+
             with open(pickle_path, 'wb') as file:
                 pickle.dump(graph2vec, file)
-
             print(f'  Saved graph2vec to {pickle_path}')
 
         # This return a list of embeddings, one for each graph in self.graphs
@@ -109,8 +125,8 @@ class GraphModel:
         return graph_embeddings
 
     def train(self, epochs: int):
-        # Create dataset
-        X, Y = self.__build_dataset(self.paths, self.graph_embeddings)
+        # Input: path context tensor, output: graph embedding
+        X, Y = self.__path_tensor, self.__graph_embeddings
 
         # Train model
         self.model.train()
@@ -146,46 +162,34 @@ class GraphModel:
         # Convert a string path into a list of tokenized integers
         path_tokens = tokenize(path.split(' '))
         path = [self.stoi[token] for token in path_tokens]
-        # Pad the context with 0s and truncate to context_length
         context = [0] * self.context_length
+        # Pad the context with 0s and truncate to context_length
         for i in range(min(self.context_length, len(path))):
             context[i] = path[i]
         return context
 
-    def __build_dataset(self,
-                        paths: list[str],
-                        graph_embeddings: np.ndarray) -> tuple[torch.tensor, torch.tensor]:
-        assert len(paths) == len(graph_embeddings)
-        X, Y = [], []
-        for path, graph_embedding in zip(paths, graph_embeddings):
-            context = self.__path_to_context(path)
-            X.append(context)
-            Y.append(graph_embedding)
-
-        return torch.tensor(np.array(X), device=self.device), torch.tensor(np.array(Y), device=self.device)
-
-    def predict(self, path: str) -> GraphWrapper:
+    def predict(self, paths: list[str]) -> GraphWrapper:
         # Convert the path to a context tensor and predict a graph embedding
         with torch.no_grad():
             self.model.eval()
-            context = self.__path_to_context(path)
-            prediction_tensor = self.model(torch.tensor([context], device=self.device))
-            prediction = prediction_tensor.cpu().data.numpy()
+            batch = torch.tensor(
+                [self.__path_to_context(path) for path in paths],
+                device=self.device)
+            prediction = self.model(torch.tensor(batch, device=self.device))
 
         # Compute a probability distribution based on the distance to the prediction
-        distances = np.linalg.norm(self.graph_embeddings - prediction, axis=1)
-        inverse_distances = 1 / distances  # Low distance => high probability
-        probabilities = inverse_distances / np.sum(inverse_distances)
+        distances = torch.norm(self.__graph_embeddings - prediction, dim=1)
+        probabilities = 1 / distances
+        index = torch.multinomial(probabilities, num_samples=1)
 
-        # Sample based on the computed distribution
-        choice = np.random.choice(len(probabilities), p=probabilities)
         self.__distances.append({
-            'mean': np.mean(distances),
-            'std': np.std(distances),
-            'min': np.min(distances),
-            'max': np.max(distances)
+            'mean': distances.mean().item(),
+            'std': distances.std().item(),
+            'min': distances.min().item(),
+            'max': distances.max().item()
         })
-        return self.graphs[choice]
+
+        return self.graphs[index]
 
     def print_distance_stats(self) -> None:
         print(f'Per-graph embedding distance distributions:')

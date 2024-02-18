@@ -9,7 +9,7 @@ from utility import save_dot
 
 def main(args):
     random.seed(42)
-    input_paths = list(args.input_dir.glob('*.json'))[:10]
+    input_paths = list(args.input_dir.glob('*.json'))
     tree_shaker = GraphProcessor(epsilon=1, delta=0.5, alpha=1, args=args)
     perturbed_graphs = tree_shaker.perturb_graphs(input_paths)
     with open(args.output_dir / 'perturbed_graphs.txt', 'wb') as f:
@@ -23,8 +23,14 @@ if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-i', '--input_dir', type=Path, help='Path to input graph directory')
     arg_parser.add_argument('-o', '--output_dir', type=Path, help='Path to output graph directory')
+    arg_parser.add_argument('-s', '--single_threaded', action='store_true',
+                            help='Disable multiprocessing (for debugging)')
+
+    # Checkpoint flags
+    arg_parser.add_argument('-p', '--load_perturbed_graphs', action='store_true',
+                            help='Load perturbed graphs from output directory')
     arg_parser.add_argument('-g', '--load_graph2vec', action='store_true',
                             help='Load graph2vec model from output directory')
-    arg_parser.add_argument('--single_threaded', action='store_true',
-                            help='Disable multiprocessing (for debugging)')
+    arg_parser.add_argument('-m', '--load_model', action='store_true',  # TODO: not implemented
+                            help='Load parameters from output directory')
     main(arg_parser.parse_args())

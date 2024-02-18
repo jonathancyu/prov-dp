@@ -8,7 +8,6 @@ from tqdm import tqdm
 
 from .wrappers import Subgraph, GraphWrapper, IN, OUT
 
-T = TypeVar('T')
 
 
 def to_nx(graph: Subgraph | GraphWrapper) -> nx.DiGraph:
@@ -27,23 +26,6 @@ def to_nx(graph: Subgraph | GraphWrapper) -> nx.DiGraph:
                          feature=edge.get_token()
                          )
     return digraph
-
-
-def map_pool(func: callable,
-             items: list[T],
-             desc: str = '') -> Generator:
-    with ProcessPoolExecutor() as executor:
-        # When we multiprocess, objects are pickled and passed to the child process
-        # So we have to return objects from the function to get the changes back
-        futures = [
-            executor.submit(func, *item) if isinstance(item, tuple)
-            else executor.submit(func, item)
-            for item in items
-        ]
-        with tqdm(total=len(futures), desc=desc) as pbar:
-            for future in futures:
-                yield future.result()
-                pbar.update(1)
 
 
 def get_device():
