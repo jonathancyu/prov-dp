@@ -4,11 +4,20 @@ import pickle
 import random
 from pathlib import Path
 
+from tqdm.auto import tqdm
+
 from source.algorithm import GraphProcessor
 from utility import save_dot
 
 
 def main(args):
+    # Apply graph limit
+    input_paths = list(args.input_dir.glob('*.json'))
+    if args.num_graphs is not None:
+        random.seed(args.num_graphs)
+        input_paths = random.sample(input_paths, args.num_graphs)
+        args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}_N={args.num_graphs}')
+
     # Map args to GraphProcessor constructor
     parameters = inspect.signature(GraphProcessor.__init__).parameters
     processor_args = {}
@@ -17,12 +26,6 @@ def main(args):
             print(f'Warning: {arg} is not a valid GraphProcessor argument')
             continue
         processor_args[arg] = value
-
-    # Apply graph limit
-    input_paths = list(args.input_dir.glob('*.json'))
-    if args.num_graphs is not None:
-        random.seed(args.num_graphs)
-        input_paths = random.sample(input_paths, args.num_graphs)
 
     # Run graph processor
     tree_shaker = GraphProcessor(epsilon=1, delta=0.5, alpha=1, **processor_args)
@@ -33,7 +36,7 @@ def main(args):
         pickle.dump(perturbed_graphs, f)
 
     # Save dot files
-    for graph in perturbed_graphs:
+    for graph in tqdm(perturbed_graphs, desc='Saving graphs'):
         save_dot(graph.to_dot(), args.output_dir / f'nd-{graph.source_edge_ref_id}-processletevent.dot')
 
 

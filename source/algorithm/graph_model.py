@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from karateclub import Graph2Vec
 
-from source.algorithm import GraphWrapper
+from source.algorithm import Tree
 from source.algorithm.utility import print_stats
 
 
@@ -26,7 +26,7 @@ class GraphModel:
 
     # Dataset info
     paths: list[str]
-    graphs: list[GraphWrapper]
+    graphs: list[Tree]
     stoi: dict[str, int]
     itos: list[str]
 
@@ -37,7 +37,7 @@ class GraphModel:
 
     def __init__(self,
                  paths: list[str],
-                 graphs: list[GraphWrapper],
+                 graphs: list[Tree],
                  context_length: int = 8,
                  n_embedding: int = 10,
                  n_hidden: int = 100,
@@ -220,7 +220,7 @@ class GraphModel:
         return context
 
     @torch.no_grad()
-    def predict(self, paths: list[str]) -> list[GraphWrapper]:
+    def predict(self, paths: list[str]) -> list[Tree]:
         # Convert the batch of paths a context tensor and predict the
         self.model.eval()
         batch = torch.tensor(

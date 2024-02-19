@@ -1,2 +1,0 @@
-IN = 'IN'
-OUT = 'OUT'

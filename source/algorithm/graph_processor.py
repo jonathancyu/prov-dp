@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from .graph_model import GraphModel
 from .utility import print_stats, batch_list
-from .wrappers import GraphWrapper
+from .wrappers import Tree
 
 
 class GraphProcessor:
@@ -58,8 +58,7 @@ class GraphProcessor:
         self.__depths = []
 
         self.__process_steps = [
-            GraphWrapper.load_file,
-            GraphWrapper.preprocess,
+            Tree.load_file,
             self.prune_graph
         ]
 
@@ -84,29 +83,31 @@ class GraphProcessor:
         self.__load_graph2vec = load_graph2vec
         self.__load_model = load_model
 
-    def __step(self) -> str:
-        # Step counter for logging
+    def __step(self) -> str:  # Step counter for pretty logging
         self.__step_number += 1
         return f'({self.__step_number})'
 
-    # Run each step for a single graph
-    def process_graph(self, path: Path) -> tuple[list[GraphWrapper], list[tuple[str, GraphWrapper]]]:
-        # Apply each step sequentially
+    def process_graph(self, path: Path) -> tuple[list[Tree], list[tuple[str, Tree]]]:
+        """
+        This function sequentially applies each step in the pipeline to the given graph
+        :param path: Path of a graph json file
+        :return: Processed graph
+        """
         result = path
         for step in self.__process_steps:
             result = step(result)
         return result
 
-    def prune_graph(self, graph: GraphWrapper) -> GraphWrapper:
+    def prune_graph(self, graph: Tree) -> Tree:
         return graph.prune(self.alpha, self.epsilon_p)
 
-    def load_and_prune_graphs(self, paths: list[Path]) -> tuple[list[GraphWrapper], list[tuple[str, GraphWrapper]]]:
-        pruned_graphs_and_sizes_and_depths = list(self.map(
+    def load_and_prune_graphs(self, paths: list[Path]) -> tuple[list[Tree], list[tuple[str, Tree]]]:
+        pruned_graphs_and_sizes_and_depths = list(self.__map(
             self.process_graph,
             paths,
             f'{self.__step()} Pruning graphs'
         ))
-        # TODO: the fact that we're tracking stats in the GraphWrapper
+        # TODO: the fact that we're tracking stats in the Tree
         #       is a red flag that graph.prune should be in this class
         pruned_graphs = []
         sizes = []
@@ -121,10 +122,10 @@ class GraphProcessor:
         print_stats('Num pruned edges', num_pruned)
 
         # Create training data and flatten into a single list
-        train_data: list[tuple[str, GraphWrapper]] = list(
+        train_data: list[tuple[str, Tree]] = list(
             chain.from_iterable(
-                self.map(
-                    GraphWrapper.get_train_data,
+                self.__map(
+                    Tree.get_train_data,
                     pruned_graphs,
                     f'{self.__step()} Creating training data'
                 )
@@ -132,7 +133,7 @@ class GraphProcessor:
         )
         return pruned_graphs, train_data
 
-    def perturb_graphs(self, paths: list[Path]) -> list[GraphWrapper]:
+    def perturb_graphs(self, paths: list[Path]) -> list[Tree]:
         pruned_graph_path = self.output_dir / 'pruned_graphs.pkl'
         if self.__load_perturbed_graphs and pruned_graph_path.exists():
             # Load graphs and training data from file
@@ -171,11 +172,11 @@ class GraphProcessor:
         # Add graphs back (epsilon_m) # TODO: diff privacy here
         sizes = []
         num_marked_edges = []
-        count_from_same_graph = []
+        num_unmoved_subtrees = []
         for graph in tqdm(pruned_graphs, desc=f'{self.__step()} Re-attaching subgraphs'):
             # Stats
             num_marked_edges.append(len(graph.marked_edge_ids))
-            from_same_graph = 0
+            unmoved_subtrees = 0
 
             # Re-attach a random to each marked edge in batches
             edge_ids = list(graph.marked_edge_ids.keys())
@@ -184,27 +185,27 @@ class GraphProcessor:
                 predictions = model.predict([graph.marked_edge_ids[edge_id] for edge_id in batch])
                 # Attach predicted subgraph to the corresponding edge
                 for i, subgraph in enumerate(predictions):
-                    graph.insert_subgraph(edge_ids[i], subgraph)
+                    graph.insert_subtree(edge_ids[i], subgraph)
                     # Stats
                     sizes.append(len(subgraph))
                     if subgraph.source_edge_ref_id == graph.source_edge_ref_id:
-                        from_same_graph += 1
+                        unmoved_subtrees += 1
             # Stats
-            count_from_same_graph.append(from_same_graph)
+            num_unmoved_subtrees.append(unmoved_subtrees)
 
         print_stats('Subgraph size', sizes)
         print_stats('# marked edges', num_marked_edges)
-        print_stats('# unmoved subgraphs', count_from_same_graph)
-        from_same_graph_percentages = [x / y for x, y in zip(count_from_same_graph, num_marked_edges)]
-        print_stats('% unmoved subgraphs', from_same_graph_percentages)
+        print_stats('# unmoved subtrees', num_unmoved_subtrees)
+        print_stats('% unmoved subtrees',
+                    [(x / y) * 100 for x, y in zip(num_unmoved_subtrees, num_marked_edges)])
         print()
         model.print_distance_stats()
         return pruned_graphs
 
-    def map(self,
-            func: callable,
-            items: list,
-            desc: str = '') -> Generator:
+    def __map(self,
+              func: callable,
+              items: list,
+              desc: str = '') -> Generator:
         if self.__single_threaded:
             # Do a simple loop
             for graph in tqdm(items, desc=desc):
