@@ -28,8 +28,8 @@ def main(args):
         processor_args[arg] = value
 
     # Run graph processor
-    tree_shaker = GraphProcessor(epsilon=1, delta=0.5, alpha=1, **processor_args)
-    perturbed_graphs = tree_shaker.perturb_graphs(input_paths)
+    tree_shaker = GraphProcessor(**processor_args)
+    perturbed_graphs: list[Tree] = tree_shaker.perturb_graphs(input_paths)
 
     # Save final graph objects
     with open(args.output_dir / 'perturbed_graphs.pkl', 'wb') as f:
@@ -48,6 +48,14 @@ if __name__ == '__main__':
     arg_parser.add_argument('-N', '--num_graphs', type=int, default=None,
                             help='Limit the number of graphs to process')
     arg_parser.add_argument('-o', '--output_dir', type=Path, help='Path to output graph directory')
+
+    # Differential privacy parameters
+    arg_parser.add_argument('-e', '--epsilon', type=float, default=1,
+                            help='Differential privacy budget')
+    arg_parser.add_argument('-d', '--delta', type=float, default=0.5,
+                            help='Portion of privace to allocate to pruning')
+    arg_parser.add_argument('-a', '--alpha', type=float, default=1,
+                            help='Weight of subtree size on pruning probability (high delta -> low probability')
 
     # Algorithm configuration
     arg_parser.add_argument('-s', '--single_threaded', action='store_true',

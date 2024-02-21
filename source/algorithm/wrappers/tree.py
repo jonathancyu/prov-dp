@@ -20,8 +20,8 @@ class Tree:
     source_edge_id: int | None
     root_node_id: int | None
 
-    __node_lookup: dict[int, Node]
-    __edge_lookup: dict[int, Edge]
+    __node_lookup: dict[int, Node | None]
+    __edge_lookup: dict[int, Edge | None]
 
     __subtree_lookup: dict[int, 'Tree']
     marked_edge_ids: dict[int, str]  # edge_id: path
@@ -92,11 +92,13 @@ class Tree:
             return subtree
         visited_node_ids = visited_node_ids or []
 
-        # Create a new GraphWrapper object to store the tree
+        # Create a new GraphWrapper object to store the accumulating tree
         subtree = Tree()
         root_node = self.get_node(root_node_id)
-        visited_node_ids.append(root_node_id)
         subtree.add_node(root_node)
+
+        # Mark the node as visited
+        visited_node_ids.append(root_node_id)
 
         # BFS recursively
         for edge_id in root_node.get_outgoing_edges():
@@ -139,13 +141,11 @@ class Tree:
 
         # Add edge to src node's outgoing list
         src_node = self.get_node(edge.get_src_id())  # TODO: can simplify logic if get_outgoing is a set
-        if src_node is not None:
-            src_node.add_outgoing(edge_id)
+        src_node.add_outgoing(edge_id)
 
         # Add edge to dst node's incoming list
         dst_node = self.get_node(edge.get_dst_id())
-        if dst_node is not None:
-            dst_node.add_incoming(edge_id)
+        dst_node.add_incoming(edge_id)
 
     def add_node(self,
                  node: Node) -> None:
@@ -154,13 +154,15 @@ class Tree:
 
     def remove_node(self, node: Node) -> None:
         # Removes node from graph and lookup
-        self.nodes.remove(node)
-        self.__node_lookup.pop(node.get_id())
+        if node in self.nodes:
+            self.nodes.remove(node)
+        self.__node_lookup[node.get_id()] = None
 
     def remove_edge(self, edge: Edge) -> None:
         # Removes edge from graph and lookup
-        self.edges.remove(edge)
-        self.__edge_lookup.pop(edge.get_id())
+        if edge in self.edges:
+            self.edges.remove(edge)
+        self.__edge_lookup[edge.get_id()] = None
 
     def get_next_node_id(self) -> int:
         return max([node.get_id() for node in self.nodes]) + 1
@@ -291,16 +293,16 @@ class Tree:
 
         # Detach root node from parent graph
         root_edge = self.get_edge(root_edge_id)
-        root_node_id = root_edge.get_dst_id()
-        root_node = self.get_node(root_node_id)
-        root_node.set_incoming_edges([])
-
+        dst_id = root_edge.get_dst_id()
+        self.__assert_complete()
         root_edge.set_dst_id(None)
 
-        # Create subtree graph
-        subtree: Tree = self.get_subtree(root_node_id)
-        subtree.source_edge_ref_id = self.source_edge_ref_id
+        dst_node = self.get_node(dst_id)
+        dst_node.set_incoming_edges([])
 
+        # Create subtree graph
+        subtree: Tree = self.get_subtree(dst_id)
+        subtree.source_edge_ref_id = self.source_edge_ref_id
 
         # Remove all subtree nodes and elements from the parent graph
         for edge in subtree.edges:
@@ -338,7 +340,7 @@ class Tree:
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root by restricting depth to > 1
                 # Remove the tree rooted at this edge from the graph
                 pruned_tree = self.__prune_tree(edge_id, self.__path_to_string(path))
-
+                assert edge.get_dst_id() is None
                 # Add tree, and path to the tree to the training data
                 self.__training_data.append((path, pruned_tree))
 
@@ -422,42 +424,60 @@ class Tree:
         @param root_edge_id: edge to attach the subtree to
         @param graph: subtree to attach
         """
+        self.__assert_complete()
         node_id_translation = {}
         edge_id_translation = {}
         # Update node IDs to avoid collision in the current graph
-        for node in graph.nodes:
+        orphan_nodes = []
+        for old_node in graph.nodes:
             # Copy the node, and give it a new ID
-            node_id = node.get_id()
-            new_node = deepcopy(node)
-            new_node_id = self.get_next_node_id()
-            new_node.node.id = new_node_id
+            old_node_id = old_node.get_id()
+            node = deepcopy(old_node)
+            node_id = self.get_next_node_id()
+            node.set_id(node_id)
+
             # Add the ID to the lookup
-            node_id_translation[node_id] = new_node_id
-            self.add_node(new_node)
+            node_id_translation[old_node_id] = node_id
+            self.add_node(node)
+
+            # If the node is an orphan, it's a root
+            if len(node.get_incoming_edges()) == 0:
+                orphan_nodes.append(node)
+
             # Mark the node to indicate it's added after the fact
-            new_node.marked = True
+            node.marked = True
+
+        # There should only be one orphan/root node
+        assert len(orphan_nodes) == 1
+        root_node = orphan_nodes[0]
 
         # Update edge IDs to avoid collision in the current graph, and bring up to date with node IDs
-        for edge in graph.edges:
+        for old_edge in graph.edges:
             # Copy the edge, and give it a new ID
-            new_edge = deepcopy(edge)
+            edge = deepcopy(old_edge)
             new_edge_id = self.get_next_edge_id()
-            new_edge.set_id(new_edge_id)
+            edge.set_id(new_edge_id)
             # Update the edge's node IDs to match the new graph
-            new_edge.translate_node_ids(node_id_translation)
+            assert node_id_translation.get(edge.get_src_id()) is not None
+            assert node_id_translation.get(edge.get_dst_id()) is not None
+            edge.translate_node_ids(node_id_translation)
+            assert self.get_node(edge.get_src_id()) is not None
+            assert self.get_node(edge.get_dst_id()) is not None
 
             # Add the ID to the lookup
-            edge_id_translation[edge.get_id()] = new_edge_id
-            self.add_edge(new_edge)
+            edge_id_translation[old_edge.get_id()] = new_edge_id
+            self.add_edge(edge)
             # Mark the edge to indicate it's added after the fact
-            new_edge.marked = True
+            edge.marked = True
 
         # Attach root node to root edge
         root_edge = self.get_edge(root_edge_id)
-        if root_edge.get_dst_id() is not None:
-            print(f'Edge {root_edge_id} ({root_edge.get_src_id()}, {root_edge.get_dst_id()}) ({root_edge.marked}) '
-                  f'already has a destination ID ({root_edge.get_dst_id()})')
-        root_edge.set_dst_id(node_id_translation[graph.get_root_node_id()])
+        assert self.get_node(root_node.get_id()) is not None
+        root_edge.set_dst_id(root_node.get_id())
+
+        root_node.add_incoming(root_edge_id)
+        self.__assert_complete()
+
 
     def __len__(self):
         return len(self.nodes)
@@ -466,31 +486,37 @@ class Tree:
     def to_dot(self) -> gv.Digraph:
         dot_graph = gv.Digraph()
         dot_graph.attr(rankdir='LR')
-        included_nodes: set[RawNode] = set()
+        included_nodes: set[Node] = set()
         sorted_edges = sorted(self.edges, key=lambda e: e.get_time())
 
         def add_to_graph(new_node: Node):
-            if new_node is None:
-                return
+            assert new_node is not None, 'Trying to add a null node to the graph'
+            included_nodes.add(new_node)
             dot_graph.node(str(new_node.get_id()), **new_node.to_dot_args())
 
+        num_missing = 0
+        num_null = 0
         for edge in sorted_edges:
-            if src := edge.get_src_id():
-                add_to_graph(self.get_node(src))
-            if dst := edge.get_dst_id():
-                add_to_graph(self.get_node(dst))
+            src_id, dst_id = edge.get_src_id(), edge.get_dst_id()
+            assert src_id is not None, f'Edge {edge.get_id()} has no source'
+            assert dst_id is not None, f'Edge {edge.get_id()} has no destination'
+            src, dst = self.get_node(src_id), self.get_node(dst_id)
+            add_to_graph(src)
+            add_to_graph(dst)
 
-            dot_graph.edge(str(src), str(dst), **edge.to_dot_args())
+            dot_graph.edge(str(src_id), str(dst_id), **edge.to_dot_args())
 
+        if num_missing > 0:
+            print(f'Warn: {num_missing} MIA, {num_null} null out of {len(self.edges)}?')
         for node in self.nodes:
             if node not in included_nodes:
                 add_to_graph(node)
+        print(len(self.nodes), len(included_nodes), len(self.edges))
 
         return dot_graph
 
     def to_nx(self) -> nx.DiGraph:
         digraph: nx.DiGraph = nx.DiGraph()
-
         # NetworkX node IDs must index at 0
         node_ids = {node.get_id(): i
                     for i, node in enumerate(self.nodes)}
@@ -499,12 +525,26 @@ class Tree:
                              feature=node.get_token()
                              )
         for edge in self.edges:
-            # If an edge has a null node, don't include it.
-            # This occurs when we've pruned a subgraph
             src, dst = edge.get_src_id(), edge.get_dst_id()
-            if None in [src, dst]:
+            if src is not None and dst is None:
                 continue
             digraph.add_edge(node_ids[src],
                              node_ids[dst],
                              feature=edge.get_token())
         return digraph
+    def __assert_complete(self) -> None:
+        for edge in self.edges:
+            assert edge.get_src_id() is not None
+            assert edge.get_dst_id() is not None
+            assert self.get_node(edge.get_src_id()) is not None
+            assert self.get_node(edge.get_dst_id()) is not None
+        for node in self.nodes:
+            assert node.get_id() is not None
+            for edge_id in node.get_incoming_edges():
+                edge = self.get_edge(edge_id)
+                assert edge is not None
+                assert edge.get_dst_id() == node.get_id()
+            for edge_id in node.get_outgoing_edges():
+                edge = self.get_edge(edge_id)
+                assert edge is not None
+                assert edge.get_src_id() == node.get_id()

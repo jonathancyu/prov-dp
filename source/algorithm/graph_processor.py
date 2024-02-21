@@ -12,10 +12,10 @@ from .wrappers import Tree
 
 
 class GraphProcessor:
-    epsilon_p: float  # structural budget = (  delta) * epsilon
-    epsilon_m: float  # edge count budget = (1-delta) * epsilon
-    delta: float
-    alpha: float
+    __epsilon_p: float  # structural budget = (  delta) * epsilon
+    __epsilon_m: float  # edge count budget = (1-delta) * epsilon
+    __delta: float
+    __alpha: float
 
     # Stats
     __sizes: list[int]
@@ -50,17 +50,12 @@ class GraphProcessor:
                  num_epochs: int = 10,
                  prediction_batch_size: int = 10):
 
-        self.epsilon_p = delta * epsilon
-        self.epsilon_m = (1-delta) * epsilon
-        self.delta = delta
-        self.alpha = alpha
+        self.__epsilon_p = delta * epsilon
+        self.__epsilon_m = (1 - delta) * epsilon
+        self.__delta = delta
+        self.__alpha = alpha
         self.__sizes = []
         self.__depths = []
-
-        self.__process_steps = [
-            Tree.load_file,
-            self.prune_graph
-        ]
 
         self.__step_number = 0
 
@@ -88,18 +83,12 @@ class GraphProcessor:
         return f'({self.__step_number})'
 
     def process_graph(self, path: Path) -> tuple[list[Tree], list[tuple[str, Tree]]]:
-        """
-        This function sequentially applies each step in the pipeline to the given graph
-        :param path: Path of a graph json file
-        :return: Processed graph
-        """
-        result = path
-        for step in self.__process_steps:
-            result = step(result)
-        return result
+        # Load and prune a graph
+        tree = Tree.load_file(path)
+        return self.prune_tree(tree)
 
-    def prune_graph(self, graph: Tree) -> Tree:
-        return graph.prune(self.alpha, self.epsilon_p)
+    def prune_tree(self, graph: Tree) -> Tree:
+        return graph.prune(self.__alpha, self.__epsilon_p)
 
     def load_and_prune_graphs(self, paths: list[Path]) -> tuple[list[Tree], list[tuple[str, Tree]]]:
         pruned_graphs_and_sizes_and_depths = list(self.__map(
@@ -108,7 +97,7 @@ class GraphProcessor:
             f'{self.__step()} Pruning graphs'
         ))
         # TODO: the fact that we're tracking stats in the Tree
-        #       is a red flag that graph.prune should be in this class
+        #       is a red flag 🚩🚩 that graph.prune should be in this class
         pruned_graphs = []
         sizes = []
         num_pruned = []
@@ -180,16 +169,19 @@ class GraphProcessor:
 
             # Re-attach a random to each marked edge in batches
             edge_ids = list(graph.marked_edge_ids.keys())
+            total = 0
             for batch in batch_list(edge_ids, self.__prediction_batch_size):
                 # Get a prediction for each edge in the batch
                 predictions = model.predict([graph.marked_edge_ids[edge_id] for edge_id in batch])
                 # Attach predicted subgraph to the corresponding edge
                 for i, subgraph in enumerate(predictions):
+                    total += 1
                     graph.insert_subtree(edge_ids[i], subgraph)
                     # Stats
                     sizes.append(len(subgraph))
                     if subgraph.source_edge_ref_id == graph.source_edge_ref_id:
                         unmoved_subtrees += 1
+            assert total == len(edge_ids)
             # Stats
             num_unmoved_subtrees.append(unmoved_subtrees)
 
@@ -210,18 +202,18 @@ class GraphProcessor:
             # Do a simple loop
             for graph in tqdm(items, desc=desc):
                 yield func(graph)
-        else:
-            # Using this pickles the arguments and results, which consumes a lot of memory
-            with ProcessPoolExecutor() as executor:
-                # When we multiprocess, objects are pickled and copied in the child process
-                # instead of using the same object, so we have to return objects from the
-                # function to get the changes back
-                futures = [
-                    executor.submit(func, *item) if isinstance(item, tuple)
-                    else executor.submit(func, item)
-                    for item in items
-                ]
-                with tqdm(total=len(futures), desc=desc) as pbar:
-                    for future in futures:
-                        yield future.result()
-                        pbar.update(1)
+            return
+
+        with ProcessPoolExecutor() as executor:
+            # When we multiprocess, objects are pickled and copied in the child process
+            # instead of using the same object, so we have to return objects from the
+            # function to get the changes back
+            futures = [
+                executor.submit(func, *item) if isinstance(item, tuple)
+                else executor.submit(func, item)
+                for item in items
+            ]
+            with tqdm(total=len(futures), desc=desc) as pbar:
+                for future in futures:
+                    yield future.result()
+                    pbar.update(1)

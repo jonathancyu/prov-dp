@@ -90,7 +90,6 @@ class Node:
 
     def to_dot_args(self) -> dict[str, any]:
         model = self.node.model_dump(by_alias=True, exclude={'time'})
-        args = {}
         match self.get_type():
             case NodeType.PROCESS_LET:
                 args = {
@@ -128,6 +127,8 @@ class Node:
                     'style': 'solid',
                     'label': 'ephemeral'
                 }
+            case _:
+                raise ValueError(f'Unknown node type: {self.get_type()}')
         if self.marked:
             args['color'] = 'greenyellow'
         return {key: Node.__sanitize(value) for key, value in args.items()}
