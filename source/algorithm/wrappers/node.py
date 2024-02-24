@@ -12,31 +12,6 @@ class Node:
         self.node = node
         self.incoming_edges, self.outgoing_edges = set(), set()
 
-    # Wrapper functions
-    def add_incoming(self, edge_id: int) -> None:
-        self.incoming_edges.add(edge_id)
-
-    def add_outgoing(self, edge_id: int) -> None:
-        self.outgoing_edges.add(edge_id)
-
-    def remove_incoming(self, edge_id: int):
-        self.incoming_edges.remove(edge_id)
-
-    def remove_outgoing(self, edge_id: int):
-        self.outgoing_edges.remove(edge_id)
-
-    def clear_incoming(self) -> None:
-        self.incoming_edges.clear()
-
-    def clear_outgoing(self) -> None:
-        self.outgoing_edges.clear()
-
-    def get_incoming_edges(self) -> list[int]:
-        return list(self.incoming_edges)
-
-    def get_outgoing_edges(self) -> list[int]:
-        return list(self.outgoing_edges)
-
     # Adapter functions (reach into RawNode object)
     def get_id(self) -> int:
         return self.node.id

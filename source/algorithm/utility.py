@@ -5,6 +5,9 @@ import numpy as np
 
 
 def print_stats(name: str, samples: list) -> None:
+    if len(samples) == 0:
+        print(f'  {name} (N=0)')
+        return
     print(f'  {name} (N={len(samples)}) - mean: {np.mean(samples)}, std: {np.std(samples)}, '
           f'min: {np.min(samples)}, max: {np.max(samples)}')
 
