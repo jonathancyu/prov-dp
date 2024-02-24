@@ -37,7 +37,7 @@ class Tree:
             RawGraph.load_file(json_path),
             ref_id
         )
-        return unprocessed_tree.preprocess(output_dir=Path('.'))
+        return unprocessed_tree.preprocess()
 
     def __init__(self,
                  graph: RawGraph = None,
@@ -328,14 +328,16 @@ class Tree:
         for node in subtree.get_nodes():
             if node.get_id() == root_node_id:
                 num_roots += 1
-                continue  # We want to keep this node so we can replace later
+                continue  # We want to keep this node, so we can replace later
             self.remove_node(node)
         assert num_roots == 1, f'Expected 1 root, got {num_roots}'
 
-        assert len(self.get_incoming_edge_ids(root_node_id)) == 1, f'Expected 1 outgoing edge, got {len(self.get_outgoing_edge_ids(root_node_id))}'
+        assert len(self.get_incoming_edge_ids(root_node_id)) == 1, \
+            f'Expected 1 outgoing edge, got {len(self.get_outgoing_edge_ids(root_node_id))}'
         subtree_root = subtree.get_node(root_node_id)
         assert subtree_root is not None
         assert len(subtree.get_incoming_edge_ids(root_node_id)) == 0
+        assert self.get_node(root_node_id) is not None
 
         self.assert_complete()
         return subtree
@@ -371,7 +373,6 @@ class Tree:
                 pass
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root by restricting depth to > 1
                 # Remove the tree rooted at this edge's dst_id from the graph
-                print(f'Pruning edge {edge_id} ({edge.get_token()}), {edge.get_src_id()} -> {edge.get_dst_id()}')
                 pruned_tree = self.__prune_tree(edge.get_dst_id(), self.__path_to_string(path))
 
                 # Add tree, and path to the tree to the training data
@@ -578,6 +579,7 @@ class Tree:
         for node in self.get_nodes():
             incoming_edges = self.get_incoming_edge_ids(node.get_id())
             assert len(incoming_edges) <= 1, f'Node {node.get_id()} has {len(incoming_edges)} incoming edges'
+
     def assert_complete(self) -> None:
         for edge in self.get_edges():
             assert edge.get_src_id() is not None, f'Edge {edge.get_id()} ({edge.get_token()} has None source'

@@ -14,7 +14,7 @@
     <option name="ADD_SOURCE_ROOTS" value="false" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
-    <option name="PARAMETERS" value="-i ../data/benign_graphs/tc3-theia/firefox/nd -o ../data/prov_dp/output/tc3-theia --epsilon 1 --delta -1 --alpha 0.5 --num_epochs 10 --prediction_batch_size 5 -s -N 1" />
+    <option name="PARAMETERS" value="-i ../data/benign_graphs/tc3-theia/firefox/nd -o ../data/prov_dp/output/tc3-theia --epsilon 1 --delta -1 --alpha 0.5 --num_epochs 10 --prediction_batch_size 5 -s -N 2" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

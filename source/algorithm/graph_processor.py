@@ -185,7 +185,8 @@ class GraphProcessor:
                 # Attach predicted subgraph to the corresponding edge
                 for i, subgraph in enumerate(predictions):
                     total += 1
-                    tree.replace_node_with_tree(node_ids[i], subgraph)
+                    assert tree.get_node(batch[i]) is not None
+                    tree.replace_node_with_tree(batch[i], subgraph)
                     tree.assert_complete()
                     # Stats
                     sizes.append(len(subgraph))
