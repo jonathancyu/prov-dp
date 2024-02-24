@@ -6,7 +6,7 @@ EDGE_ID_SEQUENCE = 5000
 
 
 class RawEdge(GraphsonObject):
-    id: int = Field(alias='_id')  # TODO: May be edge ID conflicts when we export the graph
+    id: int = Field(alias='_id')
     src_id: int = Field(..., alias='_outV')
     dst_id: int = Field(..., alias='_inV')
     optype: str = Field(..., alias='OPTYPE')

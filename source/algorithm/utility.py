@@ -22,3 +22,21 @@ def batch_list(input_list: list, batch_size: int) -> Iterator[list]:
     num_elements = len(input_list)
     for start in range(0, num_elements, batch_size):
         yield input_list[start:start + batch_size]
+
+
+def json_value(value: any, type_str: str) -> dict:
+    try:
+        if type_str == 'string':
+            value = str(value)
+        elif type_str == 'long' or type_str == 'integer':
+            value = int(value)
+        elif type_str == 'boolean':
+            value = str(value).lower() == 'true'
+    except ValueError:
+        pass
+    except TypeError:
+        pass
+    return {
+        'type': type_str,
+        'value': value
+    }

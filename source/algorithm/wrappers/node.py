@@ -1,3 +1,4 @@
+from ..utility import json_value
 from ...graphson import NodeType, RawNode
 
 
@@ -103,8 +104,10 @@ class Node:
                     'color': 'black',
                     'shape': 'box',
                     'style': 'solid',
-                    'label': Node.__format_label(model, [('exe_name', 'EXE_NAME'),
-                                                         ('cmd', 'CMD')])
+                    'label': Node.__format_label(
+                        model,
+                        [('exe_name', 'EXE_NAME'), ('cmd', 'CMD')]
+                    )
                 }
             case NodeType.FILE:
                 filename = 'no file name'
@@ -139,3 +142,31 @@ class Node:
         if self.marked:
             args['color'] = 'greenyellow'
         return {key: Node.__sanitize(value) for key, value in args.items()}
+
+    __json_attributes: list[tuple[str, str]] = [
+        ('AGENT_ID', 'long'),
+        ('PROC_ORDINAL', 'string'),
+        ('PID', 'long'),
+        ('EXE_NAME', 'string'),
+        ('REF_DB', 'string'),
+        ('FT_HOPCOUNT', 'integer'),
+        ('PROC_STARTTIME', 'long'),
+        ('OWNER_GROUP_ID', 'string'),
+        ('CMD', 'string'),
+        ('OWNER_UID', 'string'),
+        ('TYPE', 'string'),
+        ('REF_ID', 'long'),
+        ('postgres', 'long'),
+    ]
+
+    def to_json_dict(self) -> dict:
+        model = self.node.model_dump(by_alias=True)
+        json_dict = {
+            attribute: json_value(model.get(attribute), type_str)
+            for attribute, type_str in self.__json_attributes
+        }
+
+        json_dict['_id'] = str(self.get_id())
+        json_dict['_type'] = 'vertex'
+        json_dict['TYPE'] = json_value(self.get_type().value, 'string')
+        return json_dict

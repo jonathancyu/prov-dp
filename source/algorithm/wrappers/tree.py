@@ -1,3 +1,4 @@
+import json
 from collections import deque
 from copy import deepcopy
 from pathlib import Path
@@ -27,6 +28,7 @@ class Tree:
 
     @staticmethod
     def load_file(json_path: Path) -> 'Tree':
+        print(json_path)
         split = str(json_path.stem).split('-')
         ref_id = -1
         if len(split) == 3:
@@ -35,7 +37,7 @@ class Tree:
             RawGraph.load_file(json_path),
             ref_id
         )
-        return unprocessed_tree.preprocess(output_dir=Path('.'))
+        return unprocessed_tree.preprocess()
 
     def __init__(self,
                  graph: RawGraph = None,
@@ -166,10 +168,10 @@ class Tree:
         self.__edges.pop(edge_id)
 
     def get_next_node_id(self) -> int:
-        return max([node_id for node_id, _ in self.__nodes]) + 1
+        return max([node_id for node_id in self.__nodes.keys()]) + 1
 
     def get_next_edge_id(self) -> int:
-        return max([edge_id for edge_id, _ in self.__edges]) + 1
+        return max([edge_id for edge_id in self.__edges.keys()]) + 1
 
     def __invert_edge(self, edge_id: int) -> None:
         edge = self.get_edge(edge_id)
@@ -278,10 +280,12 @@ class Tree:
         __add_ephemeral_root
     ]
 
-    def preprocess(self, output_dir: Path = None) -> 'Tree':
+    def preprocess(self, output_dir: Path) -> 'Tree':
         for i, step in enumerate(self.__preprocess_steps):
             step(self)
             if output_dir is not None:
+                with open(output_dir / f'{i + 1}_{step.__name__.strip("_")}.json', 'w', encoding='utf-8') as output_file:
+                    output_file.write(self.to_json())
                 self.to_dot().save(output_dir / f'{i + 1}_{step.__name__.strip("_")}.dot')
 
         return self
@@ -496,7 +500,7 @@ class Tree:
         dot_graph = gv.Digraph()
         dot_graph.attr(rankdir='LR')
         included_nodes: set[Node] = set()
-        sorted_edges = sorted(self.edges, key=lambda e: e.get_time())
+        sorted_edges = sorted(self.get_edges(), key=lambda e: e.get_time())
 
         def add_to_graph(new_node: Node):
             assert new_node is not None, 'Trying to add a null node to the graph'
@@ -559,3 +563,14 @@ class Tree:
                 edge = self.get_edge(edge_id)
                 assert edge is not None, f'Node {node.get_token()} has no outgoing edge {edge_id}, {node.marked}'
                 assert edge.get_src_id() == node.get_id(), f'Node {node.get_token()} has outgoing edge {edge_id} with wrong source'
+
+    def to_json(self) -> str:
+        return json.dumps({
+            'mode': 'EXTENDED',
+            'vertices': [
+                node.to_json_dict() for node in self.get_nodes()
+            ],
+            'edges': [
+                edge.to_json_dict() for edge in self.get_edges()
+            ],
+        })

@@ -82,6 +82,13 @@ class GraphProcessor:
         self.__step_number += 1
         return f'({self.__step_number})'
 
+    def preprocess_graphs(self, paths: list[Path]) -> list[Tree]:
+        return list(self.__map(
+            Tree.load_file,
+            paths,
+            f'Preprocessing graphs'
+        ))
+
     def process_graph(self, path: Path) -> tuple[list[Tree], list[tuple[str, Tree]]]:
         # Load and prune a graph
         tree = Tree.load_file(path)

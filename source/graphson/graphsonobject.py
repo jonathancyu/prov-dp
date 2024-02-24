@@ -11,7 +11,7 @@ class GraphsonObject(BaseModel):
         result = {}
         for key, value in values.items():
             if isinstance(value, list):
-                assert len(value) in [0, 1]
+                assert len(value) == 1
                 value = value[0]
             if key.startswith('_') or not isinstance(value, dict):
                 result[key] = value
