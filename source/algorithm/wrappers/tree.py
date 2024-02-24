@@ -28,7 +28,6 @@ class Tree:
 
     @staticmethod
     def load_file(json_path: Path) -> 'Tree':
-        print(json_path)
         split = str(json_path.stem).split('-')
         ref_id = -1
         if len(split) == 3:
@@ -280,7 +279,7 @@ class Tree:
         __add_ephemeral_root
     ]
 
-    def preprocess(self, output_dir: Path) -> 'Tree':
+    def preprocess(self, output_dir: Path = None) -> 'Tree':
         for i, step in enumerate(self.__preprocess_steps):
             step(self)
             if output_dir is not None:

@@ -37,11 +37,10 @@ class GraphProcessor:
     __num_epochs: int
     __prediction_batch_size: int
 
-
     def __init__(self,
-                 epsilon: float,
-                 delta: float,
-                 alpha: float,
+                 epsilon: float = 1,
+                 delta: float = 1,
+                 alpha: float = 0.5,
                  output_dir: Path = Path('.'),
                  single_threaded: bool = False,
                  load_perturbed_graphs: bool = False,
