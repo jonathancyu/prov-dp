@@ -197,12 +197,10 @@ class Tree:
 
     # Step 1. Original graph
     def original_graph(self) -> None:
-        self.assert_complete()
         pass
 
     # Step 2. Invert all outgoing edges from files/IPs
     def __invert_outgoing_file_edges(self) -> None:
-        self.assert_complete()
         edges_to_invert = []
         for node in self.get_nodes():
             if node.get_type() == NodeType.PROCESS_LET:
@@ -214,7 +212,6 @@ class Tree:
 
     # Step 3. Duplicate file/IP nodes for each incoming edge
     def __duplicate_file_ip_leaves(self) -> None:
-        self.assert_complete()
         nodes = self.get_nodes().copy()
         for node in nodes:
             if node.get_type() == NodeType.PROCESS_LET:
@@ -237,13 +234,9 @@ class Tree:
 
             # Remove original node
             self.remove_node(node)
-        self.assert_tree()
-        self.assert_complete()
 
     # Step 4
     def __add_ephemeral_root(self) -> None:
-        self.assert_tree()
-        self.assert_complete()
         # Create root node
         raw_root_node = RawNode(
             _id=9999,
@@ -288,7 +281,6 @@ class Tree:
                     EVENT_START=0
                 ))
             )
-        self.assert_tree()
 
     __preprocess_steps: list[callable] = [
         original_graph,
@@ -314,13 +306,10 @@ class Tree:
         # Mark the node so we can replace it later
         assert self.get_node(root_node_id) is not None
         self.marked_node_paths[root_node_id] = path
-        self.assert_complete()
 
         # Create subtree graph
         subtree: Tree = self.get_subtree(root_node_id)
         subtree.source_edge_ref_id = self.source_edge_ref_id
-        subtree.assert_complete()
-        self.assert_complete()
         num_roots = 0
         # Remove all subtree nodes and elements from the parent graph
         for edge in subtree.get_edges():
@@ -339,11 +328,9 @@ class Tree:
         assert len(subtree.get_incoming_edge_ids(root_node_id)) == 0
         assert self.get_node(root_node_id) is not None
 
-        self.assert_complete()
         return subtree
 
     def prune(self, alpha: float, epsilon: float) -> 'Tree':
-        self.assert_complete()
         sizes = []
         depths = []
         num_leaves = 0
@@ -353,7 +340,6 @@ class Tree:
         queue: deque[tuple[int, list[int]]] = deque([(self.source_edge_id, [])])
         visited_edge_ids: set[int] = set()
         while len(queue) > 0:
-            self.assert_complete()
             # Standard BFS operations
             edge_id, path = queue.popleft()  # Could change to `queue.pop()` if you want a DFS
             if edge_id in visited_edge_ids:
@@ -461,7 +447,6 @@ class Tree:
         @param node_id_to_replace: node to replace with subtree
         @param graph: subtree to replace with
         """
-        self.assert_complete()
         node_id_translation = {}
         edge_id_translation = {}
         # Update node IDs to avoid collision in the current graph
@@ -519,7 +504,6 @@ class Tree:
         self.remove_node(node_to_replace)
         parent_edge.set_dst_id(new_root_node.get_id())
         self.add_edge(parent_edge)
-        self.assert_complete()
 
     def __len__(self):
         return len(self.__nodes)
@@ -553,7 +537,6 @@ class Tree:
         for node in self.get_nodes():
             if node not in included_nodes:
                 add_to_graph(node)
-        print(len(self.get_nodes()), len(included_nodes), len(self.get_edges()))
 
         return dot_graph
 

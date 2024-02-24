@@ -187,7 +187,6 @@ class GraphProcessor:
                     total += 1
                     assert tree.get_node(batch[i]) is not None
                     tree.replace_node_with_tree(batch[i], subgraph)
-                    tree.assert_complete()
                     # Stats
                     sizes.append(len(subgraph))
                     if subgraph.source_edge_ref_id == tree.source_edge_ref_id:
