@@ -57,6 +57,13 @@ class Node:
     def get_type(self) -> NodeType:
         return self.node.type
 
+    # Comparison functions
+    def __eq__(self, other: 'Node') -> bool:
+        return self.get_id() == other.get_id()
+
+    def __hash__(self) -> int:
+        return hash(self.get_id())
+
     # Exporter functions
     def get_token(self) -> str:
         model = self.node.model_dump()

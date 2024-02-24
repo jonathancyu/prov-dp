@@ -14,17 +14,15 @@ from ...graphson import RawEdge, RawNode, RawGraph, NodeType
 
 
 class Tree:
-    nodes: list[Node]
-    edges: list[Edge]
     source_edge_ref_id: int | None
     source_edge_id: int | None
     root_node_id: int | None
 
-    __node_lookup: dict[int, Node | None]
-    __edge_lookup: dict[int, Edge | None]
+    marked_node_paths: dict[int, str]  # node_id: path
 
+    __nodes: dict[int, Node]
+    __edges: dict[int, Edge]
     __subtree_lookup: dict[int, 'Tree']
-    marked_edge_ids: dict[int, str]  # edge_id: path
     __training_data: list[tuple[list[int], 'Tree']]  # (path, subtree) tuples
 
     @staticmethod
@@ -43,26 +41,24 @@ class Tree:
                  graph: RawGraph = None,
                  source_edge_ref_id: int = None):
         graph = graph or RawGraph()
-        self.nodes = []
-        self.edges = []
         self.__init_nodes(graph.nodes)
         self.__init_edges(graph.edges)
         self.__init_source_edge(source_edge_ref_id)
 
         # Algorithm-specific fields
         self.__subtree_lookup = {}
-        self.marked_edge_ids = {}
+        self.marked_node_paths = {}
         self.__training_data: list[tuple[list[int], Tree]] = []
 
     def __init_nodes(self, nodes: list[RawNode]):
         # Create a lookup by node ID
-        self.__node_lookup = {}
-        for node in nodes:
-            self.add_node(Node(node))
+        self.__nodes = {}
+        for raw_node in nodes:
+            self.add_node(Node(raw_node))
 
     def __init_edges(self, edges: list[RawEdge]):
         # Create a lookup by edge ID and add edge references to nodes
-        self.__edge_lookup = {}
+        self.__edges = {}
         for raw_edge in edges:
             self.add_edge(Edge(raw_edge))
 
@@ -71,7 +67,7 @@ class Tree:
         self.source_edge_ref_id = source_edge_ref_id
         if source_edge_ref_id is not None:
             # Ref ID is not the same as graphson ID, so we need to find the edge with the matching ref ID
-            matches = [edge for edge in self.edges
+            matches = [edge for edge in self.__edges.values()
                        if edge.get_ref_id() == source_edge_ref_id]
             assert len(matches) == 1
             self.source_edge_id = matches[0].get_id()
@@ -111,9 +107,9 @@ class Tree:
             next_subgraph = self.get_subtree(edge.get_dst_id(), visited_node_ids)
             if next_subgraph is not None:
                 # Deep copy the graph components into the accumulating subgraph
-                for new_node in next_subgraph.nodes:  # Nodes need to be added first
+                for new_node in next_subgraph.get_nodes():  # Nodes need to be added first
                     subtree.add_node(deepcopy(new_node))
-                for new_edge in next_subgraph.edges + [edge]:
+                for new_edge in list(next_subgraph.get_edges()) + [edge]:
                     subtree.add_edge(deepcopy(new_edge))
 
         # Cache result
@@ -121,26 +117,30 @@ class Tree:
 
         return subtree
 
-    def get_tree_size(self, root_edge_id: int = None) -> int:
-        root_edge_id = root_edge_id or self.source_edge_id
-        if root_edge_id is None:
-            return 0
+    def get_tree_size(self, root_edge_id) -> int:
         # Get size from the destination node
         root_node_id = self.get_edge(root_edge_id).get_dst_id()
         # Return the size of the subtree rooted at that node
         return len(self.get_subtree(root_node_id))
 
+    def get_edges(self):
+        return self.__edges.values()
+
+    def get_nodes(self):
+        return self.__nodes.values()
+
     def add_edge(self,
                  edge: Edge) -> None:
+        assert self.__edges.get(edge.get_id()) is None
+        assert self.get_node(edge.get_src_id()) is not None, f'Edge {edge.get_id()} has no source in graph'
+        assert self.get_node(edge.get_dst_id()) is not None, f'Edge {edge.get_id()} has no destination in graph'
         edge_id = edge.get_id()
-        assert self.get_edge(edge_id) is None
 
         # Add edge to graph and lookup
-        self.edges.append(edge)
-        self.__edge_lookup[edge_id] = edge
+        self.__edges[edge_id] = edge
 
         # Add edge to src node's outgoing list
-        src_node = self.get_node(edge.get_src_id())  # TODO: can simplify logic if get_outgoing is a set
+        src_node = self.get_node(edge.get_src_id())
         src_node.add_outgoing(edge_id)
 
         # Add edge to dst node's incoming list
@@ -149,26 +149,27 @@ class Tree:
 
     def add_node(self,
                  node: Node) -> None:
-        self.nodes.append(node)
-        self.__node_lookup[node.get_id()] = node
+        node_id = node.get_id()
+        assert self.__nodes.get(node_id) is None
+        self.__nodes[node_id] = node
 
     def remove_node(self, node: Node) -> None:
         # Removes node from graph and lookup
-        if node in self.nodes:
-            self.nodes.remove(node)
-        self.__node_lookup[node.get_id()] = None
+        node_id = node.get_id()
+        assert self.__nodes.get(node_id) is not None
+        self.__nodes.pop(node_id)
 
     def remove_edge(self, edge: Edge) -> None:
         # Removes edge from graph and lookup
-        if edge in self.edges:
-            self.edges.remove(edge)
-        self.__edge_lookup[edge.get_id()] = None
+        edge_id = edge.get_id()
+        assert self.__edges.get(edge_id) is not None
+        self.__edges.pop(edge_id)
 
     def get_next_node_id(self) -> int:
-        return max([node.get_id() for node in self.nodes]) + 1
+        return max([node_id for node_id, _ in self.__nodes]) + 1
 
     def get_next_edge_id(self) -> int:
-        return max([edge.get_id() for edge in self.edges]) + 1
+        return max([edge_id for edge_id, _ in self.__edges]) + 1
 
     def __invert_edge(self, edge_id: int) -> None:
         edge = self.get_edge(edge_id)
@@ -188,7 +189,7 @@ class Tree:
     # Step 2. Invert all outgoing edges from files/IPs
     def __invert_outgoing_file_edges(self) -> None:
         edges_to_invert = []
-        for node in self.nodes:
+        for node in self.get_nodes():
             if node.get_type() == NodeType.PROCESS_LET:
                 continue
             edges_to_invert.extend(node.get_outgoing_edges())
@@ -200,7 +201,7 @@ class Tree:
     def __duplicate_file_ip_leaves(self) -> None:
         nodes_to_remove = []
         nodes_to_add = []
-        for node in self.nodes:
+        for node in self.get_nodes():
             if node.get_type() == NodeType.PROCESS_LET:
                 continue
             # Mark original node for removal
@@ -253,7 +254,7 @@ class Tree:
         self.source_edge_id = source_edge.get_id()
 
         # Add disjoint trees to root's children
-        for node in self.nodes:
+        for node in self.get_nodes():
             # If this is an ephemeral node, or if it's not a root node, skip
             if len(node.get_incoming_edges()) > 0 or node in [root_node, root_parent_node]:
                 continue
@@ -286,32 +287,34 @@ class Tree:
         return self
 
     def __prune_tree(self,
-                     root_edge_id: int,
+                     root_node_id: int,
                      path: str) -> 'Tree':
-        # Mark the edge so we can append to it later
-        self.marked_edge_ids[root_edge_id] = path
-
-        # Detach root node from parent graph
-        root_edge = self.get_edge(root_edge_id)
-        dst_id = root_edge.get_dst_id()
-        self.__assert_complete()
-        root_edge.set_dst_id(None)
-
-        dst_node = self.get_node(dst_id)
-        dst_node.set_incoming_edges([])
+        # Mark the node so we can replace it later
+        assert self.get_node(root_node_id) is not None
+        self.marked_node_paths[root_node_id] = path
+        self.assert_complete()
 
         # Create subtree graph
-        subtree: Tree = self.get_subtree(dst_id)
+        subtree: Tree = self.get_subtree(root_node_id)
         subtree.source_edge_ref_id = self.source_edge_ref_id
 
         # Remove all subtree nodes and elements from the parent graph
-        for edge in subtree.edges:
+        for edge in subtree.get_edges():
             self.remove_edge(edge)
-        for node in subtree.nodes:
+        for node in subtree.get_nodes():
+            if node.get_id() == root_node_id:
+                continue  # We want to keep this node so we can replace later
             self.remove_node(node)
+        connected = []
+        for edge in self.get_edges():
+            if subtree.get_node(edge.get_dst_id()) is not None:
+                connected.append(edge)
+        assert len(connected) == 1  # parent of the node we removed
+        self.assert_complete()
         return subtree
 
     def prune(self, alpha: float, epsilon: float) -> 'Tree':
+        self.assert_complete()
         sizes = []
         depths = []
         num_leaves = 0
@@ -321,7 +324,7 @@ class Tree:
         queue: deque[tuple[int, list[int]]] = deque([(self.source_edge_id, [])])
         visited_edge_ids: set[int] = set()
         while len(queue) > 0:
-
+            self.assert_complete()
             # Standard BFS operations
             edge_id, path = queue.popleft()  # Could change to `queue.pop()` if you want a DFS
             if edge_id in visited_edge_ids:
@@ -338,14 +341,15 @@ class Tree:
                                                  p=[p, 1 - p])
             # If we prune, don't add children to queue
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root by restricting depth to > 1
-                # Remove the tree rooted at this edge from the graph
-                pruned_tree = self.__prune_tree(edge_id, self.__path_to_string(path))
-                assert edge.get_dst_id() is None
+                # Remove the tree rooted at this edge's dst_id from the graph
+                pruned_tree = self.__prune_tree(edge.get_dst_id(), self.__path_to_string(path))
+
                 # Add tree, and path to the tree to the training data
                 self.__training_data.append((path, pruned_tree))
 
                 # Ensure we don't try to BFS into the pruned tree
-                visited_edge_ids.update(e.get_id() for e in pruned_tree.edges)
+                visited_edge_ids.update(e.get_id() for e in pruned_tree.get_edges())
+
                 # Track statistics
                 sizes.append(subtree_size)
                 depths.append(len(path))
@@ -362,6 +366,7 @@ class Tree:
                     (next_edge_id, path + [edge_id])
                     for next_edge_id in next_edge_ids
                 ])
+
             # If this is a leaf, add the path and current graph to the training data
             else:
                 num_leaves += 1
@@ -404,32 +409,32 @@ class Tree:
         ]
 
     def get_node(self, node_id: int) -> Node:
-        return self.__node_lookup.get(node_id)
+        return self.__nodes.get(node_id)
 
     def get_edge(self, edge_id: int) -> Edge:
-        return self.__edge_lookup.get(edge_id)
+        return self.__edges.get(edge_id)
 
     def get_root_node_id(self) -> int:
-        root_nodes = [node for node in self.nodes if len(node.get_incoming_edges()) == 0]
+        root_nodes = [node for node in self.get_nodes() if len(node.get_incoming_edges()) == 0]
         if len(root_nodes) != 1:
             raise RuntimeError(f'Expected 1 root node, got {len(root_nodes)}: '
                                ', '.join([node.get_token() for node in root_nodes]))
         return root_nodes[0].get_id()
 
-    def insert_subtree(self,
-                       root_edge_id: int,
-                       graph: 'Tree') -> None:
+    def replace_node_with_tree(self,
+                               node_id_to_replace: int,
+                               graph: 'Tree') -> None:
         """
         Attach a subtree to the destination of the given edge
-        @param root_edge_id: edge to attach the subtree to
-        @param graph: subtree to attach
+        @param node_id_to_replace: node to replace with subtree
+        @param graph: subtree to replace with
         """
-        self.__assert_complete()
+        self.assert_complete()
         node_id_translation = {}
         edge_id_translation = {}
         # Update node IDs to avoid collision in the current graph
         orphan_nodes = []
-        for old_node in graph.nodes:
+        for old_node in graph.get_nodes():
             # Copy the node, and give it a new ID
             old_node_id = old_node.get_id()
             node = deepcopy(old_node)
@@ -437,6 +442,7 @@ class Tree:
             node.set_id(node_id)
 
             # Add the ID to the lookup
+            assert node_id_translation.get(old_node_id) is None
             node_id_translation[old_node_id] = node_id
             self.add_node(node)
 
@@ -444,15 +450,15 @@ class Tree:
             if len(node.get_incoming_edges()) == 0:
                 orphan_nodes.append(node)
 
-            # Mark the node to indicate it's added after the fact
+            # Mark the node to indicate it's been added after the fact
             node.marked = True
 
         # There should only be one orphan/root node
         assert len(orphan_nodes) == 1
-        root_node = orphan_nodes[0]
+        new_root_node = orphan_nodes[0]
 
         # Update edge IDs to avoid collision in the current graph, and bring up to date with node IDs
-        for old_edge in graph.edges:
+        for old_edge in graph.get_edges():
             # Copy the edge, and give it a new ID
             edge = deepcopy(old_edge)
             new_edge_id = self.get_next_edge_id()
@@ -471,16 +477,19 @@ class Tree:
             edge.marked = True
 
         # Attach root node to root edge
-        root_edge = self.get_edge(root_edge_id)
-        assert self.get_node(root_node.get_id()) is not None
-        root_edge.set_dst_id(root_node.get_id())
-
-        root_node.add_incoming(root_edge_id)
-        self.__assert_complete()
+        node_to_replace = self.get_node(node_id_to_replace)
+        assert node_to_replace is not None
+        assert len(node_to_replace.get_incoming_edges()) == 1
+        parent_edge_id = node_to_replace.get_incoming_edges()[0]
+        parent_edge = self.get_edge(parent_edge_id)
+        assert parent_edge is not None
+        parent_edge.set_dst_id(new_root_node.get_id())
+        new_root_node.add_incoming(parent_edge_id)
+        self.assert_complete()
 
 
     def __len__(self):
-        return len(self.nodes)
+        return len(self.__nodes)
 
     # Exporter functions
     def to_dot(self) -> gv.Digraph:
@@ -507,11 +516,11 @@ class Tree:
             dot_graph.edge(str(src_id), str(dst_id), **edge.to_dot_args())
 
         if num_missing > 0:
-            print(f'Warn: {num_missing} MIA, {num_null} null out of {len(self.edges)}?')
-        for node in self.nodes:
+            print(f'Warn: {num_missing} MIA, {num_null} null out of {len(self.get_edges())}?')
+        for node in self.get_nodes():
             if node not in included_nodes:
                 add_to_graph(node)
-        print(len(self.nodes), len(included_nodes), len(self.edges))
+        print(len(self.get_nodes()), len(included_nodes), len(self.get_edges()))
 
         return dot_graph
 
@@ -519,12 +528,12 @@ class Tree:
         digraph: nx.DiGraph = nx.DiGraph()
         # NetworkX node IDs must index at 0
         node_ids = {node.get_id(): i
-                    for i, node in enumerate(self.nodes)}
-        for node in self.nodes:
+                    for i, node in enumerate(self.get_nodes())}
+        for node in self.get_nodes():
             digraph.add_node(node_ids[node.get_id()],
                              feature=node.get_token()
                              )
-        for edge in self.edges:
+        for edge in self.get_edges():
             src, dst = edge.get_src_id(), edge.get_dst_id()
             if src is not None and dst is None:
                 continue
@@ -532,19 +541,21 @@ class Tree:
                              node_ids[dst],
                              feature=edge.get_token())
         return digraph
-    def __assert_complete(self) -> None:
-        for edge in self.edges:
-            assert edge.get_src_id() is not None
-            assert edge.get_dst_id() is not None
-            assert self.get_node(edge.get_src_id()) is not None
-            assert self.get_node(edge.get_dst_id()) is not None
-        for node in self.nodes:
-            assert node.get_id() is not None
+
+    def assert_complete(self) -> None:
+        for edge in self.get_edges():
+            assert edge.get_src_id() is not None, f'Edge {edge.get_id()} ({edge.get_token()} has None source'
+            assert edge.get_dst_id() is not None, f'Edge {edge.get_id()} ({edge.get_token()} has None destination'
+            if self.get_node(edge.get_src_id()) is None:
+                print(f'Edge {edge.get_id()} ({edge.get_token()}) has no source')
+            assert self.get_node(edge.get_dst_id()) is not None, f'Edge {edge.get_id()} ({edge.get_token()}) has no destination'
+        for node in self.get_nodes():
+            assert node.get_id() is not None, f'Node {node.get_token()} has None ID'
             for edge_id in node.get_incoming_edges():
                 edge = self.get_edge(edge_id)
-                assert edge is not None
-                assert edge.get_dst_id() == node.get_id()
+                assert edge is not None, f'Node {node.get_token()} has no incoming edge {edge_id}'
+                assert edge.get_dst_id() == node.get_id(), f'Node {node.get_token()} has incoming edge {edge_id} with wrong destination'
             for edge_id in node.get_outgoing_edges():
                 edge = self.get_edge(edge_id)
-                assert edge is not None
-                assert edge.get_src_id() == node.get_id()
+                assert edge is not None, f'Node {node.get_token()} has no outgoing edge {edge_id}, {node.marked}'
+                assert edge.get_src_id() == node.get_id(), f'Node {node.get_token()} has outgoing edge {edge_id} with wrong source'

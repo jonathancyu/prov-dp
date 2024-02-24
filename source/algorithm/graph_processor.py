@@ -144,9 +144,9 @@ class GraphProcessor:
         print(f'{self.__step()} Training model')
         paths = []
         graphs = []
-        for path, graph in train_data:
+        for path, tree in train_data:
             paths.append(path)
-            graphs.append(graph)
+            graphs.append(tree)
 
         model = GraphModel(
              paths=paths,
@@ -160,36 +160,41 @@ class GraphProcessor:
 
         # Add graphs back (epsilon_m) # TODO: diff privacy here
         sizes = []
-        num_marked_edges = []
+        num_marked_nodes = []
         num_unmoved_subtrees = []
-        for graph in tqdm(pruned_graphs, desc=f'{self.__step()} Re-attaching subgraphs'):
+        for tree in tqdm(pruned_graphs, desc=f'{self.__step()} Re-attaching subgraphs'):
             # Stats
-            num_marked_edges.append(len(graph.marked_edge_ids))
+            num_marked_nodes.append(len(tree.marked_node_paths))
             unmoved_subtrees = 0
 
             # Re-attach a random to each marked edge in batches
-            edge_ids = list(graph.marked_edge_ids.keys())
+            node_ids = list(tree.marked_node_paths.keys())
             total = 0
-            for batch in batch_list(edge_ids, self.__prediction_batch_size):
+            for batch in batch_list(node_ids, self.__prediction_batch_size):
                 # Get a prediction for each edge in the batch
-                predictions = model.predict([graph.marked_edge_ids[edge_id] for edge_id in batch])
+                predictions = model.predict(
+                    [tree.marked_node_paths[node_id]
+                     for node_id in batch]
+                )
                 # Attach predicted subgraph to the corresponding edge
                 for i, subgraph in enumerate(predictions):
                     total += 1
-                    graph.insert_subtree(edge_ids[i], subgraph)
+                    tree.replace_node_with_tree(node_ids[i], subgraph)
+                    tree.assert_complete()
                     # Stats
                     sizes.append(len(subgraph))
-                    if subgraph.source_edge_ref_id == graph.source_edge_ref_id:
+                    if subgraph.source_edge_ref_id == tree.source_edge_ref_id:
                         unmoved_subtrees += 1
-            assert total == len(edge_ids)
+            assert total == len(node_ids)
+
             # Stats
             num_unmoved_subtrees.append(unmoved_subtrees)
 
         print_stats('Subgraph size', sizes)
-        print_stats('# marked edges', num_marked_edges)
+        print_stats('# marked nodes', num_marked_nodes)
         print_stats('# unmoved subtrees', num_unmoved_subtrees)
         print_stats('% unmoved subtrees',
-                    [(x / y) * 100 for x, y in zip(num_unmoved_subtrees, num_marked_edges)])
+                    [(x / y) * 100 for x, y in zip(num_unmoved_subtrees, num_marked_nodes)])
         print()
         model.print_distance_stats()
         return pruned_graphs

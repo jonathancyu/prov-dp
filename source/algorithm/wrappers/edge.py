@@ -49,8 +49,11 @@ class Edge:
         self.set_src_id(translation[self.get_src_id()])
         self.set_dst_id(translation[self.get_dst_id()])
 
+    def __eq__(self, other: 'Edge') -> bool:
+        return self.get_id() == other.get_id()
+
     def __hash__(self):
-        return hash(self.edge)
+        return hash(self.get_id())
 
     def to_dot_args(self) -> dict[str, any]:
         # model = self.model_dump(by_alias=True, exclude={'time'})
