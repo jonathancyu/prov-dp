@@ -4,51 +4,40 @@ from ...graphson import NodeType, RawNode
 
 class Node:
     node: RawNode
-    incoming_edges: list[int]
-    outgoing_edges: list[int]
+    incoming_edges: set[int]
+    outgoing_edges: set[int]
     marked: bool = False
 
     def __init__(self, node: RawNode):
         self.node = node
-        self.incoming_edges, self.outgoing_edges = [], []
+        self.incoming_edges, self.outgoing_edges = set(), set()
 
     # Wrapper functions
-    @staticmethod
-    def __add_edge(edge_id: int, collection: list[int]) -> None:
-        if edge_id is None or edge_id in collection:
-            return
-        collection.append(edge_id)
-
-    @staticmethod
-    def __remove_edge(edge_id: int, collection: list[int]) -> None:
-        if edge_id in collection:
-            collection.remove(edge_id)
-
     def add_incoming(self, edge_id: int) -> None:
-        Node.__add_edge(edge_id, self.incoming_edges)
+        self.incoming_edges.add(edge_id)
 
     def add_outgoing(self, edge_id: int) -> None:
-        Node.__add_edge(edge_id, self.outgoing_edges)
+        self.outgoing_edges.add(edge_id)
 
     def remove_incoming(self, edge_id: int):
-        Node.__remove_edge(edge_id, self.incoming_edges)
+        self.incoming_edges.remove(edge_id)
 
     def remove_outgoing(self, edge_id: int):
-        Node.__remove_edge(edge_id, self.outgoing_edges)
+        self.outgoing_edges.remove(edge_id)
 
-    def set_incoming_edges(self, edge_ids: list[int]) -> None:
-        self.incoming_edges = edge_ids
+    def clear_incoming(self) -> None:
+        self.incoming_edges.clear()
 
-    def set_outgoing_edges(self, edge_ids: list[int]) -> None:
-        self.outgoing_edges = edge_ids
+    def clear_outgoing(self) -> None:
+        self.outgoing_edges.clear()
 
     def get_incoming_edges(self) -> list[int]:
-        return self.incoming_edges
+        return list(self.incoming_edges)
 
     def get_outgoing_edges(self) -> list[int]:
-        return self.outgoing_edges
+        return list(self.outgoing_edges)
 
-    # Adapter functions (reach into Node object)
+    # Adapter functions (reach into RawNode object)
     def get_id(self) -> int:
         return self.node.id
 

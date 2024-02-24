@@ -109,7 +109,7 @@ class GraphProcessor:
         num_pruned = []
         # TODO: we should be able to do this in the pipeline
         for graph, size, x in pruned_graphs_and_sizes_and_depths:
-            num_pruned.append(len(graph.edges))
+            num_pruned.append(len(graph.get_edges()))
             pruned_graphs.append(graph)
             sizes.extend(size)
 

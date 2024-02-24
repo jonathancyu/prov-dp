@@ -77,7 +77,7 @@ class Tree:
 
     def get_subtree(self,
                     root_node_id: int,
-                    visited_node_ids: list[int] = None) -> 'Tree':
+                    visited_node_ids: set[int] = None) -> 'Tree':
         """
         :param root_node_id: ID of the root node
         :param visited_node_ids: Accumulating list of node IDs that have already been visited
@@ -87,15 +87,20 @@ class Tree:
         subtree = self.__subtree_lookup.get(root_node_id)
         if subtree is not None:
             return subtree
-        visited_node_ids = visited_node_ids or []
+        visited_node_ids = visited_node_ids or set()
 
         # Create a new GraphWrapper object to store the accumulating tree
         subtree = Tree()
         root_node = self.get_node(root_node_id)
-        subtree.add_node(root_node)
+        subtree_root_node = deepcopy(root_node)
+        subtree_root_node.clear_incoming()
+        subtree_root_node.clear_outgoing()
+        subtree.add_node(subtree_root_node)
+
+        subtree.assert_complete()
 
         # Mark the node as visited
-        visited_node_ids.append(root_node_id)
+        visited_node_ids.add(root_node_id)
 
         # BFS recursively
         for edge_id in root_node.get_outgoing_edges():
@@ -103,18 +108,22 @@ class Tree:
             next_node_id = edge.get_dst_id()
             if next_node_id in visited_node_ids:
                 continue
+            # Add edge to the accumulating subgraph
 
             # Get the next subgraph, then add the connecting edge, and subgraph to the accumulating subgraph
             next_subgraph = self.get_subtree(edge.get_dst_id(), visited_node_ids)
-            if next_subgraph is not None:
-                # Deep copy the graph components into the accumulating subgraph
-                for new_node in next_subgraph.get_nodes():  # Nodes need to be added first
-                    subtree.add_node(deepcopy(new_node))
-                for new_edge in list(next_subgraph.get_edges()) + [edge]:
-                    subtree.add_edge(deepcopy(new_edge))
+
+            # Deep copy the graph components into the accumulating subgraph
+            for new_node in next_subgraph.get_nodes():  # Nodes need to be added first
+                subtree.add_node(deepcopy(new_node))
+
+            subtree.add_edge(deepcopy(edge))
+            for new_edge in next_subgraph.get_edges():
+                subtree.add_edge(deepcopy(new_edge))
 
         # Cache result
         self.__subtree_lookup[root_node_id] = subtree
+        subtree.assert_complete()
 
         return subtree
 
@@ -163,8 +172,11 @@ class Tree:
     def remove_edge(self, edge: Edge) -> None:
         # Removes edge from graph and lookup
         edge_id = edge.get_id()
-        assert self.__edges.get(edge_id) is not None
         self.__edges.pop(edge_id)
+
+        # Remove references to the edge from the source and destination nodes
+        self.get_node(edge.get_src_id()).remove_outgoing(edge_id)
+        self.get_node(edge.get_dst_id()).remove_incoming(edge_id)
 
     def get_next_node_id(self) -> int:
         return max([node_id for node_id in self.__nodes.keys()]) + 1
@@ -216,7 +228,9 @@ class Tree:
                 # Create new node with that ID
                 new_node = deepcopy(node)
                 new_node.set_id(new_node_id)
-                new_node.set_incoming_edges([edge_id])
+                new_node.clear_incoming()
+                new_node.add_incoming(edge_id)
+
                 nodes_to_add.append(new_node)
 
         # Apply node changes
@@ -300,19 +314,26 @@ class Tree:
         # Create subtree graph
         subtree: Tree = self.get_subtree(root_node_id)
         subtree.source_edge_ref_id = self.source_edge_ref_id
-
+        subtree.assert_complete()
+        self.assert_complete()
+        num_roots = 0
         # Remove all subtree nodes and elements from the parent graph
         for edge in subtree.get_edges():
             self.remove_edge(edge)
         for node in subtree.get_nodes():
             if node.get_id() == root_node_id:
+                num_roots += 1
                 continue  # We want to keep this node so we can replace later
             self.remove_node(node)
-        connected = []
-        for edge in self.get_edges():
-            if subtree.get_node(edge.get_dst_id()) is not None:
-                connected.append(edge)
-        assert len(connected) == 1  # parent of the node we removed
+        assert num_roots == 1, f'Expected 1 root, got {num_roots}'
+
+        root_node = self.get_node(root_node_id)
+        assert len(root_node.get_incoming_edges()) == 1
+        subtree_root = subtree.get_node(root_node_id)
+        assert subtree_root is not None
+        subtree_root.clear_incoming()
+        assert len(subtree_root.get_incoming_edges()) == 0
+
         self.assert_complete()
         return subtree
 
@@ -345,6 +366,7 @@ class Tree:
             # If we prune, don't add children to queue
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root by restricting depth to > 1
                 # Remove the tree rooted at this edge's dst_id from the graph
+                print(f'Pruning edge {edge_id} ({edge.get_token()}), {edge.get_src_id()} -> {edge.get_dst_id()}')
                 pruned_tree = self.__prune_tree(edge.get_dst_id(), self.__path_to_string(path))
 
                 # Add tree, and path to the tree to the training data
@@ -375,7 +397,7 @@ class Tree:
                 num_leaves += 1
                 # Deep copy the leaf to modify it
                 leaf_node = deepcopy(node)
-                leaf_node.set_incoming_edges([])
+                leaf_node.clear_incoming()
 
                 # Add the leaf to its own graph
                 leaf_tree = Tree()
@@ -457,7 +479,7 @@ class Tree:
             node.marked = True
 
         # There should only be one orphan/root node
-        assert len(orphan_nodes) == 1
+        assert len(orphan_nodes) == 1, f'Expected 1 orphan node, got {len(orphan_nodes)}/{len(graph.get_nodes())}'
         new_root_node = orphan_nodes[0]
 
         # Update edge IDs to avoid collision in the current graph, and bring up to date with node IDs
@@ -557,11 +579,15 @@ class Tree:
             for edge_id in node.get_incoming_edges():
                 edge = self.get_edge(edge_id)
                 assert edge is not None, f'Node {node.get_token()} has no incoming edge {edge_id}'
-                assert edge.get_dst_id() == node.get_id(), f'Node {node.get_token()} has incoming edge {edge_id} with wrong destination'
+                assert edge.get_dst_id() == node.get_id(), \
+                    (f'Node {node.get_id()} has incoming edge {edge_id} '
+                     f'with wrong destination ({edge.get_src_id()} -> {edge.get_dst_id()})')
             for edge_id in node.get_outgoing_edges():
                 edge = self.get_edge(edge_id)
-                assert edge is not None, f'Node {node.get_token()} has no outgoing edge {edge_id}, {node.marked}'
-                assert edge.get_src_id() == node.get_id(), f'Node {node.get_token()} has outgoing edge {edge_id} with wrong source'
+                assert edge is not None, \
+                    f'Node {node.get_token()} has no outgoing edge {edge_id}, {node.marked}'
+                assert edge.get_src_id() == node.get_id(), \
+                    f'Node {node.get_token()} has outgoing edge {edge_id} with wrong source'
 
     def to_json(self) -> str:
         return json.dumps({
