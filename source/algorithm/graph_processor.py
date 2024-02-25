@@ -91,10 +91,7 @@ class GraphProcessor:
     def process_graph(self, path: Path) -> tuple[list[Tree], list[tuple[str, Tree]]]:
         # Load and prune a graph
         tree = Tree.load_file(path)
-        return self.prune_tree(tree)
-
-    def prune_tree(self, graph: Tree) -> Tree:
-        return graph.prune(self.__alpha, self.__epsilon_p)
+        return tree.prune(self.__alpha, self.__epsilon_p)
 
     def load_and_prune_graphs(self, paths: list[Path]) -> tuple[list[Tree], list[tuple[str, Tree]]]:
         pruned_graphs_and_sizes_and_depths = list(self.__map(

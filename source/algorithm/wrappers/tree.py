@@ -349,14 +349,12 @@ class Tree:
 
             # Calculate the probability of pruning a given tree
             subtree_size = self.get_tree_size(edge_id)
-            distance = alpha * subtree_size
-            epsilon_prime = epsilon * distance
-            p = logistic_function(epsilon_prime / local_sensitivity)
+            distance = alpha * subtree_size  # Big tree -> big distance
+            epsilon_prime = epsilon * distance  # Big distance -> big epsilon
+            p = logistic_function(epsilon_prime / local_sensitivity)  # Big epsilon -> lower probability of pruning
             prune_edge: bool = np.random.choice([True, False],
                                                 p=[p, 1 - p])
             # If we prune, don't add children to queue
-            if len(path) > 1:
-                pass
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root by restricting depth to > 1
                 # Remove the tree rooted at this edge's dst_id from the graph
                 pruned_tree = self.__prune_tree(edge.get_dst_id(), self.__path_to_string(path))

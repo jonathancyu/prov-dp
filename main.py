@@ -4,8 +4,9 @@ import pickle
 import random
 from pathlib import Path
 
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
+from source import Tree
 from source.algorithm import GraphProcessor
 from utility import save_dot
 
@@ -37,7 +38,10 @@ def main(args):
 
     # Save dot files
     for graph in tqdm(perturbed_graphs, desc='Saving graphs'):
-        save_dot(graph.to_dot(), args.output_dir / f'nd-{graph.source_edge_ref_id}-processletevent.dot')
+        base_file_path = args.output_dir / f'nd-{graph.source_edge_ref_id}-processletevent'
+        save_dot(graph.to_dot(), base_file_path.with_suffix('.dot'))
+        with open(base_file_path.with_suffix('.json'), 'w') as f:
+            f.write(graph.to_json())
 
 
 if __name__ == '__main__':
@@ -53,9 +57,9 @@ if __name__ == '__main__':
     arg_parser.add_argument('-e', '--epsilon', type=float, default=1,
                             help='Differential privacy budget')
     arg_parser.add_argument('-d', '--delta', type=float, default=0.5,
-                            help='Portion of privace to allocate to pruning')
+                            help='Portion of privacy budget to allocate to pruning')
     arg_parser.add_argument('-a', '--alpha', type=float, default=1,
-                            help='Weight of subtree size on pruning probability (high delta -> low probability')
+                            help='Weight of subtree size on pruning probability (high delta, big tree -> don\'t prune')
 
     # Algorithm configuration
     arg_parser.add_argument('-s', '--single_threaded', action='store_true',
