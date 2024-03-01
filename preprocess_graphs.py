@@ -9,8 +9,6 @@ from utility import save_dot
 
 def main(args):
     input_paths = list(args.input_dir.rglob('*.json'))
-    tree_graph_dir = args.output_dir / 'preprocessed_trees'
-    tree_graph_dir.mkdir(exist_ok=True, parents=True)
 
     # Run graph processor
     tree_shaker = GraphProcessor()
@@ -18,10 +16,10 @@ def main(args):
     for path, tree in tqdm(zip(input_paths, trees), total=len(trees), desc='Exporting to json'):
         if args.preserve_structure:
             output_path = args.output_dir / path.relative_to(args.input_dir)
-            output_path.parent.mkdir(exist_ok=True, parents=True)
         else:
-            file_name = path.name
-            output_path = tree_graph_dir / file_name
+            file_name = path.name.replace('-', '_').replace('.json', '')
+            output_path = args.output_dir / file_name / f'{file_name}.json'
+        output_path.parent.mkdir(exist_ok=True, parents=True)
         with open(output_path, 'w') as f:
             f.write(tree.to_json())
         save_dot(tree.to_dot(), output_path)

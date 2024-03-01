@@ -18,6 +18,7 @@ def main(args):
         random.seed(args.num_graphs)
         input_paths = random.sample(input_paths, args.num_graphs)
         args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}_N={args.num_graphs}')
+    args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}_a={args.alpha}_d={args.delta}_e={args.epsilon}')
 
     # Map args to GraphProcessor constructor
     parameters = inspect.signature(GraphProcessor.__init__).parameters
@@ -38,9 +39,11 @@ def main(args):
 
     # Save dot files
     for graph in tqdm(perturbed_graphs, desc='Saving graphs'):
-        base_file_path = args.output_dir / f'nd-{graph.source_edge_ref_id}-processletevent'
-        save_dot(graph.to_dot(), base_file_path.with_suffix('.dot'))
-        with open(base_file_path.with_suffix('.json'), 'w') as f:
+        base_file_name = f'nd_{graph.source_edge_ref_id}_processletevent'
+        file_path = args.output_dir / base_file_name / f'{base_file_name}.json'
+        save_dot(graph.to_dot(), file_path)
+
+        with open(file_path, 'w') as f:
             f.write(graph.to_json())
 
 
