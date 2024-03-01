@@ -9,7 +9,7 @@ class NodeType(Enum):
     PROCESS_LET = 'ProcessNode'
     FILE = 'FileNode'
     IP_CHANNEL = 'SocketChannelNode'
-    EPHEMERAL = 'EphemeralNode'
+    VIRTUAL = 'VirtualNode'
 
     def __str__(self):
         return self.name

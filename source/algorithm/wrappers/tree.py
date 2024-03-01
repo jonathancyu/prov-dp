@@ -240,14 +240,18 @@ class Tree:
         # Create root node
         raw_root_node = RawNode(
             _id=9999,
-            TYPE=NodeType.EPHEMERAL,
+            TYPE=NodeType.VIRTUAL,
         )
-        raw_root_node.model_extra['_label'] = 'EPHEMERAL'
+        raw_root_node.model_extra['EXE_NAME'] = 'VIRTUAL'
+        raw_root_node.model_extra['CMD'] = 'VIRTUAL'
+        raw_root_node.model_extra['_label'] = 'VIRTUAL'
         raw_root_parent_node = RawNode(
             _id=10000,
-            TYPE=NodeType.EPHEMERAL
+            TYPE=NodeType.VIRTUAL
         )
-        raw_root_parent_node.model_extra['_label'] = 'EPHEMERAL'
+        raw_root_node.model_extra['EXE_NAME'] = 'VIRTUAL'
+        raw_root_node.model_extra['CMD'] = 'VIRTUAL'
+        raw_root_node.model_extra['_label'] = 'VIRTUAL'
         root_node, root_parent_node = Node(raw_root_node), Node(raw_root_parent_node)
         self.add_node(root_node)
         self.add_node(root_parent_node)
@@ -257,8 +261,8 @@ class Tree:
             _id=self.get_next_edge_id(),
             _outV=root_parent_node.get_id(),
             _inV=root_node.get_id(),
-            OPTYPE='EPHEMERAL',
-            _label='EPHEMERAL',
+            OPTYPE='FILE_EXEC',
+            _label='FILE_EXEC',
             EVENT_START=-1
         ))
         self.add_edge(source_edge)
@@ -276,8 +280,8 @@ class Tree:
                     _id=self.get_next_edge_id(),
                     _outV=root_node.get_id(),
                     _inV=node.get_id(),
-                    OPTYPE='EPHEMERAL',
-                    _label='EPHEMERAL',
+                    OPTYPE='FILE_EXEC',
+                    _label='FILE_EXEC',
                     EVENT_START=0
                 ))
             )

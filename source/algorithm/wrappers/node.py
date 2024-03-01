@@ -41,7 +41,7 @@ class Node:
             src_ip = model['LOCAL_INET_ADDR']
             dst_ip = model['REMOTE_INET_ADDR']
             token += f'{src_ip}_{dst_ip}'
-        elif self.node.type == NodeType.EPHEMERAL:
+        elif self.node.type == NodeType.VIRTUAL:
             token = '.'
         else:
             raise ValueError(f'Unknown node type: {self.node.type}')
@@ -94,7 +94,7 @@ class Node:
                         ('type', 'CHANEL_STATE')
                     ])
                 }
-            case NodeType.EPHEMERAL:
+            case NodeType.VIRTUAL:
                 args = {
                     'color': 'blue',
                     'shape': 'oval',
