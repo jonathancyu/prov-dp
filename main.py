@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import gc
 import inspect
 import pickle
@@ -19,7 +20,6 @@ def to_processor_args(args):
     processor_args = {}
     for arg, value in vars(args).items():
         if arg not in parameters:
-            print(f'Warning: {arg} is not a valid GraphProcessor argument')
             continue
         processor_args[arg] = value
 
@@ -73,7 +73,9 @@ def batch_run(args):
 
 def main(args):
     # run_processor(args)
-    batch_run(args)
+    with open("output.txt", "w") as f:
+        with contextlib.redirect_stdout(f):
+            batch_run(args)
 
 
 if __name__ == '__main__':
