@@ -37,6 +37,9 @@ class GraphProcessor:
     __num_epochs: int
     __prediction_batch_size: int
 
+    # Stats
+    stats: dict[str, list[float]]
+
     def __init__(self,
                  epsilon: float = 1,
                  delta: float = 1,
@@ -77,6 +80,9 @@ class GraphProcessor:
         self.__load_graph2vec = load_graph2vec
         self.__load_model = load_model
 
+        # Stats
+        self.stats = {}
+
     def __step(self) -> str:  # Step counter for pretty logging
         self.__step_number += 1
         return f'({self.__step_number})'
@@ -111,7 +117,9 @@ class GraphProcessor:
             sizes.extend(size)
 
         print_stats('Pruned graph size', sizes)
+        self.stats['pruned_graph_size'] = sizes
         print_stats('Num pruned edges', num_pruned)
+        self.stats['#pruned_edges'] = num_pruned
 
         # Create training data and flatten into a single list
         train_data: list[tuple[str, Tree]] = list(
@@ -194,10 +202,15 @@ class GraphProcessor:
             num_unmoved_subtrees.append(unmoved_subtrees)
 
         print_stats('Subgraph size', sizes)
+        self.stats['subgraph_size'] = sizes
         print_stats('# marked nodes', num_marked_nodes)
+        self.stats['#marked_nodes'] = num_marked_nodes
         print_stats('# unmoved subtrees', num_unmoved_subtrees)
-        print_stats('% unmoved subtrees',
-                    [(x / y) * 100 for x, y in zip(num_unmoved_subtrees, num_marked_nodes)])
+        self.stats['#unmoved_subtrees'] = num_unmoved_subtrees
+        percent_unmoved = [(x / y) * 100 for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
+        print_stats('% unmoved subtrees', percent_unmoved)
+        self.stats['% unmoved_subtrees'] = percent_unmoved
+
         print()
         model.print_distance_stats()
         return pruned_graphs

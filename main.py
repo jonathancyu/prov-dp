@@ -4,6 +4,7 @@ import gc
 import inspect
 import pickle
 import random
+import numpy as np
 from copy import deepcopy
 from pathlib import Path
 
@@ -36,8 +37,8 @@ def run_processor(args):
     args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}_a={args.alpha}_d={args.delta}_e={args.epsilon}')
 
     # Run graph processor
-    tree_shaker = GraphProcessor(**to_processor_args(args))
-    perturbed_graphs: list[Tree] = tree_shaker.perturb_graphs(input_paths)
+    graph_processor = GraphProcessor(**to_processor_args(args))
+    perturbed_graphs: list[Tree] = graph_processor.perturb_graphs(input_paths)
 
     # Save final graph objects
     with open(args.output_dir / 'perturbed_graphs.pkl', 'wb') as f:
@@ -53,7 +54,19 @@ def run_processor(args):
             f.write(graph.to_json())
 
     # Clean up for the next run
-    del tree_shaker
+    with open('stats.csv', 'a') as f:
+        header = ['N', 'epsilon', 'alpha']
+        f.write(f'{args.num_graphs},{args.epsilon},{args.alpha},')
+        for key, value in graph_processor.stats.items():
+            mean = np.mean(value)
+            std = np.std(value)
+            min_val = np.min(value)
+            max_val = np.max(value)
+            f.write(f'{mean},{std},{min_val},{max_val},')
+            header.extend([f'{key}_{label}' for label in ['mean', 'std', 'min', 'max']])
+        print(','.join(header))
+        f.write('\n')
+    del graph_processor
     del perturbed_graphs
     gc.collect()
 
