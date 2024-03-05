@@ -58,10 +58,12 @@ def run_processor(args):
         header = ['N', 'epsilon', 'alpha']
         f.write(f'{args.num_graphs},{args.epsilon},{args.alpha},')
         for key, value in graph_processor.stats.items():
-            mean = np.mean(value)
-            std = np.std(value)
-            min_val = np.min(value)
-            max_val = np.max(value)
+            mean, std, min_val, max_val = 'x','x', 'x','x'
+            if (len(value)) > 0:
+                mean = np.mean(value)
+                std = np.std(value)
+                min_val = np.min(value)
+                max_val = np.max(value)
             f.write(f'{mean},{std},{min_val},{max_val},')
             header.extend([f'{key}_{label}' for label in ['mean', 'std', 'min', 'max']])
         print(','.join(header))
@@ -73,8 +75,8 @@ def run_processor(args):
 
 def batch_run(args):
     args.delta = 1.0  # Allocate all privacy budget to pruning
-    for epsilon in [0.1, 1, 10]:
-        for alpha in [-0.5, 0.5]:
+    for epsilon in [15, 20, 25, 30, 35, 40, 45]:
+        for alpha in [0.1, 0.5, 0.9]:
             current_args = deepcopy(args)
             print(f'(0) beginning epsilon={epsilon}, alpha={alpha}')
             current_args.epsilon = epsilon

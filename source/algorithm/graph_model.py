@@ -269,4 +269,7 @@ class GraphModel:
         print(f'  Per-graph embedding distance distributions:')
         for stat in ['Mean', 'Std', 'Min', 'Max']:
             print('  ', end='')
+            if len(stat) == 0:
+                print(f'{stat} is empty')
+                continue
             print_stats(stat, [p[stat.lower()] for p in self.__stats])

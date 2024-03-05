@@ -201,15 +201,16 @@ class GraphProcessor:
             # Stats
             num_unmoved_subtrees.append(unmoved_subtrees)
 
-        print_stats('Subgraph size', sizes)
-        self.stats['subgraph_size'] = sizes
-        print_stats('# marked nodes', num_marked_nodes)
-        self.stats['#marked_nodes'] = num_marked_nodes
-        print_stats('# unmoved subtrees', num_unmoved_subtrees)
-        self.stats['#unmoved_subtrees'] = num_unmoved_subtrees
-        percent_unmoved = [(x / y) * 100 for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
-        print_stats('% unmoved subtrees', percent_unmoved)
-        self.stats['% unmoved_subtrees'] = percent_unmoved
+        if (len(sizes) > 0): 
+            print_stats('Subgraph size', sizes)
+            self.stats['subgraph_size'] = sizes
+            print_stats('# marked nodes', num_marked_nodes)
+            self.stats['#marked_nodes'] = num_marked_nodes
+            print_stats('# unmoved subtrees', num_unmoved_subtrees)
+            self.stats['#unmoved_subtrees'] = num_unmoved_subtrees
+            percent_unmoved = [(x / max(y, 0.0001)) * 100 for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
+            print_stats('% unmoved subtrees', percent_unmoved)
+            self.stats['% unmoved_subtrees'] = percent_unmoved
 
         print()
         model.print_distance_stats()
