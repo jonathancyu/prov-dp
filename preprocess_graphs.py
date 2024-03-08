@@ -30,12 +30,12 @@ def main(args):
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('-i', '--input_dir', type=Path, help='Path to input graph directory')
-
-    # GraphProcessor arguments
+    arg_parser.add_argument('-i', '--input_dir', type=Path,
+                            help='Path to input graph directory')
     arg_parser.add_argument('-N', '--num_graphs', type=int, default=None,
                             help='Limit the number of graphs to process')
-    arg_parser.add_argument('-o', '--output_dir', type=Path, help='Path to output graph directory')
+    arg_parser.add_argument('-o', '--output_dir', type=Path,
+                            help='Path to output graph directory')
     arg_parser.add_argument('-p', '--preserve-structure', action='store_true', default=False,
                             help='Preserve the input directory structure')
 
