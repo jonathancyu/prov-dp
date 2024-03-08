@@ -15,7 +15,10 @@ def main(args):
     trees = tree_shaker.preprocess_graphs(input_paths)
     for path, tree in tqdm(zip(input_paths, trees), total=len(trees), desc='Exporting to json'):
         if args.preserve_structure:
-            output_path = args.output_dir / path.relative_to(args.input_dir)
+            parent_dir = path.parent.parent.parent.relative_to(args.input_dir)
+            dir_name = path.parent.name
+            file_name = path.name
+            output_path = args.output_dir / parent_dir / dir_name / file_name
         else:
             file_name = path.name.replace('-', '_').replace('.json', '')
             output_path = args.output_dir / file_name / f'{file_name}.json'
