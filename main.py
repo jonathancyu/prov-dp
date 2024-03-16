@@ -58,7 +58,7 @@ def run_processor(args):
         header = ['N', 'epsilon', 'alpha']
         f.write(f'{args.num_graphs},{args.epsilon},{args.alpha},')
         for key, value in graph_processor.stats.items():
-            mean, std, min_val, max_val = 'x','x', 'x','x'
+            mean, std, min_val, max_val = 'x','x','x','x'
             if (len(value)) > 0:
                 mean = np.mean(value)
                 std = np.std(value)
@@ -87,10 +87,10 @@ def batch_run(args):
 
 
 def main(args):
-    # run_processor(args)
-    with open("output.txt", "w") as f:
-        with contextlib.redirect_stdout(f):
-            batch_run(args)
+    run_processor(args)
+    # with open("output.txt", "w") as f:
+    #     with contextlib.redirect_stdout(f):
+    #         batch_run(args)
 
 
 if __name__ == '__main__':

@@ -305,10 +305,11 @@ class Tree:
         return self
 
     def __prune_tree(self,
-                     root_node_id: int,
+                     root_edge_id: int,
                      path: str) -> 'Tree':
-        # Mark the node so we can replace it later
-        assert self.get_node(root_node_id) is not None
+        # Mark the node so we can replace it (and the edge attached to it) later
+        root_edge = self.get_edge(root_edge_id)
+        root_node_id = root_edge.get_dst_id()
         self.marked_node_paths[root_node_id] = path
 
         # Create subtree graph
@@ -323,13 +324,21 @@ class Tree:
                 num_roots += 1
                 continue  # We want to keep this node, so we can replace later
             self.remove_node(node)
+
+        # Add the root edge and parent to the subtree so we can preserve the edge-node relationship
+        # Make sure this happens after removing nodes so we don't remove the edge and its parent
+        root_edge_source = self.get_node(root_edge.get_src_id())
+        subtree.add_node(root_edge_source)
+        subtree.add_edge(root_edge)
+
+        # Sanity checks on the tree's state
         assert num_roots == 1, f'Expected 1 root, got {num_roots}'
 
         assert len(self.get_incoming_edge_ids(root_node_id)) == 1, \
             f'Expected 1 outgoing edge, got {len(self.get_outgoing_edge_ids(root_node_id))}'
         subtree_root = subtree.get_node(root_node_id)
         assert subtree_root is not None
-        assert len(subtree.get_incoming_edge_ids(root_node_id)) == 0
+        assert len(subtree.get_incoming_edge_ids(root_node_id)) == 1
         assert self.get_node(root_node_id) is not None
 
         return subtree
@@ -361,7 +370,7 @@ class Tree:
             # If we prune, don't add children to queue
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root by restricting depth to > 1
                 # Remove the tree rooted at this edge's dst_id from the graph
-                pruned_tree = self.__prune_tree(edge.get_dst_id(), self.__path_to_string(path))
+                pruned_tree = self.__prune_tree(edge.get_id(), self.__path_to_string(path))
 
                 # Add tree, and path to the tree to the training data
                 self.__training_data.append((path, pruned_tree))
@@ -445,7 +454,13 @@ class Tree:
                                node_id_to_replace: int,
                                graph: 'Tree') -> None:
         """
-        Attach a subtree to the destination of the given edge
+        Attach a subtree to the destination of the given edge.
+        ex) X is the node to replace.
+            A -e-> X
+        The tree's root MUST have out-degree 0, so it can be represented as this:
+            R -f-> T
+        e is replaced with f, X with T, and A is ignored. Result:
+            A -f-> T
         @param node_id_to_replace: node to replace with subtree
         @param graph: subtree to replace with
         """
@@ -460,21 +475,21 @@ class Tree:
             node_id = self.get_next_node_id()
             node.set_id(node_id)
 
+            # If the node is an orphan, it's the root R, so keep track of it.
+            if len(graph.get_incoming_edge_ids(old_node_id)) == 0:
+                orphan_nodes.append(node)
+
             # Add the ID to the lookup
             assert node_id_translation.get(old_node_id) is None
             node_id_translation[old_node_id] = node_id
             self.add_node(node)
 
-            # If the node is an orphan, it's a root
-            if len(graph.get_incoming_edge_ids(old_node_id)) == 0:
-                orphan_nodes.append(node)
-
             # Mark the node to indicate it's been added after the fact
             node.marked = True
 
-        # There should only be one orphan/root node
+        # There should only be one orphan/root node (R)
         assert len(orphan_nodes) == 1, f'Expected 1 orphan node, got {len(orphan_nodes)}/{len(graph.get_nodes())}'
-        new_root_node = orphan_nodes[0]
+        R = orphan_nodes[0]
 
         # Update edge IDs to avoid collision in the current graph, and bring up to date with node IDs
         for old_edge in graph.get_edges():
@@ -495,17 +510,33 @@ class Tree:
             # Mark the edge to indicate it's added after the fact
             edge.marked = True
 
-        # Attach root node to root edge
-        node_to_replace = self.get_node(node_id_to_replace)
+        # A -e-> X  original self
+        # R -f-> T  tree to add
+        # A -f-> T  new self
+
+        # find f
+        outgoing_edges = [
+            self.get_edge(e) for e in self.get_outgoing_edge_ids(R.get_id())
+        ]
+        if len(outgoing_edges) != 1:
+            print()
+        assert len(outgoing_edges) == 1
+        edge_f = outgoing_edges[0]
+
+        # Remove -e-> X from the graph
+        X = self.get_node(node_id_to_replace)
         incoming_edges = self.get_incoming_edge_ids(node_id_to_replace)
         assert len(incoming_edges) == 1
-        parent_edge_id = incoming_edges[0]
-        parent_edge = self.get_edge(parent_edge_id)
-        assert parent_edge is not None
-        self.remove_edge(parent_edge)
-        self.remove_node(node_to_replace)
-        parent_edge.set_dst_id(new_root_node.get_id())
-        self.add_edge(parent_edge)
+        edge_e_id = incoming_edges[0]
+        edge_e = self.get_edge(edge_e_id)
+        assert edge_e is not None
+        self.remove_edge(edge_e)  # Remove edge before node to preserve graph state
+        self.remove_node(X)
+
+        # Remove R from the graph
+        self.remove_node(R)
+        # -f-> T is already in the graph, so attach it to A and we're done
+        edge_f.set_src_id(edge_e.get_src_id())
 
     def __len__(self):
         return len(self.__nodes)
