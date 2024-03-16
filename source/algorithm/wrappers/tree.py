@@ -237,6 +237,7 @@ class Tree:
 
     # Step 4
     def __add_ephemeral_root(self) -> None:
+        agent_id = self.get_nodes()[0].node.model_extra['AGENT_ID']  # AgentID is always the same for DARPA
         # Create root node
         raw_root_node = RawNode(
             _id=9999,
@@ -245,13 +246,16 @@ class Tree:
         raw_root_node.model_extra['EXE_NAME'] = 'VIRTUAL'
         raw_root_node.model_extra['CMD'] = 'VIRTUAL'
         raw_root_node.model_extra['_label'] = 'VIRTUAL'
+        raw_root_node.model_extra['AGENT_ID'] = agent_id
         raw_root_parent_node = RawNode(
             _id=10000,
             TYPE=NodeType.VIRTUAL
         )
-        raw_root_node.model_extra['EXE_NAME'] = 'VIRTUAL'
-        raw_root_node.model_extra['CMD'] = 'VIRTUAL'
-        raw_root_node.model_extra['_label'] = 'VIRTUAL'
+        raw_root_parent_node.model_extra['EXE_NAME'] = 'VIRTUAL'
+        raw_root_parent_node.model_extra['CMD'] = 'VIRTUAL'
+        raw_root_parent_node.model_extra['_label'] = 'VIRTUAL'
+        raw_root_parent_node.model_extra['AGENT_ID'] = agent_id
+
         root_node, root_parent_node = Node(raw_root_node), Node(raw_root_parent_node)
         self.add_node(root_node)
         self.add_node(root_parent_node)
@@ -398,14 +402,16 @@ class Tree:
             # If this is a leaf, add the path and current graph to the training data
             else:
                 num_leaves += 1
-                # Deep copy the leaf to modify it
+                # Deep copy the leaf and its parent to modify them
+                parent_node = deepcopy(self.get_node(edge.get_src_id()))
                 leaf_node = deepcopy(node)
 
-                # Add the leaf to its own graph
+                # Add the leaf (and parent) to its own graph
                 leaf_tree = Tree()
                 leaf_tree.source_edge_ref_id = self.source_edge_ref_id
+                leaf_tree.add_node(parent_node)
                 leaf_tree.add_node(leaf_node)
-
+                leaf_tree.add_edge(deepcopy(edge))
                 # Add the (path, graph) tuple to the training data
                 self.__training_data.append((path, leaf_tree))
                 continue

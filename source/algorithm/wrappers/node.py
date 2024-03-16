@@ -99,7 +99,7 @@ class Node:
                     'color': 'blue',
                     'shape': 'oval',
                     'style': 'solid',
-                    'label': 'ephemeral'
+                    'label': 'VIRTUAL'
                 }
             case _:
                 raise ValueError(f'Unknown node type: {self.get_type()}')

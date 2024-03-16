@@ -62,7 +62,7 @@ class Edge:
             'color': 'black',
             'label': ''
         }
-        if self.get_op_type() == 'EPHEMERAL':
+        if self.get_op_type() == 'VIRTUAL':
             args['color'] = 'blue'
         if self.marked:
             args['color'] = 'green'
