@@ -15,7 +15,7 @@ from ...graphson import RawEdge, RawNode, RawGraph, NodeType
 
 class Tree:
     source_edge_ref_id: int | None
-    source_edge_id: int | None
+    source_edge_id: int | None  # TODO: remove dependency on this property
     root_node_id: int | None
 
     marked_node_paths: dict[int, str]  # node_id: path
@@ -210,6 +210,7 @@ class Tree:
         for edge_id in edges_to_invert:
             self.__invert_edge(edge_id)
 
+    # The graph is now a directed acyclic graph - Dr. De
     # Step 3. Duplicate file/IP nodes for each incoming edge
     def __duplicate_file_ip_leaves(self) -> None:
         nodes = self.get_nodes().copy()
@@ -250,7 +251,7 @@ class Tree:
         raw_root_parent_node = RawNode(
             _id=10000,
             TYPE=NodeType.VIRTUAL
-        )
+        )  # TODO: remove redundant parent node
         raw_root_parent_node.model_extra['EXE_NAME'] = 'VIRTUAL'
         raw_root_parent_node.model_extra['CMD'] = 'VIRTUAL'
         raw_root_parent_node.model_extra['_label'] = 'VIRTUAL'
@@ -274,11 +275,11 @@ class Tree:
 
         # Add disjoint trees to root's children
         for node in self.get_nodes():
-            # If this is an ephemeral node, or if it's not a root node, skip
+            # If this is an virtual node, or if it's not a root node, skip
             if len(self.get_incoming_edge_ids(node.get_id())) > 0 or node in [root_node, root_parent_node]:
                 continue
 
-            # Create edge from ephemeral root to subtree root
+            # Create edge from virtual root to subtree root
             self.add_edge(
                 Edge(RawEdge(
                     _id=self.get_next_edge_id(),
@@ -348,7 +349,7 @@ class Tree:
         return subtree
 
     def prune(self, alpha: float, epsilon: float) -> 'Tree':
-        sizes = []
+        sizes = []  # TODO: rename to num_nodes or something
         depths = []
         num_leaves = 0
         local_sensitivity: float = 1 / alpha
@@ -364,13 +365,15 @@ class Tree:
             visited_edge_ids.add(edge_id)
             edge = self.get_edge(edge_id)
 
+            # TODO: Dr. De: More metrics to consider: height/level at which a node is sitting (distance from leaf).
+            #   Can we use this along with the size to get a better result?
             # Calculate the probability of pruning a given tree
             subtree_size = self.get_tree_size(edge_id)
-            distance = alpha * subtree_size  # Big tree -> big distance
+            distance = alpha * subtree_size  # Big tree -> big distance  # TODO: a * size + b * height + c * depth, b=0,c=0 currently
             epsilon_prime = epsilon * distance  # Big distance -> big epsilon
             p = logistic_function(epsilon_prime / local_sensitivity)  # Big epsilon -> lower probability of pruning
             prune_edge: bool = np.random.choice([True, False],
-                                                p=[p, 1 - p])
+                                                p=[p, 1 - p])  # TODO: add stats on tree height as well
             # If we prune, don't add children to queue
             if prune_edge and len(path) > 1:  # Don't prune ephemeral root by restricting depth to > 1
                 # Remove the tree rooted at this edge's dst_id from the graph
