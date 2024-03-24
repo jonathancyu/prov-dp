@@ -1,4 +1,5 @@
 import json
+from collections import deque
 from copy import deepcopy
 from pathlib import Path
 
@@ -22,6 +23,7 @@ class Tree:
     __incoming_lookup: dict[int, set[int]]  # node_id: set[edge_id]
     __outgoing_lookup: dict[int, set[int]]  # node_id: set[edge_id]
     __subtree_lookup: dict[int, 'Tree']
+    __height_lookup: dict[int, int]
     __training_data: list[tuple[list[int], 'Tree']]  # (path, subtree) tuples
 
     @staticmethod
@@ -48,6 +50,7 @@ class Tree:
 
         # Algorithm-specific fields
         self.__subtree_lookup = {}
+        self.__height_lookup = {}
         self.marked_node_paths = {}
         self.__training_data: list[tuple[list[int], Tree]] = []
 
@@ -122,9 +125,25 @@ class Tree:
 
         return subtree
 
-    def get_tree_size(self, root_node_id) -> int:
+    def get_tree_size(self, root_node_id: int) -> int:
         # Return the size of the subtree rooted at that node
         return len(self.get_subtree(root_node_id))
+
+    def get_tree_height(self, root_node_id: int) -> int:
+        if root_node_id in self.__height_lookup:
+            return self.__height_lookup[root_node_id]
+        tree: Tree = self.get_subtree(root_node_id)
+        queue: deque[tuple[int, int]] = deque([(root_node_id, 0)])
+        max_depth = 0
+        while len(queue) > 0:
+            node_id, depth = queue.popleft()
+            max_depth = max(max_depth, depth)
+            for edge_id in tree.get_outgoing_edge_ids(node_id):
+                edge = tree.get_edge(edge_id)
+                queue.append((edge.get_dst_id(), depth + 1))
+
+        self.__height_lookup[root_node_id] = max_depth
+        return max_depth
 
     # Wrapper functions
     def get_edges(self):
@@ -299,8 +318,8 @@ class Tree:
                 continue  # We want to keep this node, so we can replace later
             self.remove_node(node)
 
-        # Add the root edge and parent to the subtree so we can preserve the edge-node relationship
-        # Make sure this happens after removing nodes so we don't remove the edge and its parent
+        # Add the root edge and parent to the subtree, so we can preserve the edge-node relationship
+        # Make sure this happens after removing nodes, so we don't remove the edge and its parent
         incoming_edge_ids = self.get_incoming_edge_ids(root_node_id)
         assert len(incoming_edge_ids) == 1, f'Pruned tree should have 1 incoming edge, found {len(incoming_edge_ids)}'
         root_edge_id = incoming_edge_ids[0]
@@ -353,7 +372,7 @@ class Tree:
                                graph: 'Tree') -> None:
         """
         Attach a subtree to the destination of the given edge.
-        ex) X is the node to replace.
+        ex: X is the node to replace.
             A -e-> X
         The tree's root MUST have out-degree 0, so it can be represented as this:
             R -f-> T

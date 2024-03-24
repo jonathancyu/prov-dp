@@ -165,7 +165,7 @@ class GraphProcessor:
             #         can we use this along with the size to get a better result?
             # calculate the probability of pruning a given tree
             subtree_size = tree.get_tree_size(src_node_id)
-            height = 0
+            height = tree.get_tree_height(src_node_id)
             depth = len(path)
             distance = (self.__alpha * subtree_size) + (self.__beta * height) + (self.__gamma * depth)
             p = logistic_function(self.__epsilon_1 * distance)  # big distance -> lower probability of pruning
