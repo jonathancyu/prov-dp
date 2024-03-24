@@ -1,21 +1,18 @@
 import json
-from collections import deque
-from copy import deepcopy, copy
+from copy import deepcopy
 from pathlib import Path
 
 import graphviz as gv
 import networkx as nx
-import numpy as np
 
 from .edge import Edge
 from .node import Node
-from ..utility import logistic_function
 from ...graphson import RawEdge, RawNode, RawGraph, NodeType
 
 
 class Tree:
     graph_id: int | None
-    source_node_id: int | None  # TODO: remove dependency on this property
+    source_node_id: int | None
     root_node_id: int | None
 
     marked_node_paths: dict[int, str]  # node_id: path
@@ -288,12 +285,7 @@ class Tree:
 
         return self
 
-    def __prune_tree(self,
-                     root_node_id: int,
-                     path: str) -> 'Tree':
-        # Mark the node so we can replace it (and the edge attached to it) later
-        self.marked_node_paths[root_node_id] = path
-
+    def prune_tree(self, root_node_id: int) -> 'Tree':
         # Create subtree graph
         subtree: Tree = self.get_subtree(root_node_id)
         subtree.graph_id = self.graph_id
@@ -329,82 +321,7 @@ class Tree:
 
         return subtree
 
-    def prune(self, alpha: float, epsilon: float) -> 'Tree':
-        sizes = []  # TODO: rename to num_nodes or something
-        depths = []
-        num_leaves = 0
-        local_sensitivity: float = 1 / alpha
-        # Breadth first search through the graph, keeping track of the path to the current node
-        # (node_id, list[edge_id_path]) tuples
-        queue: deque[tuple[int, list[int]]] = deque([(self.source_node_id, [])])
-        visited_node_ids: set[int] = set()
-        while len(queue) > 0:
-            # Standard BFS operations
-            src_node_id, path = queue.popleft()
-
-            if src_node_id in visited_node_ids:
-                continue
-            visited_node_ids.add(src_node_id)
-
-            # TODO: Dr. De: More metrics to consider: height/level at which a node is sitting (distance from leaf).
-            #   Can we use this along with the size to get a better result?
-            # Calculate the probability of pruning a given tree
-            subtree_size = self.get_tree_size(src_node_id)
-            # Big tree -> big distance  # TODO: a * size + b * height + c * depth, b=0,c=0 currently
-            distance = alpha * subtree_size
-            epsilon_prime = epsilon * distance  # Big distance -> big epsilon
-            p = logistic_function(epsilon_prime / local_sensitivity)  # Big epsilon -> lower probability of pruning
-            prune_edge: bool = np.random.choice([True, False],
-                                                p=[p, 1 - p])  # TODO: add stats on tree height as well
-            # If we prune, don't add children to queue
-            if prune_edge and len(path) > 1:  # Don't prune ephemeral root by restricting depth to > 1
-                # Remove the tree rooted at this edge's dst_id from the graph
-                pruned_tree = self.__prune_tree(src_node_id, self.__path_to_string(path))
-
-                # Add tree, and path to the tree to the training data
-                self.__training_data.append((path, pruned_tree))
-
-                # Ensure we don't try to BFS into the pruned tree
-                visited_node_ids.update(node.get_id() for node in pruned_tree.get_nodes())
-
-                # Track statistics
-                sizes.append(subtree_size)
-                depths.append(len(path))
-                continue
-
-            # Otherwise, continue adding children to queue
-            next_edge_ids = self.get_outgoing_edge_ids(src_node_id)
-
-            for edge_id in next_edge_ids:
-                src_node = self.get_node(src_node_id)
-                edge = self.get_edge(edge_id)
-                dst_node_id = edge.get_dst_id()
-                dst_node = self.get_node(dst_node_id)
-                # If this isn't a leaf, then continue and add the next edges to the queue
-                if len(next_edge_ids) > 0:
-                    queue.append((dst_node_id, path + [edge_id]))
-
-                # If this is a leaf, add the path and current graph to the training data
-                else:
-                    num_leaves += 1
-                    # Deep copy the leaf and its parent to modify them
-                    parent_node = deepcopy(src_node)
-                    leaf_node = deepcopy(dst_node)
-
-                    # Add the leaf (and parent) to its own graph
-                    leaf_tree = Tree()
-                    leaf_tree.graph_id = self.graph_id
-                    leaf_tree.add_node(parent_node)
-                    leaf_tree.add_node(leaf_node)
-                    leaf_tree.add_edge(deepcopy(edge))
-                    # Add the (path, graph) tuple to the training data
-                    self.__training_data.append((path, leaf_tree))
-                    continue
-
-        # print(f'Pruned {len(self._marked_edges)} subgraphs, and added {num_leaves} leaf samples')
-        return self, sizes, depths  # TODO: make this less hacky
-
-    def __path_to_string(self, path: list[int]) -> str:
+    def path_to_string(self, path: list[int]) -> str:
         tokens = []
         for edge_id in path:
             edge = self.get_edge(edge_id)
@@ -415,16 +332,6 @@ class Tree:
             ])
 
         return ' '.join(tokens)
-
-    def get_train_data(self) -> list[tuple[str, 'Tree']]:
-        """
-        Returns a list of training data
-        :return: List of tuples of the form (tokenized path, root edge ID of subtree)
-        """
-        return [
-            (self.__path_to_string(path), graph)
-            for path, graph in self.__training_data
-        ]
 
     def get_node(self, node_id: int) -> Node:
         return self.__nodes.get(node_id)

@@ -34,7 +34,12 @@ def run_processor(args):
         random.seed(args.num_graphs)
         input_paths = random.sample(input_paths, args.num_graphs)
         args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}_N={args.num_graphs}')
-    args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}_a={args.alpha}_d={args.delta}_e={args.epsilon}')
+    args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}'
+                                                f'_e1={args.epsilon1}'
+                                                f'_e2={args.epsilon2}'
+                                                f'_a={args.alpha}'
+                                                f'_b={args.beta}'
+                                                f'_c={args.gamma}')
 
     # Run graph processor
     graph_processor = GraphProcessor(**to_processor_args(args))
@@ -55,10 +60,10 @@ def run_processor(args):
 
     # Clean up for the next run
     with open('stats.csv', 'a') as f:
-        header = ['N', 'epsilon', 'alpha']
-        f.write(f'{args.num_graphs},{args.epsilon},{args.alpha},')
+        header = ['N', 'epsilon1', 'epsilon2', 'alpha', 'beta', 'gamma']
+        f.write(f'{args.num_graphs},{args.epsilon1},{args.epsilon2},{args.alpha},{args.beta},{args.gamma}')
         for key, value in graph_processor.stats.items():
-            mean, std, min_val, max_val = 'x','x','x','x'
+            mean, std, min_val, max_val = 'x', 'x', 'x', 'x'
             if (len(value)) > 0:
                 mean = np.mean(value)
                 std = np.std(value)
@@ -103,12 +108,17 @@ if __name__ == '__main__':
     arg_parser.add_argument('-o', '--output_dir', type=Path, help='Path to output graph directory')
 
     # Differential privacy parameters
-    arg_parser.add_argument('-e', '--epsilon', type=float, default=1,
-                            help='Differential privacy budget')
-    arg_parser.add_argument('-d', '--delta', type=float, default=0.5,
-                            help='Portion of privacy budget to allocate to pruning')
+    arg_parser.add_argument('-e1', '--epsilon1', type=float, default=1,
+                            help='Differential privacy budget for pruning')
+    arg_parser.add_argument('-e2', '--epsilon2', type=float, default=1,
+                            help='Differential privacy budget for reattaching')
+
     arg_parser.add_argument('-a', '--alpha', type=float, default=1,
-                            help='Weight of subtree size on pruning probability (high alpha, big tree -> don\'t prune')
+                            help='Weight of subtree size on pruning probability')
+    arg_parser.add_argument('-b', '--beta', type=float, default=1,
+                            help='Weight of subtree height on pruning probability')
+    arg_parser.add_argument('-c', '--gamma', type=float, default=1,
+                            help='Weight of subtree depth on pruning probability')
 
     # Algorithm configuration
     arg_parser.add_argument('-s', '--single_threaded', action='store_true',
