@@ -13,6 +13,9 @@ def main(args):
     # Run graph processor
     tree_shaker = GraphProcessor()
     trees = tree_shaker.preprocess_graphs(input_paths)
+    if args.output_dir is None:
+        return
+
     for path, tree in tqdm(zip(input_paths, trees), total=len(trees), desc='Exporting to json'):
         file_name = path.name.replace('-', '_').replace('.json', '')
         if args.preserve_structure:
@@ -33,7 +36,7 @@ if __name__ == '__main__':
                             help='Path to input graph directory')
     arg_parser.add_argument('-N', '--num_graphs', type=int, default=None,
                             help='Limit the number of graphs to process')
-    arg_parser.add_argument('-o', '--output_dir', type=Path,
+    arg_parser.add_argument('-o', '--output_dir', type=Path, required=False, default=None,
                             help='Path to output graph directory')
     arg_parser.add_argument('-p', '--preserve-structure', action='store_true', default=False,
                             help='Preserve the input directory structure')

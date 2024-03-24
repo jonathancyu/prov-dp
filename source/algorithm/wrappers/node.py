@@ -36,7 +36,8 @@ class Node:
         if self.node.type == NodeType.PROCESS_LET:
             token += model['EXE_NAME']
         elif self.node.type == NodeType.FILE:
-            token += model["FILENAME_SET"][0]["value"].replace(' ', '_')
+            if 'FILENAME_SET' in model:
+                token += model["FILENAME_SET"][0]["value"].replace(' ', '_')
         elif self.node.type == NodeType.IP_CHANNEL:
             src_ip = model['LOCAL_INET_ADDR']
             dst_ip = model['REMOTE_INET_ADDR']

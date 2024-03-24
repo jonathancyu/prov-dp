@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Generator
 
+import networkx as nx
 import numpy as np
 from tqdm import tqdm
 
@@ -127,11 +128,16 @@ class GraphProcessor:
                     pbar.update(1)
 
     def preprocess_graphs(self, paths: list[Path]) -> list[Tree]:
-        return list(self.__map(
+        trees = list(self.__map(
             Tree.load_file,
             paths,
             f'Preprocessing graphs'
         ))
+        outdegrees, heights, diameters = self.get_tree_stats(trees)
+        print_stats('outdegree: ', outdegrees)
+        print_stats('height: ', heights)
+        print_stats('diameter: ', diameters)
+        return trees
 
     def process_graph(self, path: Path) -> Tree:
         # Load and prune a graph
@@ -151,7 +157,7 @@ class GraphProcessor:
     def prune(self, tree: Tree) -> Tree:
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
-        queue: deque[tuple[int, list[int]]] = deque([(tree.source_node_id, [])])
+        queue: deque[tuple[int, list[int]]] = deque([(tree.root_node_id, [])])
         visited_node_ids: set[int] = set()
         while len(queue) > 0:
             # Standard BFS operations
@@ -298,6 +304,32 @@ class GraphProcessor:
 
         model.print_distance_stats()
         return pruned_graphs
+
+    @staticmethod
+    def get_single_tree_stats(tree: Tree):
+        outdegrees = []
+        for node in tree.get_nodes():
+            node_id = node.get_id()
+            outgoing_edges = tree.get_outgoing_edge_ids(node_id)
+            outdegrees.append(len(outgoing_edges))
+        height = tree.get_tree_height(tree.root_node_id, )
+        G = tree.to_nx().to_undirected()
+        diameter = max([max(j.values()) for (i, j) in nx.shortest_path_length(G)])
+        return outdegrees, height, diameter
+
+    def get_tree_stats(self, trees: list[Tree]):
+        # avg/std of degree, height, diameter
+        outdegrees: list[int] = []
+        heights: list[int] = []
+        diameters: list[int] = []
+        results = list(self.__map(self.get_single_tree_stats, trees, 'Calculating tree stats'))
+
+        for outdegree, height, diameter in results:
+            outdegrees.extend(outdegree)
+            heights.append(height)
+            diameters.append(diameter)
+
+        return outdegrees, heights, diameters
 
     def __print_stats(self):
         for stat, values in self.stats.items():

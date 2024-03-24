@@ -13,7 +13,6 @@ from ...graphson import RawEdge, RawNode, RawGraph, NodeType
 
 class Tree:
     graph_id: int | None
-    source_node_id: int | None
     root_node_id: int | None
 
     marked_node_paths: dict[int, str]  # node_id: path
@@ -74,9 +73,9 @@ class Tree:
             matches = [edge for edge in self.__edges.values()
                        if edge.get_ref_id() == source_edge_ref_id]
             assert len(matches) == 1
-            self.source_node_id = matches[0].get_src_id()
+            self.root_node_id = matches[0].get_src_id()
         else:
-            self.source_node_id = None
+            self.root_node_id = None
 
     def get_subtree(self,
                     root_node_id: int,
@@ -146,10 +145,10 @@ class Tree:
         return max_depth
 
     # Wrapper functions
-    def get_edges(self):
+    def get_edges(self) -> list[Edge]:
         return list(self.__edges.values())
 
-    def get_nodes(self):
+    def get_nodes(self) -> list[Node]:
         return list(self.__nodes.values())
 
     def add_edge(self,
@@ -266,7 +265,7 @@ class Tree:
         root_node = Node(raw_root_node)
         self.add_node(root_node)
 
-        self.source_node_id = root_node.get_id()
+        self.root_node_id = root_node.get_id()
 
         # Add disjoint trees to root's children
         for node in self.get_nodes():
@@ -455,7 +454,7 @@ class Tree:
         # -f-> T is already in the graph, so attach it to A and we're done
         edge_f.set_src_id(edge_e.get_src_id())
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.__nodes)
 
     # Exporter functions
