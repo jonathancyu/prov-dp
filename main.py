@@ -125,7 +125,7 @@ if __name__ == '__main__':
                             help='Load perturbed graphs from output directory')
     arg_parser.add_argument('-g', '--load_graph2vec', action='store_true',
                             help='Load graph2vec model from output directory')
-    arg_parser.add_argument('-m', '--load_model', action='store_true',  # TODO: not implemented
+    arg_parser.add_argument('-m', '--load_model', action='store_true',
                             help='Load parameters from output directory')
 
     main(arg_parser.parse_args())
