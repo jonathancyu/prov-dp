@@ -46,7 +46,7 @@ def run_processor(args):
 
     # Save dot files
     for graph in tqdm(perturbed_graphs, desc='Saving graphs'):
-        base_file_name = f'nd_{graph.source_edge_ref_id}_processletevent'
+        base_file_name = f'nd_{graph.graph_id}_processletevent'
         file_path = args.output_dir / base_file_name / f'{base_file_name}.json'
         save_dot(graph.to_dot(), file_path)
 

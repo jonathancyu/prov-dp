@@ -194,7 +194,7 @@ class GraphProcessor:
                     tree.replace_node_with_tree(batch[i], subgraph)
                     # Stats
                     sizes.append(len(subgraph))
-                    if subgraph.source_edge_ref_id == tree.source_edge_ref_id:
+                    if subgraph.graph_id == tree.graph_id:
                         unmoved_subtrees += 1
             assert total == len(node_ids)
 
