@@ -133,10 +133,7 @@ class GraphProcessor:
             paths,
             f'Preprocessing graphs'
         ))
-        outdegrees, heights, diameters = self.get_tree_stats(trees)
-        print_stats('outdegree: ', outdegrees)
-        print_stats('height: ', heights)
-        print_stats('diameter: ', diameters)
+        self.print_tree_stats(trees)
         return trees
 
     def process_graph(self, path: Path) -> Tree:
@@ -301,35 +298,43 @@ class GraphProcessor:
             self.stats[PERCENT_UNMOVED_SUBTREES] = [(x / max(y, 0.0001)) * 100
                                                     for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
         self.__print_stats()
-
         model.print_distance_stats()
+        self.print_tree_stats(pruned_graphs)
         return pruned_graphs
 
     @staticmethod
     def get_single_tree_stats(tree: Tree):
         outdegrees = []
+        max_degree = 0
         for node in tree.get_nodes():
             node_id = node.get_id()
             outgoing_edges = tree.get_outgoing_edge_ids(node_id)
-            outdegrees.append(len(outgoing_edges))
+            outdegree = len(outgoing_edges)
+            max_degree = max(outdegree, max_degree)
+            outdegrees.append(outdegree)
         height = tree.get_tree_height(tree.root_node_id, )
         G = tree.to_nx().to_undirected()
         diameter = max([max(j.values()) for (i, j) in nx.shortest_path_length(G)])
-        return outdegrees, height, diameter
+        return outdegrees, max_degree, height, diameter
 
-    def get_tree_stats(self, trees: list[Tree]):
+    def print_tree_stats(self, trees: list[Tree]) -> None:
         # avg/std of degree, height, diameter
         outdegrees: list[int] = []
+        max_degrees: list[int] = []
         heights: list[int] = []
         diameters: list[int] = []
         results = list(self.__map(self.get_single_tree_stats, trees, 'Calculating tree stats'))
 
-        for outdegree, height, diameter in results:
+        for outdegree, max_degree, height, diameter in results:
             outdegrees.extend(outdegree)
+            max_degrees.append(max_degree)
             heights.append(height)
             diameters.append(diameter)
 
-        return outdegrees, heights, diameters
+        print_stats('outdegree: ', outdegrees)
+        print_stats('max_degree: ', max_degrees)
+        print_stats('height: ', heights)
+        print_stats('diameter: ', diameters)
 
     def __print_stats(self):
         for stat, values in self.stats.items():
