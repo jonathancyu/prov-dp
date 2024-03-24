@@ -2,6 +2,7 @@ import pickle
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
+from itertools import chain
 from pathlib import Path
 from typing import Generator
 
@@ -141,19 +142,25 @@ class GraphProcessor:
         return self.prune(Tree.load_file(path))
 
     def load_and_prune_graphs(self, paths: list[Path]) -> list[Tree]:
-        pruned_trees = list(self.__map(
-            self.process_graph,
+        trees = list(self.__map(
+            Tree.load_file,
             paths,
-            f'{self.__step()} Pruning graphs'
+            f'{self.__step()} Loading graphs'
         ))
+        self.__training_data = list(chain.from_iterable(self.__map(
+            self.prune,
+            trees,
+            f'{self.__step()} Pruning graphs'
+        )))
 
         self.__print_stats()
 
-        return pruned_trees
+        return trees
 
-    def prune(self, tree: Tree) -> Tree:
+    def prune(self, tree: Tree) -> list[tuple[str, Tree]]:
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
+        training_data: list[tuple[str, Tree]] = []
         queue: deque[tuple[int, list[int]]] = deque([(tree.root_node_id, [])])
         visited_node_ids: set[int] = set()
         while len(queue) > 0:
@@ -183,7 +190,7 @@ class GraphProcessor:
                 tree.marked_node_paths[src_node_id] = path_string
 
                 # add tree, and path to the tree to the training data
-                self.__training_data.append((tree.path_to_string(path), pruned_tree))
+                training_data.append((tree.path_to_string(path), pruned_tree))
 
                 # ensure we don't try to bfs into the pruned tree
                 visited_node_ids.update(node.get_id() for node in pruned_tree.get_nodes())
@@ -220,10 +227,10 @@ class GraphProcessor:
                     leaf_tree.add_node(leaf_node)
                     leaf_tree.add_edge(deepcopy(edge))
                     # add the (path, graph) tuple to the training data
-                    self.__training_data.append((tree.path_to_string(path), leaf_tree))
+                    training_data.append((tree.path_to_string(path), leaf_tree))
                     continue
 
-        return tree
+        return training_data
 
     def perturb_graphs(self, paths: list[Path]) -> list[Tree]:
         pruned_graph_path = self.output_dir / 'pruned_graphs.pkl'
