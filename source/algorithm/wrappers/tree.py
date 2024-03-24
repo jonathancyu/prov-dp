@@ -15,6 +15,7 @@ class Tree:
     graph_id: int | None
     root_node_id: int | None
 
+    training_data: list[tuple[str, 'Tree']]
     marked_node_paths: dict[int, str]  # node_id: path
 
     __nodes: dict[int, Node]
@@ -50,6 +51,7 @@ class Tree:
         # Algorithm-specific fields
         self.__subtree_lookup = {}
         self.__height_lookup = {}
+        self.training_data = []
         self.marked_node_paths = {}
         self.__training_data: list[tuple[list[int], Tree]] = []
 
