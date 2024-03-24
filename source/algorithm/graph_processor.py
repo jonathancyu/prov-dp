@@ -161,8 +161,8 @@ class GraphProcessor:
                 continue
             visited_node_ids.add(src_node_id)
 
-            # TODO: Dr. De: more metrics to consider: height/level at which a node is sitting (distance from leaf).
-            #   can we use this along with the size to get a better result?
+            # Dr. De: more metrics to consider: height/level at which a node is sitting (distance from leaf).
+            #         can we use this along with the size to get a better result?
             # calculate the probability of pruning a given tree
             subtree_size = tree.get_tree_size(src_node_id)
             height = 0
@@ -258,7 +258,7 @@ class GraphProcessor:
         )
         model.train(epochs=self.__num_epochs)
 
-        # Add graphs back (epsilon_2) # TODO: diff privacy here
+        # Add graphs back (epsilon_2)
         for tree in tqdm(pruned_graphs, desc=f'{self.__step()} Re-attaching subgraphs'):
             # Stats
             self.__add_stat(NUM_MARKED_NODES, len(tree.marked_node_paths))
