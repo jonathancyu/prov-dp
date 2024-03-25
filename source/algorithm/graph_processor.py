@@ -148,9 +148,12 @@ class GraphProcessor:
             trees,
             f'{self.__step()} Pruning graphs'
         ))
-        self.__training_data = list(chain.from_iterable(
-            [tree.training_data for tree in pruned_trees]
-        ))
+        # Extract training data and stats from trees
+        self.__training_data = []
+        for tree in pruned_trees:
+            self.__training_data.extend(tree.training_data)
+            self.__add_stats(tree.stats)
+
         self.__print_stats()
 
         return pruned_trees
@@ -194,9 +197,9 @@ class GraphProcessor:
                 visited_node_ids.update(node.get_id() for node in pruned_tree.get_nodes())
 
                 # track statistics
-                self.__add_stat(PRUNED_TREE_SIZE, subtree_size)
-                self.__add_stat(PRUNED_TREE_HEIGHT, height)
-                self.__add_stat(PRUNED_TREE_DEPTH, depth)
+                tree.add_stat(PRUNED_TREE_SIZE, subtree_size)
+                tree.add_stat(PRUNED_TREE_HEIGHT, height)
+                tree.add_stat(PRUNED_TREE_DEPTH, depth)
 
                 continue
 
@@ -350,3 +353,9 @@ class GraphProcessor:
         if stat not in self.stats:
             self.stats[stat] = []
         self.stats[stat].append(value)
+
+    def __add_stats(self, stats: dict[str, list[float]]):
+        for stat, values in stats.items():
+            if stat not in self.stats:
+                self.stats[stat] = []
+            self.stats[stat].extend(values)

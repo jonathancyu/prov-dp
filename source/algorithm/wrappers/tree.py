@@ -17,6 +17,7 @@ class Tree:
 
     training_data: list[tuple[str, 'Tree']]
     marked_node_paths: dict[int, str]  # node_id: path
+    stats: dict[str, list[float]]  # Used to keep track of stats from within forked processes
 
     __nodes: dict[int, Node]
     __edges: dict[int, Edge]
@@ -53,6 +54,7 @@ class Tree:
         self.__height_lookup = {}
         self.training_data = []
         self.marked_node_paths = {}
+        self.stats = {}
         self.__training_data: list[tuple[list[int], Tree]] = []
 
     def __init_nodes(self, nodes: list[RawNode]):
@@ -458,6 +460,11 @@ class Tree:
 
     def __len__(self) -> int:
         return len(self.__nodes)
+
+    def add_stat(self, stat: str, value: float):
+        if stat not in self.stats:
+            self.stats[stat] = []
+        self.stats[stat].append(value)
 
     # Exporter functions
     def to_dot(self) -> gv.Digraph:
