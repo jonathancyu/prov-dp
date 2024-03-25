@@ -88,6 +88,8 @@ def batch_run(args):
                     print(f'(0) beginning epsilon_1={epsilon_1}, alpha={alpha}, beta={beta}, gamma={gamma}')
                     current_args.epsilon = epsilon_1
                     current_args.alpha = alpha
+                    current_args.beta = beta
+                    current_args.gamma = gamma
                     run_processor(current_args)
                     print()
                     print()
