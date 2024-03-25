@@ -248,6 +248,7 @@ class GraphProcessor:
                 print(f'  Wrote {len(pruned_graphs)} graphs and {len(self.__training_data)} '
                       f'training samples to {pruned_graph_path}')
 
+        return pruned_graphs  # TODO: REMOVE THIS, its a hack to get quick stats
         # Train model
         print(f'{self.__step()} Training model')
         paths = []
