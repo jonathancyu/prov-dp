@@ -1,221 +1,96 @@
-(0) beginning epsilon_1=15, alpha=0.1, beta=0.1, gamma=0.1
-  pruned tree size (#nodes) (N=548045) - mean: 1.0038664708190022, std: 0.14634128717888994, min: 1, max: 27
-  pruned tree height (N=548045) - mean: 0.0010163398990958772, std: 0.03434424323989734, min: 0, max: 4
-  pruned tree depth (N=548045) - mean: 2.4324699614082785, std: 0.5832621080052659, min: 2, max: 9
-  Wrote 1342 graphs and 548045 training samples to ..\data\output\tc3-theia\data2\benign_e1=1.0_e2=1_a=0.1_b=0.1_c=0.1\pruned_graphs.pkl
+(0) beginning epsilon_1=0.1, alpha=0, beta=0.5, gamma=0
+  pruned tree size (#nodes) (N=40847) - mean: 1.3671995495385219, std: 11.682543882456084, min: 1, max: 629
+  pruned tree height (N=40847) - mean: 0.0032805346781893405, std: 0.06630178327852405, min: 0, max: 4
+  pruned tree depth (N=40847) - mean: 2.327367982960805, std: 0.5454457682016728, min: 2, max: 9
+  Wrote 100 graphs and 40847 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0.5_c=0\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=15, alpha=0.1, beta=0.1, gamma=0.5
-  pruned tree size (#nodes) (N=283190) - mean: 1.003520604541121, std: 0.12972235448061809, min: 1, max: 25
-  pruned tree height (N=283190) - mean: 0.0009039867226950105, std: 0.03074969769488036, min: 0, max: 3
-  pruned tree depth (N=283190) - mean: 2.3310992619795896, std: 0.5090404455612085, min: 2, max: 8
-  Wrote 1342 graphs and 283190 training samples to ..\data\output\tc3-theia\data2\benign_e1=1.0_e2=1_a=0.1_b=0.1_c=0.5\pruned_graphs.pkl
+(0) beginning epsilon_1=0.1, alpha=0, beta=0, gamma=0.5
+  pruned tree size (#nodes) (N=20205) - mean: 1.6562731997030438, std: 15.140136969564079, min: 1, max: 480
+  pruned tree height (N=20205) - mean: 0.0052462261816382085, std: 0.09476364534632592, min: 0, max: 4
+  pruned tree depth (N=20205) - mean: 2.24404850284583, std: 0.43660729023123196, min: 2, max: 5
+  Wrote 100 graphs and 20205 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0_c=0.5\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=15, alpha=0.1, beta=0.1, gamma=0.9
-  pruned tree size (#nodes) (N=130631) - mean: 1.0035137142026012, std: 0.12555843080315657, min: 1, max: 12
-  pruned tree height (N=130631) - mean: 0.0008956526398787424, std: 0.030168870508585653, min: 0, max: 2
-  pruned tree depth (N=130631) - mean: 2.235862850318837, std: 0.43846339968619513, min: 2, max: 5
-  Wrote 1342 graphs and 130631 training samples to ..\data\output\tc3-theia\data2\benign_e1=1.0_e2=1_a=0.1_b=0.1_c=0.9\pruned_graphs.pkl
+(0) beginning epsilon_1=1, alpha=0, beta=0.5, gamma=0
+  pruned tree size (#nodes) (N=41960) - mean: 1.294161105815062, std: 10.255933865037173, min: 1, max: 629
+  pruned tree height (N=41960) - mean: 0.003217349857006673, std: 0.07184177511915547, min: 0, max: 7
+  pruned tree depth (N=41960) - mean: 2.334389895138227, std: 0.5023105664617379, min: 2, max: 9
+  Wrote 100 graphs and 41960 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0.5_c=0\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=15, alpha=0.1, beta=0.5, gamma=0.1
-  pruned tree size (#nodes) (N=548208) - mean: 1.0028383387327438, std: 0.11588118779608572, min: 1, max: 26
-  pruned tree height (N=548208) - mean: 0.0007533636867758224, std: 0.028158957424272497, min: 0, max: 4
-  pruned tree depth (N=548208) - mean: 2.4336912266876807, std: 0.5850765879456771, min: 2, max: 9
-  Wrote 1342 graphs and 548208 training samples to ..\data\output\tc3-theia\data2\benign_e1=1.0_e2=1_a=0.1_b=0.5_c=0.1\pruned_graphs.pkl
+(0) beginning epsilon_1=1, alpha=0, beta=0, gamma=0.5
+  pruned tree size (#nodes) (N=20466) - mean: 1.5190559953092935, std: 14.275594073480038, min: 1, max: 600
+  pruned tree height (N=20466) - mean: 0.004690706537672237, std: 0.09101899123793905, min: 0, max: 5
+  pruned tree depth (N=20466) - mean: 2.2617023355809636, std: 0.47111017891325035, min: 2, max: 5
+  Wrote 100 graphs and 20466 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0_c=0.5\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=15, alpha=0.1, beta=0.5, gamma=0.5
-  pruned tree size (#nodes) (N=281901) - mean: 1.002883991188396, std: 0.12408787348239585, min: 1, max: 20
-  pruned tree height (N=281901) - mean: 0.0007130162716698416, std: 0.026692843225594676, min: 0, max: 1
-  pruned tree depth (N=281901) - mean: 2.3308643814672525, std: 0.5088736852508294, min: 2, max: 9
-  Wrote 1342 graphs and 281901 training samples to ..\data\output\tc3-theia\data2\benign_e1=1.0_e2=1_a=0.1_b=0.5_c=0.5\pruned_graphs.pkl
+(0) beginning epsilon_1=5, alpha=0, beta=0.5, gamma=0
+  pruned tree size (#nodes) (N=41263) - mean: 1.3401836996825243, std: 11.038592120044964, min: 1, max: 600
+  pruned tree height (N=41263) - mean: 0.003320165765940431, std: 0.06795454909211832, min: 0, max: 5
+  pruned tree depth (N=41263) - mean: 2.3158519739233694, std: 0.48521012377012324, min: 2, max: 9
+  Wrote 100 graphs and 41263 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0.5_c=0\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=15, alpha=0.1, beta=0.5, gamma=0.9
-  pruned tree size (#nodes) (N=130866) - mean: 1.002521663380863, std: 0.10362169414319725, min: 1, max: 7
-  pruned tree height (N=130866) - mean: 0.0006495193556767992, std: 0.02547739155179353, min: 0, max: 1
-  pruned tree depth (N=130866) - mean: 2.2354927941558542, std: 0.4387210321705347, min: 2, max: 5
-  Wrote 1342 graphs and 130866 training samples to ..\data\output\tc3-theia\data2\benign_e1=1.0_e2=1_a=0.1_b=0.5_c=0.9\pruned_graphs.pkl
+(0) beginning epsilon_1=5, alpha=0, beta=0, gamma=0.5
+  pruned tree size (#nodes) (N=20361) - mean: 1.5593045528215705, std: 14.31537790912727, min: 1, max: 554
+  pruned tree height (N=20361) - mean: 0.006090074161386965, std: 0.10517871595931169, min: 0, max: 7
+  pruned tree depth (N=20361) - mean: 2.2547026177496194, std: 0.4658734527553013, min: 2, max: 5
+  Wrote 100 graphs and 20361 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0_c=0.5\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=15, alpha=0.1, beta=0.9, gamma=0.1
-  pruned tree size (#nodes) (N=547943) - mean: 1.0019308577717025, std: 0.10024176897945689, min: 1, max: 26
-  pruned tree height (N=547943) - mean: 0.0005110020567832786, std: 0.02299980450216453, min: 0, max: 2
-  pruned tree depth (N=547943) - mean: 2.4336892705993143, std: 0.5838329988790757, min: 2, max: 9
-  Wrote 1342 graphs and 547943 training samples to ..\data\output\tc3-theia\data2\benign_e1=1.0_e2=1_a=0.1_b=0.9_c=0.1\pruned_graphs.pkl
+(0) beginning epsilon_1=10, alpha=0, beta=0.5, gamma=0
+  pruned tree size (#nodes) (N=41596) - mean: 1.317338205596692, std: 10.675007835134087, min: 1, max: 629
+  pruned tree height (N=41596) - mean: 0.0031493412828156554, std: 0.06366295871264593, min: 0, max: 3
+  pruned tree depth (N=41596) - mean: 2.3437349745167806, std: 0.5580814308925227, min: 2, max: 9
+  Wrote 100 graphs and 41596 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0.5_c=0\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=15, alpha=0.1, beta=0.9, gamma=0.5
-  pruned tree size (#nodes) (N=282680) - mean: 1.0020694778548183, std: 0.09445106566098663, min: 1, max: 10
-  pruned tree height (N=282680) - mean: 0.0005447856233196548, std: 0.023485399079203856, min: 0, max: 2
-  pruned tree depth (N=282680) - mean: 2.332287392104146, std: 0.5113986991063462, min: 2, max: 8
-  Wrote 1342 graphs and 282680 training samples to ..\data\output\tc3-theia\data2\benign_e1=1.0_e2=1_a=0.1_b=0.9_c=0.5\pruned_graphs.pkl
+(0) beginning epsilon_1=10, alpha=0, beta=0, gamma=0.5
+  pruned tree size (#nodes) (N=20921) - mean: 1.4790879977056546, std: 13.102707637019282, min: 1, max: 554
+  pruned tree height (N=20921) - mean: 0.004923282825868744, std: 0.09132667848966512, min: 0, max: 7
+  pruned tree depth (N=20921) - mean: 2.2616031738444624, std: 0.4579359776921818, min: 2, max: 5
+  Wrote 100 graphs and 20921 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0_c=0.5\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=15, alpha=0.1, beta=0.9, gamma=0.9
-  pruned tree size (#nodes) (N=130771) - mean: 1.0016899771356034, std: 0.08517103156826196, min: 1, max: 7
-  pruned tree height (N=130771) - mean: 0.00042058254505968447, std: 0.020503796121266803, min: 0, max: 1
-  pruned tree depth (N=130771) - mean: 2.236115040796507, std: 0.4393322119756531, min: 2, max: 6
-  Wrote 1342 graphs and 130771 training samples to ..\data\output\tc3-theia\data2\benign_e1=1.0_e2=1_a=0.1_b=0.9_c=0.9\pruned_graphs.pkl
+(0) beginning epsilon_1=0.1, alpha=0, beta=0.5, gamma=0.5
+  pruned tree size (#nodes) (N=21025) - mean: 1.3951010701545778, std: 12.043466453019446, min: 1, max: 600
+  pruned tree height (N=21025) - mean: 0.003281807372175981, std: 0.06784382825056225, min: 0, max: 4
+  pruned tree depth (N=21025) - mean: 2.2733412604042806, std: 0.4746164495124009, min: 2, max: 5
+  Wrote 100 graphs and 21025 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0.5_c=0.5\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=15, alpha=0.5, beta=0.1, gamma=0.1
-(0) beginning epsilon_1=15, alpha=0.5, beta=0.1, gamma=0.1
-  pruned tree size (#nodes) (N=425497) - mean: 1.0007426609353298, std: 0.05088576379554452, min: 1, max: 7
-  pruned tree height (N=425497) - mean: 0.0002561710188320952, std: 0.016294359962100182, min: 0, max: 2
-  pruned tree depth (N=425497) - mean: 2.4318549837014127, std: 0.5833155607072442, min: 2, max: 9
-(0) beginning epsilon_1=1, alpha=0.5, beta=0.1, gamma=0.1
-  pruned tree size (#nodes) (N=127227) - mean: 1.000903896185558, std: 0.055287521819316364, min: 1, max: 6
-  pruned tree height (N=127227) - mean: 0.00031439867323759894, std: 0.017728503228187805, min: 0, max: 1
-  pruned tree depth (N=127227) - mean: 2.41800875600305, std: 0.5811662732951139, min: 2, max: 9
-  Wrote 400 graphs and 127227 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.5_b=0.1_c=0.1\pruned_graphs.pkl
+(0) beginning epsilon_1=1, alpha=0, beta=0.5, gamma=0.5
+  pruned tree size (#nodes) (N=21440) - mean: 1.2584421641791044, std: 8.958868937972829, min: 1, max: 424
+  pruned tree height (N=21440) - mean: 0.0029850746268656717, std: 0.06177148367283795, min: 0, max: 3
+  pruned tree depth (N=21440) - mean: 2.2996735074626864, std: 0.4967993507394715, min: 2, max: 6
+  Wrote 100 graphs and 21440 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0.5_c=0.5\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=1, alpha=0.5, beta=0.1, gamma=0.5
-  pruned tree size (#nodes) (N=60959) - mean: 1.0011647172689842, std: 0.06390114325594028, min: 1, max: 6
-  pruned tree height (N=60959) - mean: 0.00037730277727653013, std: 0.019420618421945004, min: 0, max: 1
-  pruned tree depth (N=60959) - mean: 2.312062205744845, std: 0.501096104287372, min: 2, max: 8
-  Wrote 400 graphs and 60959 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.5_b=0.1_c=0.5\pruned_graphs.pkl
+(0) beginning epsilon_1=5, alpha=0, beta=0.5, gamma=0.5
+  pruned tree size (#nodes) (N=21120) - mean: 1.3586647727272727, std: 11.663982607266812, min: 1, max: 600
+  pruned tree height (N=21120) - mean: 0.002556818181818182, std: 0.054988778046872015, min: 0, max: 3
+  pruned tree depth (N=21120) - mean: 2.283570075757576, std: 0.4956581758494032, min: 2, max: 5
+  Wrote 100 graphs and 21120 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0.5_c=0.5\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
-(0) beginning epsilon_1=1, alpha=0.5, beta=0.1, gamma=0.9
-  pruned tree size (#nodes) (N=27391) - mean: 1.0009127085539045, std: 0.054372260186113554, min: 1, max: 5
-  pruned tree height (N=27391) - mean: 0.0002920667372494615, std: 0.01708746424342869, min: 0, max: 1
-  pruned tree depth (N=27391) - mean: 2.223212003942901, std: 0.42917930345826955, min: 2, max: 5
-  Wrote 400 graphs and 27391 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.5_b=0.1_c=0.9\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.5, beta=0.5, gamma=0.1
-  pruned tree size (#nodes) (N=127444) - mean: 1.0010122092840776, std: 0.05787457670254211, min: 1, max: 6
-  pruned tree height (N=127444) - mean: 0.00035309626188757414, std: 0.019200644575441173, min: 0, max: 2
-  pruned tree depth (N=127444) - mean: 2.420898590753586, std: 0.5793056832515849, min: 2, max: 9
-  Wrote 400 graphs and 127444 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.5_b=0.5_c=0.1\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.5, beta=0.5, gamma=0.5
-  pruned tree size (#nodes) (N=60799) - mean: 1.000723696113423, std: 0.04866144543168986, min: 1, max: 6
-  pruned tree height (N=60799) - mean: 0.0002467145841214494, std: 0.015705213021014113, min: 0, max: 1
-  pruned tree depth (N=60799) - mean: 2.316255201565815, std: 0.5036592849130008, min: 2, max: 6
-  Wrote 400 graphs and 60799 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.5_b=0.5_c=0.5\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.5, beta=0.5, gamma=0.9
-  pruned tree size (#nodes) (N=27447) - mean: 1.0003643385433745, std: 0.031937676478955415, min: 1, max: 4
-  pruned tree height (N=27447) - mean: 0.00014573541734980145, std: 0.012071212803108529, min: 0, max: 1
-  pruned tree depth (N=27447) - mean: 2.2250519182424306, std: 0.4345473031275921, min: 2, max: 6
-  Wrote 400 graphs and 27447 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.5_b=0.5_c=0.9\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.5, beta=0.9, gamma=0.1
-  pruned tree size (#nodes) (N=127352) - mean: 1.0006203279100445, std: 0.04491819190412101, min: 1, max: 6
-  pruned tree height (N=127352) - mean: 0.00022771530875054965, std: 0.015088520619620413, min: 0, max: 1
-  pruned tree depth (N=127352) - mean: 2.4174885357120424, std: 0.5764812427641148, min: 2, max: 8
-  Wrote 400 graphs and 127352 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.5_b=0.9_c=0.1\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.5, beta=0.9, gamma=0.5
-  pruned tree size (#nodes) (N=61501) - mean: 1.0005528365392433, std: 0.04031977421891889, min: 1, max: 6
-  pruned tree height (N=61501) - mean: 0.0002113786767694834, std: 0.014537331110781326, min: 0, max: 1
-  pruned tree depth (N=61501) - mean: 2.312580283247427, std: 0.49755024387552055, min: 2, max: 8
-  Wrote 400 graphs and 61501 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.5_b=0.9_c=0.5\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.5, beta=0.9, gamma=0.9
-  pruned tree size (#nodes) (N=27776) - mean: 1.0003600230414746, std: 0.0388840218804994, min: 1, max: 6
-  pruned tree height (N=27776) - mean: 0.00010800691244239632, std: 0.010392076161636853, min: 0, max: 1
-  pruned tree depth (N=27776) - mean: 2.2245103686635943, std: 0.43267805783955443, min: 2, max: 6
-  Wrote 400 graphs and 27776 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.5_b=0.9_c=0.9\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.9, beta=0.1, gamma=0.1
-  pruned tree size (#nodes) (N=95370) - mean: 1.0002516514627242, std: 0.02896161046319304, min: 1, max: 5
-  pruned tree height (N=95370) - mean: 8.388382090804236e-05, std: 0.009158426961691194, min: 0, max: 1
-  pruned tree depth (N=95370) - mean: 2.4177099716892103, std: 0.578227595071327, min: 2, max: 8
-  Wrote 400 graphs and 95370 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.9_b=0.1_c=0.1\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.9, beta=0.1, gamma=0.5
-  pruned tree size (#nodes) (N=43496) - mean: 1.0003678499172337, std: 0.033217682612423416, min: 1, max: 5
-  pruned tree height (N=43496) - mean: 0.00013794371896266324, std: 0.011744134301559309, min: 0, max: 1
-  pruned tree depth (N=43496) - mean: 2.3082812212617254, std: 0.4961053277600156, min: 2, max: 5
-  Wrote 400 graphs and 43496 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.9_b=0.1_c=0.5\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.9, beta=0.1, gamma=0.9
-  pruned tree size (#nodes) (N=18802) - mean: 1.0, std: 0.0, min: 1, max: 1
-  pruned tree height (N=18802) - mean: 0.0, std: 0.0, min: 0, max: 0
-  pruned tree depth (N=18802) - mean: 2.2196042974151684, std: 0.42936650172996416, min: 2, max: 5
-  Wrote 400 graphs and 18802 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.9_b=0.1_c=0.9\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.9, beta=0.5, gamma=0.1
-  pruned tree size (#nodes) (N=95332) - mean: 1.000241262115554, std: 0.02487632543752718, min: 1, max: 5
-  pruned tree height (N=95332) - mean: 0.00011538622917803046, std: 0.01074117848265015, min: 0, max: 1
-  pruned tree depth (N=95332) - mean: 2.4160093148155917, std: 0.5776513650680466, min: 2, max: 9
-  Wrote 400 graphs and 95332 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.9_b=0.5_c=0.1\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.9, beta=0.5, gamma=0.5
-  pruned tree size (#nodes) (N=43371) - mean: 1.0001383412879574, std: 0.017966001231640046, min: 1, max: 4
-  pruned tree height (N=43371) - mean: 6.917064397869545e-05, std: 0.008316601433320402, min: 0, max: 1
-  pruned tree depth (N=43371) - mean: 2.310507020820364, std: 0.4959870306743219, min: 2, max: 8
-  Wrote 400 graphs and 43371 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.9_b=0.5_c=0.5\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.9, beta=0.5, gamma=0.9
-  pruned tree size (#nodes) (N=18926) - mean: 1.0004755362992708, std: 0.0417541250962645, min: 1, max: 6
-  pruned tree height (N=18926) - mean: 0.00015851209975694812, std: 0.012589160959777215, min: 0, max: 1
-  pruned tree depth (N=18926) - mean: 2.220331818662158, std: 0.4315821437358731, min: 2, max: 5
-  Wrote 400 graphs and 18926 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.9_b=0.5_c=0.9\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.9, beta=0.9, gamma=0.1
-  pruned tree size (#nodes) (N=95258) - mean: 1.0001574670893782, std: 0.02358726181478384, min: 1, max: 6
-  pruned tree height (N=95258) - mean: 5.248902979277331e-05, std: 0.007244741175123148, min: 0, max: 1
-  pruned tree depth (N=95258) - mean: 2.4208360452665394, std: 0.5818859363418732, min: 2, max: 9
-  Wrote 400 graphs and 95258 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.9_b=0.9_c=0.1\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.9, beta=0.9, gamma=0.5
-  pruned tree size (#nodes) (N=43452) - mean: 1.000299180705146, std: 0.029179184456590183, min: 1, max: 4
-  pruned tree height (N=43452) - mean: 0.00011506950197919544, std: 0.010726428156143579, min: 0, max: 1
-  pruned tree depth (N=43452) - mean: 2.310112307833932, std: 0.5020494830386284, min: 2, max: 8
-  Wrote 400 graphs and 43452 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.9_b=0.9_c=0.5\pruned_graphs.pkl
-N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
-
-
-(0) beginning epsilon_1=1, alpha=0.9, beta=0.9, gamma=0.9
-  pruned tree size (#nodes) (N=18556) - mean: 1.0001077818495365, std: 0.014681692073667344, min: 1, max: 3
-  pruned tree height (N=18556) - mean: 5.389092476826902e-05, std: 0.007340846036833672, min: 0, max: 1
-  pruned tree depth (N=18556) - mean: 2.2202522095279154, std: 0.42557983344569505, min: 2, max: 5
-  Wrote 400 graphs and 18556 training samples to ..\data\output\tc3-theia\data2\benign_N=400_e1=1.0_e2=1_a=0.9_b=0.9_c=0.9\pruned_graphs.pkl
+(0) beginning epsilon_1=10, alpha=0, beta=0.5, gamma=0.5
+  pruned tree size (#nodes) (N=20779) - mean: 1.41214687906059, std: 12.204472513779875, min: 1, max: 575
+  pruned tree height (N=20779) - mean: 0.0027431541460128015, std: 0.06314184465167706, min: 0, max: 3
+  pruned tree depth (N=20779) - mean: 2.2767698156792915, std: 0.4824908097490509, min: 2, max: 8
+  Wrote 100 graphs and 20779 training samples to ..\data\output\tc3-theia\data2\benign_N=100_e1=1.0_e2=1_a=0_b=0.5_c=0.5\pruned_graphs.pkl
 N,epsilon1,epsilon2,alpha,beta,gamma,pruned tree size (#nodes)_mean,pruned tree size (#nodes)_std,pruned tree size (#nodes)_min,pruned tree size (#nodes)_max,pruned tree height_mean,pruned tree height_std,pruned tree height_min,pruned tree height_max,pruned tree depth_mean,pruned tree depth_std,pruned tree depth_min,pruned tree depth_max
 
 
