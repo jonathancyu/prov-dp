@@ -1,8 +1,6 @@
 import pickle
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor
-from copy import deepcopy
-from itertools import chain
 from pathlib import Path
 from typing import Generator
 
@@ -159,9 +157,11 @@ class GraphProcessor:
         return pruned_trees
 
     def prune(self, tree: Tree) -> Tree:
+
         # Returns tuple (pruned tree, list of training data)
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
+        tree.init_node_stats(tree.root_node_id, 0)
         queue: deque[tuple[int, list[int]]] = deque([(tree.root_node_id, [])])
         visited_node_ids: set[int] = set()
         while len(queue) > 0:
@@ -176,9 +176,10 @@ class GraphProcessor:
             #         can we use this along with the size to get a better result?
             # calculate the probability of pruning a given tree
             # TODO: populate hashmap: (node_id: (size, height, depth))
-            subtree_size = tree.__init_node_stats(src_node_id)
-            height = tree.get_tree_height(src_node_id)
-            depth = len(path)
+
+            node_stats = tree.get_node_stats(src_node_id)
+            subtree_size, height, depth = node_stats.size, node_stats.height, node_stats.depth
+            # assert depth == len(path)
             distance = (self.__alpha * subtree_size) + (self.__beta * height) + (self.__gamma * depth)
             p = logistic_function(self.__epsilon_1 * distance)  # big distance -> lower probability of pruning
             prune_edge: bool = np.random.choice([True, False],

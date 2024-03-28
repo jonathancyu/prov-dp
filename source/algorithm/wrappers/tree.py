@@ -96,10 +96,10 @@ class Tree:
             # Ref ID is not the same as graphson ID, so we need to find the edge with the matching ref ID
             matches = [edge for edge in self.__edges.values()
                        if edge.get_ref_id() == source_edge_ref_id]
-            assert len(matches) == 1
-            self.root_node_id = matches[0].get_src_id()
-        else:
-            self.root_node_id = None
+            if len(matches) == 1:
+                self.root_node_id = matches[0].get_src_id()
+                return
+        self.root_node_id = None
 
     def get_subtree(self,
                     root_node_id: int,
@@ -148,20 +148,14 @@ class Tree:
 
         return subtree
 
-
-
-    def __init_node_stats(self, root_node_id: int, depth: int) -> None:
+    def init_node_stats(self, root_node_id: int, depth: int) -> None:
         # Return the size of the subtree rooted at that node
-        existing = self.__subtree_size_lookup[root_node_id]
-        if existing is not None:
-            return existing
-
         edges = self.get_outgoing_edge_ids(root_node_id)
         if len(edges) == 0:
             self.__node_stats[root_node_id] = NodeStats(
                 height=0,
                 size=1,
-                depth=depth+1
+                depth=depth
             )
             return
 
@@ -170,16 +164,16 @@ class Tree:
         for edge_id in edges:
             edge = self.get_edge(edge_id)
             dst_id = edge.get_dst_id()
-            self.__init_node_stats(dst_id, depth)
+            self.init_node_stats(dst_id, depth+1)
             stats = self.get_node_stats(dst_id)
             size += stats.size
-            heights_of_subtrees.add(stats.height)
+            heights_of_subtrees.append(stats.height)
         height = 1 + max(heights_of_subtrees)
 
         self.__node_stats[root_node_id] = NodeStats(
             height=height,
             size=size,
-            depth=depth+1
+            depth=depth
         )
 
     def get_node_stats(self, node_id: int):
