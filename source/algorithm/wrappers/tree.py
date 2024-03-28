@@ -11,6 +11,17 @@ from .node import Node
 from ...graphson import RawEdge, RawNode, RawGraph, NodeType
 
 
+# TODO move to own class
+class NodeStats:
+    height: int
+    size: int
+    depth: int
+    def __init__(self, height: int, size: int, depth: int):
+        self.height = height
+        self.size = size
+        self.depth = depth
+
+
 class Tree:
     graph_id: int | None
     root_node_id: int | None
@@ -24,6 +35,9 @@ class Tree:
     __incoming_lookup: dict[int, set[int]]  # node_id: set[edge_id]
     __outgoing_lookup: dict[int, set[int]]  # node_id: set[edge_id]
     __subtree_lookup: dict[int, 'Tree']
+    __node_stats: dict[int, NodeStats]
+
+    __subtree_size_lookup: dict[int, int]  # node_id: size of tree rooted at node
     __height_lookup: dict[int, int]
     __training_data: list[tuple[list[int], 'Tree']]  # (path, subtree) tuples
 
@@ -57,7 +71,7 @@ class Tree:
 
         # Algorithm-specific fields
         self.__subtree_lookup = {}
-        self.__height_lookup = {}
+        self.__node_stats = {}
         self.training_data = []
         self.marked_node_paths = {}
         self.stats = {}
@@ -134,9 +148,42 @@ class Tree:
 
         return subtree
 
-    def get_tree_size(self, root_node_id: int) -> int:
+
+
+    def __init_node_stats(self, root_node_id: int, depth: int) -> None:
         # Return the size of the subtree rooted at that node
-        return len(self.get_subtree(root_node_id))
+        existing = self.__subtree_size_lookup[root_node_id]
+        if existing is not None:
+            return existing
+
+        edges = self.get_outgoing_edge_ids(root_node_id)
+        if len(edges) == 0:
+            self.__node_stats[root_node_id] = NodeStats(
+                height=0,
+                size=1,
+                depth=depth+1
+            )
+            return
+
+        size = 0
+        heights_of_subtrees = []
+        for edge_id in edges:
+            edge = self.get_edge(edge_id)
+            dst_id = edge.get_dst_id()
+            self.__init_node_stats(dst_id, depth)
+            stats = self.get_node_stats(dst_id)
+            size += stats.size
+            heights_of_subtrees.add(stats.height)
+        height = 1 + max(heights_of_subtrees)
+
+        self.__node_stats[root_node_id] = NodeStats(
+            height=height,
+            size=size,
+            depth=depth+1
+        )
+
+    def get_node_stats(self, node_id: int):
+        return self.__node_stats[node_id]
 
     def get_tree_height(self, root_node_id: int) -> int:
         if root_node_id in self.__height_lookup:
