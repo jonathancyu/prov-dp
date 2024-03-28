@@ -45,18 +45,18 @@ def run_processor(args):
     graph_processor = GraphProcessor(**to_processor_args(args))
     perturbed_graphs: list[Tree] = graph_processor.perturb_graphs(input_paths)
 
-    # # Save final graph objects
-    # with open(args.output_dir / 'perturbed_graphs.pkl', 'wb') as f:
-    #     pickle.dump(perturbed_graphs, f)
-    #
-    # # Save dot files
-    # for graph in tqdm(perturbed_graphs, desc='Saving graphs'):
-    #     base_file_name = f'nd_{graph.graph_id}_processletevent'
-    #     file_path = args.output_dir / base_file_name / f'{base_file_name}.json'
-    #     save_dot(graph.to_dot(), file_path)
-    #
-    #     with open(file_path, 'w') as f:
-    #         f.write(graph.to_json())
+    # Save final graph objects
+    with open(args.output_dir / 'perturbed_graphs.pkl', 'wb') as f:
+        pickle.dump(perturbed_graphs, f)
+
+    # Save dot files
+    for graph in tqdm(perturbed_graphs, desc='Saving graphs'):
+        base_file_name = f'nd_{graph.graph_id}_processletevent'
+        file_path = args.output_dir / base_file_name / f'{base_file_name}.json'
+        save_dot(graph.to_dot(), file_path)
+
+        with open(file_path, 'w') as f:
+            f.write(graph.to_json())
 
     # Clean up for the next run
     with open('stats.csv', 'a') as f:
@@ -96,10 +96,10 @@ def batch_run(args):
 
 
 def main(args):
-    # run_processor(args)
-    with open("output.txt", "w") as f:
-        with contextlib.redirect_stdout(f):
-            batch_run(args)
+    run_processor(args)
+    # with open("output.txt", "w") as f:
+    #     with contextlib.redirect_stdout(f):
+    #         batch_run(args)
 
 
 if __name__ == '__main__':
