@@ -203,33 +203,11 @@ class GraphProcessor:
 
                 continue
 
-            # otherwise, continue adding children to queue
-            next_edge_ids = tree.get_outgoing_edge_ids(src_node_id)
-
-            for edge_id in next_edge_ids:
-                src_node = tree.get_node(src_node_id)
+            # otherwise, continue adding children to the BFS queue
+            for edge_id in tree.get_outgoing_edge_ids(src_node_id):
                 edge = tree.get_edge(edge_id)
                 dst_node_id = edge.get_dst_id()
-                dst_node = tree.get_node(dst_node_id)
-                # if this isn't a leaf, then continue and add the next edges to the queue
-                if len(next_edge_ids) > 0:
-                    queue.append((dst_node_id, path + [edge_id]))
-
-                # if this is a leaf, add the path and current graph to the training data
-                else:
-                    # deep copy the leaf and its parent to modify them
-                    parent_node = deepcopy(src_node)
-                    leaf_node = deepcopy(dst_node)
-
-                    # add the leaf (and parent) to its own graph
-                    leaf_tree = Tree()
-                    leaf_tree.graph_id = tree.graph_id
-                    leaf_tree.add_node(parent_node)
-                    leaf_tree.add_node(leaf_node)
-                    leaf_tree.add_edge(deepcopy(edge))
-                    # add the (path, graph) tuple to the training data
-                    tree.training_data.append((tree.path_to_string(path), leaf_tree))
-                    continue
+                queue.append((dst_node_id, path + [edge_id]))
 
         return tree
 
