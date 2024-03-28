@@ -22,7 +22,7 @@ class Edge:
         self.edge.id = new_id
 
     def get_ref_id(self) -> int:
-        return int(self.edge.model_extra['REF_ID'])
+        return int(self.edge.model_extra.get('REF_ID', ''))
 
     def get_src_id(self) -> int:
         return self.edge.src_id

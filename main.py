@@ -28,7 +28,7 @@ def to_processor_args(args):
 
 
 def run_processor(args):
-    input_paths = list(args.input_dir.rglob('*.json'))
+    input_paths = list(args.input_dir.rglob('nd*.json'))
     # Apply graph limit
     if args.num_graphs is not None:
         random.seed(args.num_graphs)
