@@ -65,6 +65,7 @@ class GraphModel:
         self.__load_model = load_model
 
         # Build vocabulary
+        assert len(paths) > 0, "Received 0 paths as input, cannot train on 0 paths."
         assert len(paths) == len(graphs)
         self.paths = paths
         self.graphs = graphs

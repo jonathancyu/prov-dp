@@ -29,7 +29,13 @@ class Tree:
 
     @staticmethod
     def load_file(json_path: Path) -> 'Tree':
-        split = str(json_path.stem).split('-')
+        file_name = str(json_path.stem)
+        if '-' in file_name:
+            split = file_name.split('-')
+        elif '_' in file_name:
+            split = file_name.split('_')
+        else:
+            raise ValueError(f'Invalid file name: {file_name}')
         ref_id = -1
         if len(split) == 3:
             ref_id = int(split[1])
@@ -258,7 +264,7 @@ class Tree:
         agent_id = self.get_nodes()[0].node.model_extra['AGENT_ID']  # AgentID is always the same for DARPA
         # Create root node
         raw_root_node = RawNode(
-            _id=9999,
+            _id=self.get_next_node_id(),
             TYPE=NodeType.VIRTUAL,
         )
         raw_root_node.model_extra['EXE_NAME'] = 'VIRTUAL'
