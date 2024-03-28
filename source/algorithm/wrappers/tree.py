@@ -159,7 +159,7 @@ class Tree:
             )
             return
 
-        size = 0
+        size = 1
         heights_of_subtrees = []
         for edge_id in edges:
             edge = self.get_edge(edge_id)
