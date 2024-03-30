@@ -34,13 +34,13 @@ class Node:
         model = self.node.model_dump()
         token = f'{self.node.type}_'
         if self.node.type == NodeType.PROCESS_LET:
-            token += model['EXE_NAME']
+            token += model.get('EXE_NAME')
         elif self.node.type == NodeType.FILE:
             if 'FILENAME_SET' in model:
-                token += model["FILENAME_SET"][0]["value"].replace(' ', '_')
+                token += model("FILENAME_SET")[0]["value"].replace(' ', '_')
         elif self.node.type == NodeType.IP_CHANNEL:
-            src_ip = model['LOCAL_INET_ADDR']
-            dst_ip = model['REMOTE_INET_ADDR']
+            src_ip = model.get('LOCAL_INET_ADDR')
+            dst_ip = model.get('REMOTE_INET_ADDR')
             token += f'{src_ip}_{dst_ip}'
         elif self.node.type == NodeType.VIRTUAL:
             token = '.'
