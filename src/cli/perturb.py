@@ -47,21 +47,6 @@ def run_processor(args):
     with open(args.output_dir / 'processor_stats.json', 'w') as f:
         f.write(json.dumps(graph_processor.stats))
 
-    # TODO: remove this and pivot to only json stats
-    with open(args.output_dir / 'stats.csv', 'a') as f:
-        header = ['N', 'epsilon1', 'epsilon2', 'alpha', 'beta', 'gamma']
-        f.write(f'{args.num_graphs},{args.epsilon1},{args.epsilon2},{args.alpha},{args.beta},{args.gamma}')
-        for key, value in graph_processor.stats.items():
-            mean, std, min_val, max_val = 'x', 'x', 'x', 'x'
-            if (len(value)) > 0:
-                mean = np.mean(value)
-                std = np.std(value)
-                min_val = np.min(value)
-                max_val = np.max(value)
-            f.write(f'{mean},{std},{min_val},{max_val},')
-        print(','.join(header))  # TODO this is way messy
-        f.write('\n')
-
     # Clean up for the next run
     del graph_processor
     del perturbed_graphs
