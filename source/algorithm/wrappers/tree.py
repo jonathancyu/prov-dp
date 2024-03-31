@@ -56,12 +56,15 @@ class Tree:
 
         # If the resulting "tree" contains a cycle, throw an error.
         nx_graph = tree.to_nx()
-        if cycle := nx.find_cycle(nx_graph):
-            cycle_str = ", ".join([
-                f'{nx_graph.nodes[edge[0]]}-{nx_graph.nodes[edge[1]]}'
-                for edge in cycle
-            ])
-            raise RuntimeError(f'Graph {file_name} contains a cycle [{cycle_str}]')
+        if not nx.is_directed_acyclic_graph(nx_graph):
+            if cycle := nx.find_cycle(nx_graph):
+                cycle_str = ", ".join([
+                    f'{nx_graph.nodes[edge[0]]}-{nx_graph.nodes[edge[1]]}'
+                    for edge in cycle
+                ])
+                raise RuntimeError(f'Graph {file_name} contains a cycle [{cycle_str}]')
+            else:
+                raise RuntimeError(f'Graph {file_name} doesn\'t contain cycle but isnt dag..?')
 
         return tree
 
@@ -149,7 +152,7 @@ class Tree:
         return subtree
 
     def init_node_stats(self, root_node_id: int, depth: int) -> None:
-        # Return the size of the subtree rooted at that node
+        # initialize tree stat lookup
         edges = self.get_outgoing_edge_ids(root_node_id)
         if len(edges) == 0:
             self.__node_stats[root_node_id] = NodeStats(
