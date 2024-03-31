@@ -10,7 +10,7 @@ import numpy as np
 from graphviz import Digraph
 from tqdm import tqdm
 
-from source import GraphProcessor, Tree
+from src import GraphProcessor, Tree
 
 T = TypeVar('T')
 

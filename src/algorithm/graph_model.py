@@ -8,8 +8,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from karateclub import Graph2Vec
 
-from source.algorithm import Tree
-from source.algorithm.utility import print_stats
+from src.algorithm import Tree
+from src.algorithm.utility import print_stats
 
 
 class GraphModel:

@@ -1,7 +1,7 @@
 import contextlib
 from copy import deepcopy
 
-from source.cli.utility import run_processor, parse_args
+from src.cli.utility import run_processor, parse_args
 
 
 def batch_run(args):
