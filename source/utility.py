@@ -1,19 +1,18 @@
 import argparse
-import contextlib
 import gc
 import inspect
 import pickle
 import random
-import numpy as np
-from copy import deepcopy
 from pathlib import Path
+from typing import TypeVar
 
+import numpy as np
+from graphviz import Digraph
 from tqdm import tqdm
 
-from source import Tree
-from source.algorithm import GraphProcessor
-from utility import save_dot
+from source import GraphProcessor, Tree
 
+T = TypeVar('T')
 
 def to_processor_args(args):
     # Map args to GraphProcessor constructor
@@ -33,7 +32,8 @@ def run_processor(args):
     if args.num_graphs is not None:
         random.seed(args.num_graphs)
         input_paths = random.sample(input_paths, args.num_graphs)
-        args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}_N={args.num_graphs}')
+        args.output_dir = args.output_dir.with_stem(
+            f'{args.output_dir.stem}_N={args.num_graphs}')
     args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}'
                                                 f'_e1={args.epsilon1}'
                                                 f'_e2={args.epsilon2}'
@@ -59,7 +59,7 @@ def run_processor(args):
             f.write(graph.to_json())
 
     # Clean up for the next run
-    with open('stats.csv', 'a') as f:
+    with open(args.output_dir / 'stats.csv', 'a') as f:
         header = ['N', 'epsilon1', 'epsilon2', 'alpha', 'beta', 'gamma']
         f.write(f'{args.num_graphs},{args.epsilon1},{args.epsilon2},{args.alpha},{args.beta},{args.gamma}')
         for key, value in graph_processor.stats.items():
@@ -71,38 +71,13 @@ def run_processor(args):
                 max_val = np.max(value)
             f.write(f'{mean},{std},{min_val},{max_val},')
             header.extend([f'{key}_{label}' for label in ['mean', 'std', 'min', 'max']])
-        print(','.join(header))
+        print(','.join(header))  # TODO this is way messy
         f.write('\n')
     del graph_processor
     del perturbed_graphs
     gc.collect()
 
-
-def batch_run(args):
-    args.delta = 1.0  # Allocate all privacy budget to pruning
-    for epsilon_1 in [15, 20, 25, 30, 35, 40, 45]:
-        for alpha in [0.1, 0.5, 0.9]:
-            for beta in [0.1, 0.5, 0.9]:
-                for gamma in [0.1, 0.5, 0.9]:
-                    current_args = deepcopy(args)
-                    print(f'(0) beginning epsilon_1={epsilon_1}, alpha={alpha}, beta={beta}, gamma={gamma}')
-                    current_args.epsilon = epsilon_1
-                    current_args.alpha = alpha
-                    current_args.beta = beta
-                    current_args.gamma = gamma
-                    run_processor(current_args)
-                    print()
-                    print()
-
-
-def main(args):
-    run_processor(args)
-    # with open("output.txt", "w") as f:
-    #     with contextlib.redirect_stdout(f):
-    #         batch_run(args)
-
-
-if __name__ == '__main__':
+def parse_args():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-i', '--input_dir', type=Path, help='Path to input graph directory')
 
@@ -141,5 +116,13 @@ if __name__ == '__main__':
                             help='Load graph2vec model from output directory')
     arg_parser.add_argument('-m', '--load_model', action='store_true',
                             help='Load parameters from output directory')
+    return arg_parser.parse_args()
 
-    main(arg_parser.parse_args())
+def save_dot(dot_graph: Digraph,
+             file_path: Path,
+             pdf=False) -> None:
+    file_path = file_path.with_suffix('.dot')
+    file_path.parent.mkdir(exist_ok=True, parents=True)
+    dot_graph.save(file_path)
+    if pdf:
+        dot_graph.render(file_path, format='pdf')

@@ -1,6 +1,6 @@
 import json
-from collections import deque
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 
 import graphviz as gv
@@ -11,15 +11,11 @@ from .node import Node
 from ...graphson import RawEdge, RawNode, RawGraph, NodeType
 
 
-# TODO move to own class
+@dataclass
 class NodeStats:
     height: int
     size: int
     depth: int
-    def __init__(self, height: int, size: int, depth: int):
-        self.height = height
-        self.size = size
-        self.depth = depth
 
 
 class Tree:
@@ -38,7 +34,6 @@ class Tree:
     __node_stats: dict[int, NodeStats]
 
     __subtree_size_lookup: dict[int, int]  # node_id: size of tree rooted at node
-    __height_lookup: dict[int, int]
     __training_data: list[tuple[list[int], 'Tree']]  # (path, subtree) tuples
 
     @staticmethod
@@ -110,9 +105,6 @@ class Tree:
         :return: Subtree rooted at the given node
         """
         # Check if we've already computed this subtree
-        subtree = self.__subtree_lookup.get(root_node_id)
-        if subtree is not None:
-            return subtree
         visited_node_ids = visited_node_ids or set()
 
         # Create a new GraphWrapper object to store the accumulating tree
@@ -143,9 +135,6 @@ class Tree:
             for new_edge in next_subgraph.get_edges():
                 subtree.add_edge(deepcopy(new_edge))
 
-        # Cache result
-        self.__subtree_lookup[root_node_id] = subtree
-
         return subtree
 
     def init_node_stats(self, root_node_id: int, depth: int) -> None:
@@ -164,7 +153,7 @@ class Tree:
         for edge_id in edges:
             edge = self.get_edge(edge_id)
             dst_id = edge.get_dst_id()
-            self.init_node_stats(dst_id, depth+1)
+            self.init_node_stats(dst_id, depth + 1)
             stats = self.get_node_stats(dst_id)
             size += stats.size
             heights_of_subtrees.append(stats.height)
@@ -178,22 +167,6 @@ class Tree:
 
     def get_node_stats(self, node_id: int):
         return self.__node_stats[node_id]
-
-    def get_tree_height(self, root_node_id: int) -> int:
-        if root_node_id in self.__height_lookup:
-            return self.__height_lookup[root_node_id]
-        tree: Tree = self.get_subtree(root_node_id)
-        queue: deque[tuple[int, int]] = deque([(root_node_id, 0)])
-        max_depth = 0
-        while len(queue) > 0:
-            node_id, depth = queue.popleft()
-            max_depth = max(max_depth, depth)
-            for edge_id in tree.get_outgoing_edge_ids(node_id):
-                edge = tree.get_edge(edge_id)
-                queue.append((edge.get_dst_id(), depth + 1))
-
-        self.__height_lookup[root_node_id] = max_depth
-        return max_depth
 
     # Wrapper functions
     def get_edges(self) -> list[Edge]:
@@ -602,3 +575,6 @@ class Tree:
                 edge.to_json_dict() for edge in self.get_edges()
             ],
         })
+
+    def get_tree_height(self, root_node_id) -> int:
+        return self.__node_stats[root_node_id].height
