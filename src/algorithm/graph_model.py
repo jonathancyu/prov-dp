@@ -240,7 +240,7 @@ class GraphModel:
 
         # batch_size x len(graph_embeddings)
         # M[i, j] = P(graph_embeddings[j] | prediction_i)
-        probabilities = 1 / distances  # high distance -> low probability
+        probabilities = 1 / (distances ** 2)  # high distance -> low probability
 
         # batch_size x 1
         # M[i] = index of sampled graph for prediction_i
