@@ -1,24 +1,29 @@
 import contextlib
+import itertools
 from copy import deepcopy
 
 from perturb import run_processor, parse_args
 
 
 def batch_run(args):
-    args.delta = 1.0  # Allocate all privacy budget to pruning
-    for epsilon_1 in [15, 20, 25, 30, 35, 40, 45]:
-        for alpha in [0.1, 0.5, 0.9]:
-            for beta in [0.1, 0.5, 0.9]:
-                for gamma in [0.1, 0.5, 0.9]:
-                    current_args = deepcopy(args)
-                    print(f'(0) beginning epsilon_1={epsilon_1}, alpha={alpha}, beta={beta}, gamma={gamma}')
-                    current_args.epsilon = epsilon_1
-                    current_args.alpha = alpha
-                    current_args.beta = beta
-                    current_args.gamma = gamma
-                    run_processor(current_args)
-                    print()
-                    print()
+    epsilon_1s = [0.1, 0.5, 1, 10, 15]
+    epsilon_2s = [0]
+    alphas = [0, 0.5, 1]
+    betas = [0, 0.5, 1]
+    gammas = [0, 0.5, 1]
+
+    configurations = itertools.product(epsilon_1s, epsilon_2s, alphas, betas, gammas)
+
+    for epsilon_1, epsilon_2, alpha, beta, gamma in configurations:
+        current_args = deepcopy(args)
+        print(f'(0) beginning epsilon_1={epsilon_1}, alpha={alpha}, beta={beta}, gamma={gamma}')
+        current_args.epsilon = epsilon_1
+        current_args.alpha = alpha
+        current_args.beta = beta
+        current_args.gamma = gamma
+        run_processor(current_args)
+        print()
+        print()
 
 
 def main(args):
