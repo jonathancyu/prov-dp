@@ -4,6 +4,7 @@ input/
 output/
 __pycache__/
 .idea/
+.run/
 .pytest_cache
 
 # File types
