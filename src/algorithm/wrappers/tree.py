@@ -24,6 +24,7 @@ class TreeStats:
     heights: list[int]
     depths: list[int]
     sizes: list[int]
+    degrees: list[int]
 
     # Totals
     height: int
@@ -648,6 +649,7 @@ class Tree:
             heights=heights,
             depths=depths,
             sizes=sizes,
+            degrees=degrees,
             height=max(heights),
             size=max(sizes),
             degree=max(degrees),

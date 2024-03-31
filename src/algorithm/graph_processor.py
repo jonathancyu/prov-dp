@@ -20,6 +20,7 @@ NUM_UNMOVED_SUBTREES = '# unmoved subtrees'
 PERCENT_UNMOVED_SUBTREES = '% unmoved subtrees'
 
 
+# TODO: SRP..?
 class GraphProcessor:
     # Pruning parameters
     __epsilon_1: float

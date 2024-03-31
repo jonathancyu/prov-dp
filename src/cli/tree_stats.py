@@ -1,4 +1,5 @@
 import argparse
+import json
 from pathlib import Path
 
 import seaborn as sns
@@ -34,24 +35,43 @@ def main(args):
         single_threaded=args.single_threaded,
         desc='Calculating stats'
     ))
-    heights = []
-    depths = []
-    sizes = []
-    degrees = []
-    diameters = []
+
+    node_stats = {
+        'heights': [],
+        'depths': [],
+        'sizes': [],
+        'degrees': []
+    }
+
+    tree_stats = {
+        'heights': [],
+        'sizes': [],
+        'degrees': [],
+        'diameters': []
+    }
     for stat in tqdm(stats, desc='Aggregating stats'):
-        heights.append(stat.height)
-        # depths.append(stat.depth)
-        sizes.append(stat.size)
-        degrees.append(stat.degree)
-        diameters.append(stat.diameter)
+        # Node stats
+        node_stats['heights'].extend(stat.heights)
+        node_stats['depths'].extend(stat.depths)
+        node_stats['sizes'].extend(stat.sizes)
+        node_stats['degrees'].extend(stat.degrees)
+
+        # Tree stats
+        tree_stats['heights'].append(stat.height)
+        tree_stats['sizes'].append(stat.size)
+        tree_stats['degrees'].append(stat.degree)
+        tree_stats['diameters'].append(stat.diameter)
 
     output_dir: Path = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
-    graph(heights, args.num_bins, 'height', args.output_dir)
-    graph(sizes, args.num_bins, 'size', args.output_dir)
-    graph(degrees, args.num_bins, 'degree', args.output_dir)
-    graph(diameters, args.num_bins, 'diameter', args.output_dir)
+    for stat, values in tree_stats.items():
+        graph(values, args.num_bins, stat, args.output_dir)
+
+    with open(output_dir / 'dataset_stats.json', 'w') as file:
+        file.write(json.dumps({
+            'node_stats': node_stats,
+            'tree_stats': tree_stats
+        }))
 
 
 if __name__ == '__main__':
