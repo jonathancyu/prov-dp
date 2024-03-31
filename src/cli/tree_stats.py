@@ -21,7 +21,6 @@ def graph(data: list, bins: int, stat: str, output_dir: Path):
 
 def main(args):
     input_dir: Path = args.input_dir
-    input_dir.mkdir(parents=True, exist_ok=True)
     input_paths: list[Path] = list(input_dir.rglob('nd*.json'))
     trees: list[Tree] = list(smart_map(
         func=Tree.load_file,
@@ -35,7 +34,6 @@ def main(args):
         single_threaded=args.single_threaded,
         desc='Calculating stats'
     ))
-    stats: list[TreeStats] = [tree.get_stats() for tree in trees]
     heights = []
     depths = []
     sizes = []
@@ -48,6 +46,8 @@ def main(args):
         degrees.append(stat.degree)
         diameters.append(stat.diameter)
 
+    output_dir: Path = args.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
     graph(heights, args.num_bins, 'height', args.output_dir)
     graph(sizes, args.num_bins, 'size', args.output_dir)
     graph(degrees, args.num_bins, 'degree', args.output_dir)

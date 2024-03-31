@@ -633,7 +633,9 @@ class Tree:
         depths = []
         sizes = []
         degrees = []
-        diameter = max([max(j.values()) for (i, j) in nx.shortest_path_length(self.to_nx())])
+        G = self.to_nx().to_undirected()
+        diameter = max([max(j.values()) for (i, j) in nx.shortest_path_length(G)])
+        del G
 
         for node_id in self.__nodes.keys():
             stat = self.get_node_stats(node_id)

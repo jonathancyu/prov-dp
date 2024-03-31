@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-def smart_map(func: callable, items: list, single_threaded: bool, desc: str= ''):
+def smart_map(func: callable, items: list, single_threaded: bool, desc: str = ''):
     if single_threaded:
         # Do a simple loop
         for graph in tqdm(items, desc=desc):
