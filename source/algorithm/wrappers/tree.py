@@ -52,7 +52,18 @@ class Tree:
             RawGraph.load_file(json_path),
             ref_id
         )
-        return unprocessed_tree.preprocess()
+        tree = unprocessed_tree.preprocess()
+
+        # If the resulting "tree" contains a cycle, throw an error.
+        nx_graph = tree.to_nx()
+        if cycle := nx.find_cycle(nx_graph):
+            cycle_str = ", ".join([
+                f'{nx_graph.nodes[edge[0]]}-{nx_graph.nodes[edge[1]]}'
+                for edge in cycle
+            ])
+            raise RuntimeError(f'Graph {file_name} contains a cycle [{cycle_str}]')
+
+        return tree
 
     def __init__(self,
                  graph: RawGraph = None,
@@ -245,6 +256,8 @@ class Tree:
             edges_to_invert.extend(self.get_outgoing_edge_ids(node.get_id()))
 
         for edge_id in edges_to_invert:
+            edge = self.get_edge(edge_id)
+            assert edge.get_src_id() != edge.get_dst_id()
             self.__invert_edge(edge_id)
 
     # The graph is now a directed acyclic graph - Dr. De
@@ -309,11 +322,21 @@ class Tree:
                 ))
             )
 
+    def __remove_self_referring_edges(self):
+        num_self_referring = 0
+        for edge_id, edge in self.__edges.items():
+            if edge.get_src_id() == edge.get_dst_id():
+                num_self_referring +=1
+                self.remove_edge(edge)
+        if num_self_referring > 0:
+            print(f'{self.root_node_id}: removed {num_self_referring} self-referring edges')
+
     __preprocess_steps: list[callable] = [
         original_graph,
         __invert_outgoing_file_edges,
         __duplicate_file_ip_leaves,
-        __add_virtual_root
+        __add_virtual_root,
+        __remove_self_referring_edges
     ]
 
     def preprocess(self, output_dir: Path = None) -> 'Tree':
