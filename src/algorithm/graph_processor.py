@@ -132,7 +132,6 @@ class GraphProcessor:
             paths,
             f'Preprocessing graphs'
         ))
-        self.print_tree_stats(trees)
         return trees
 
     def load_and_prune_graphs(self, paths: list[Path]) -> list[Tree]:
@@ -287,7 +286,6 @@ class GraphProcessor:
                                                     for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
         self.__print_stats()
         model.print_distance_stats()
-        self.print_tree_stats(pruned_graphs)
         return pruned_graphs
 
     @staticmethod
@@ -304,25 +302,6 @@ class GraphProcessor:
         G = tree.to_nx().to_undirected()
         diameter = max([max(j.values()) for (i, j) in nx.shortest_path_length(G)])
         return outdegrees, max_degree, height, diameter
-
-    def print_tree_stats(self, trees: list[Tree]) -> None:
-        # avg/std of degree, height, diameter
-        outdegrees: list[int] = []
-        max_degrees: list[int] = []
-        heights: list[int] = []
-        diameters: list[int] = []
-        results = list(self.__map(self.get_single_tree_stats, trees, 'Calculating tree stats'))
-
-        for outdegree, max_degree, height, diameter in results:
-            outdegrees.extend(outdegree)
-            max_degrees.append(max_degree)
-            heights.append(height)
-            diameters.append(diameter)
-
-        print_stats('outdegree: ', outdegrees)
-        print_stats('max_degree: ', max_degrees)
-        print_stats('height: ', heights)
-        print_stats('diameter: ', diameters)
 
     def __print_stats(self):
         for stat, values in self.stats.items():
