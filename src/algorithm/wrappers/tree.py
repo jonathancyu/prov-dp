@@ -18,6 +18,20 @@ class NodeStats:
     depth: int
 
 
+@dataclass
+class TreeStats:
+    # Aggregates
+    heights: list[int]
+    depths: list[int]
+    sizes: list[int]
+
+    # Totals
+    height: int
+    size: int
+    degree: int
+    diameter: int
+
+
 class Tree:
     graph_id: int | None
     root_node_id: int | None
@@ -604,3 +618,37 @@ class Tree:
 
     def get_tree_height(self, root_node_id) -> int:
         return self.__node_stats[root_node_id].height
+
+    def get_root(self) -> int:
+        root_ids = [
+            node_id for node_id in self.__nodes.keys()
+            if len(self.get_incoming_edge_ids(node_id)) == 0
+        ]
+        assert len(root_ids) == 1, f'Expected only 1 root, got {len(root_ids)}'
+        return root_ids[0]
+
+    def get_stats(self) -> 'TreeStats':
+        self.init_node_stats(self.get_root(), 0)
+        heights = []
+        depths = []
+        sizes = []
+        degrees = []
+        diameter = max([max(j.values()) for (i, j) in nx.shortest_path_length(self.to_nx())])
+
+        for node_id in self.__nodes.keys():
+            stat = self.get_node_stats(node_id)
+            heights.append(stat.height)
+            depths.append(stat.depth)
+            sizes.append(stat.size)
+            degrees.append(len(self.get_outgoing_edge_ids(node_id)))
+
+        return TreeStats(
+            heights=heights,
+            depths=depths,
+            sizes=sizes,
+            height=max(heights),
+            size=max(sizes),
+            degree=max(degrees),
+            diameter=diameter
+        )
+

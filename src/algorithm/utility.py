@@ -1,7 +1,31 @@
 import warnings
+from concurrent.futures import ProcessPoolExecutor
 from typing import Iterator
 
 import numpy as np
+from tqdm import tqdm
+
+
+def smart_map(func: callable, items: list, single_threaded: bool, desc: str= ''):
+    if single_threaded:
+        # Do a simple loop
+        for graph in tqdm(items, desc=desc):
+            yield func(graph)
+        return
+
+    with ProcessPoolExecutor() as executor:
+        # When we multiprocess, objects are pickled and copied in the child process
+        # instead of using the same object, so we have to return objects from the
+        # function to get the changes back
+        futures = [
+            executor.submit(func, *item) if isinstance(item, tuple)
+            else executor.submit(func, item)
+            for item in items
+        ]
+        with tqdm(total=len(futures), desc=desc) as pbar:
+            for future in futures:
+                yield future.result()
+                pbar.update(1)
 
 
 def print_stats(name: str, samples: list) -> None:
