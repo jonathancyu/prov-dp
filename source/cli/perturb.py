@@ -1,4 +1,4 @@
-from source.utility import parse_args, run_processor
+from source.cli.utility import parse_args, run_processor
 
 
 if __name__ == '__main__':
