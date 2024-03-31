@@ -1,5 +1,6 @@
 import gc
 import inspect
+import json
 import pickle
 import random
 
@@ -42,7 +43,11 @@ def run_processor(args):
         with open(file_path, 'w') as f:
             f.write(graph.to_json())
 
-    # Clean up for the next run
+    # Write stats to json
+    with open(args.output_dir / 'processor_stats.json', 'w') as f:
+        f.write(json.dumps(graph_processor.stats))
+
+    # TODO: remove this and pivot to only json stats
     with open(args.output_dir / 'stats.csv', 'a') as f:
         header = ['N', 'epsilon1', 'epsilon2', 'alpha', 'beta', 'gamma']
         f.write(f'{args.num_graphs},{args.epsilon1},{args.epsilon2},{args.alpha},{args.beta},{args.gamma}')
@@ -54,9 +59,10 @@ def run_processor(args):
                 min_val = np.min(value)
                 max_val = np.max(value)
             f.write(f'{mean},{std},{min_val},{max_val},')
-            header.extend([f'{key}_{label}' for label in ['mean', 'std', 'min', 'max']])
         print(','.join(header))  # TODO this is way messy
         f.write('\n')
+
+    # Clean up for the next run
     del graph_processor
     del perturbed_graphs
     gc.collect()
