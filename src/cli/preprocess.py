@@ -4,7 +4,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from src.algorithm import GraphProcessor
-from src.cli.utility import save_dot
+from .utility import save_dot
 
 
 def main(args):
