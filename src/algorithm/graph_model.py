@@ -132,7 +132,7 @@ class GraphModel:
         )
 
     def __get_graph_embeddings(self) -> np.ndarray:
-        graph2vec_path = self.base_model_path / 'graph2vec.pkl'
+        graph2vec_path = self.base_model_path / '..' / '..' / 'graph2vec.pkl'  # TODO: revert
         # Embed graphs using graphviz
         if self.__load_graph2vec and graph2vec_path.exists():
             # Load model
