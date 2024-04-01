@@ -340,21 +340,11 @@ class Tree:
                 ))
             )
 
-    def __remove_self_referring_edges(self):
-        num_self_referring = 0
-        for edge_id, edge in self.__edges.items():
-            if edge.get_src_id() == edge.get_dst_id():
-                num_self_referring +=1
-                self.remove_edge(edge)
-        if num_self_referring > 0:
-            print(f'{self.root_node_id}: removed {num_self_referring} self-referring edges')
-
     __preprocess_steps: list[callable] = [
         original_graph,
         __invert_outgoing_file_edges,
         __duplicate_file_ip_leaves,
-        __add_virtual_root,
-        __remove_self_referring_edges
+        __add_virtual_root
     ]
 
     def preprocess(self, output_dir: Path = None) -> 'Tree':
