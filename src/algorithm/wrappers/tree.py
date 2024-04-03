@@ -256,16 +256,18 @@ class Tree:
         edge = self.get_edge(edge_id)
         src_id, dst_id = edge.get_src_id(), edge.get_dst_id()
         self.get_edge(edge_id).invert()
+
         self.__outgoing_lookup[src_id].remove(edge_id)
+        self.__incoming_lookup[src_id].add(edge_id)
+
         self.__incoming_lookup[dst_id].remove(edge_id)
         self.__outgoing_lookup[dst_id].add(edge_id)
-        self.__incoming_lookup[src_id].add(edge_id)
 
     # Step 1. Original graph
     def original_graph(self) -> None:
         pass
 
-    # Step 2. Invert all outgoing edges from files/IPs
+    # Step 2. Break cycles: Invert all outgoing edges from files/IPs
     def __invert_outgoing_file_edges(self) -> None:
         edges_to_invert = []
         for node in self.get_nodes():
@@ -279,18 +281,18 @@ class Tree:
             self.__invert_edge(edge_id)
 
     # The graph is now a directed acyclic graph - Dr. De
-    # Step 3. Duplicate file/IP nodes for each incoming edge
+    # Step 3. Remove lattice structure: Duplicate file/IP nodes for each incoming edge
     def __duplicate_file_ip_leaves(self) -> None:
         nodes = self.get_nodes().copy()
         for node in nodes:
-            if node.get_type() == NodeType.PROCESS_LET:
+            if node.get_type() == NodeType.PROCESS_LET or len(self.get_incoming_edge_ids(node.get_id())) < 2:
                 continue
             # Get coming edges of original node
             incoming_edge_ids = self.get_incoming_edge_ids(node.get_id()).copy()
             # Duplicate node for each incoming edge
             for edge_id in incoming_edge_ids:
                 # Create new node
-                new_node_id = self.get_next_node_id()
+                new_node_id = self.get_next_node_id() # Modify node_id -> to keep track of the original node_id
                 new_node = deepcopy(node)
                 new_node.set_id(new_node_id)
                 self.add_node(new_node)
@@ -301,10 +303,12 @@ class Tree:
                 edge.set_dst_id(new_node_id)
                 self.add_edge(edge)
 
+                # new_node.add_incoming_edges(edge) # Something like this needs to be added
+
             # Remove original node
             self.remove_node(node)
 
-    # Step 4
+    # Step 4. Convert forest to a tree
     def __add_virtual_root(self) -> None:
         agent_id = self.get_nodes()[0].node.model_extra['AGENT_ID']  # AgentID is always the same for DARPA
         # Create root node
@@ -340,11 +344,44 @@ class Tree:
                 ))
             )
 
+    # Step 5. Sanity check for the tree: Verify it is a valid tree
+    def __is_valid_tree(self) -> bool:
+        # A valid tree must have at least one node
+        if not self.__nodes:
+            return False
+
+        # Find the root: a node with no incoming edges
+        root_candidates = [node_id for node_id, edges in self.__incoming_lookup.items() if len(edges) == 0]
+
+        # There must be exactly one root node
+        if len(root_candidates) != 1:
+            return False
+
+        visited = set()
+
+        def dfs(node_id: int) -> bool:
+            if node_id in visited:
+                return False  # Found a cycle
+            visited.add(node_id)
+            for edge_id in self.__outgoing_lookup.get(node_id, []):
+                next_node_id = self.__edges[edge_id].get_dst_id()  # Assuming Edge has get_dst_id method
+                if not dfs(next_node_id):
+                    return False
+            return True
+
+        # Start DFS from root to check for cycles and if all nodes are reachable
+        is_tree = dfs(root_candidates[0])
+
+        # Check if all nodes were visited (tree is connected)
+        is_connected = len(visited) == len(self.__nodes)
+        return is_tree and is_connected
+
     __preprocess_steps: list[callable] = [
         original_graph,
         __invert_outgoing_file_edges,
         __duplicate_file_ip_leaves,
-        __add_virtual_root
+        __add_virtual_root,
+        __is_valid_tree
     ]
 
     def preprocess(self, output_dir: Path = None) -> 'Tree':
