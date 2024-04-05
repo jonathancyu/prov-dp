@@ -23,7 +23,7 @@ def run_processor(args):
                                                 f'_e1={args.epsilon1}'
                                                 f'_e2={args.epsilon2}'
                                                 f'_a={args.alpha}'
-                                                 f'_b={args.beta}'
+                                                f'_b={args.beta}'
                                                 f'_c={args.gamma}')
 
     # Run graph processor
