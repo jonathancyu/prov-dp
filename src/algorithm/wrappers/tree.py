@@ -68,18 +68,7 @@ class Tree:
             ref_id
         )
         tree = unprocessed_tree.preprocess()
-
-        # If the resulting "tree" contains a cycle, throw an error.
-        nx_graph = tree.to_nx()
-        if not nx.is_directed_acyclic_graph(nx_graph):
-            if cycle := nx.find_cycle(nx_graph):
-                cycle_str = ", ".join([
-                    f'{nx_graph.nodes[edge[0]]}-{nx_graph.nodes[edge[1]]}'
-                    for edge in cycle
-                ])
-                raise RuntimeError(f'Graph {file_name} contains a cycle [{cycle_str}]')
-            else:
-                raise RuntimeError(f'Graph {file_name} doesn\'t contain cycle but isnt dag..?')
+        tree.assert_valid_tree()
 
         return tree
 
@@ -285,10 +274,13 @@ class Tree:
     def __duplicate_file_ip_leaves(self) -> None:
         nodes = self.get_nodes().copy()
         for node in nodes:
-            if node.get_type() == NodeType.PROCESS_LET or len(self.get_incoming_edge_ids(node.get_id())) < 2:
-                continue
-            # Get coming edges of original node
+            # Get incoming edges of original node
             incoming_edge_ids = self.get_incoming_edge_ids(node.get_id()).copy()
+
+            # If this is a process, or if the file/ip has 0/1 incoming, just skip.
+            if node.get_type() == NodeType.PROCESS_LET or len(incoming_edge_ids) < 2:
+                continue
+
             # Duplicate node for each incoming edge
             for edge_id in incoming_edge_ids:
                 # Create new node
@@ -301,9 +293,7 @@ class Tree:
                 edge = self.get_edge(edge_id)
                 self.remove_edge(edge)
                 edge.set_dst_id(new_node_id)
-                self.add_edge(edge)
-
-                # new_node.add_incoming_edges(edge) # Something like this needs to be added
+                self.add_edge(edge)  # This function modifies the graphs' adjacency maps
 
             # Remove original node
             self.remove_node(node)
@@ -344,44 +334,42 @@ class Tree:
                 ))
             )
 
-    # Step 5. Sanity check for the tree: Verify it is a valid tree
-    def __is_valid_tree(self) -> bool:
+    # Sanity check for the tree: Verify it is a valid tree
+    def assert_valid_tree(self):
         # A valid tree must have at least one node
-        if not self.__nodes:
-            return False
+        assert self.__nodes
 
         # Find the root: a node with no incoming edges
         root_candidates = [node_id for node_id, edges in self.__incoming_lookup.items() if len(edges) == 0]
 
         # There must be exactly one root node
-        if len(root_candidates) != 1:
-            return False
+        assert len(root_candidates) == 1
+        root = root_candidates[0]
 
         visited = set()
 
-        def dfs(node_id: int) -> bool:
-            if node_id in visited:
-                return False  # Found a cycle
+        def is_tree(node_id: int) -> bool:
+            assert node_id not in visited, 'Found a cycle'
+
             visited.add(node_id)
             for edge_id in self.__outgoing_lookup.get(node_id, []):
                 next_node_id = self.__edges[edge_id].get_dst_id()  # Assuming Edge has get_dst_id method
-                if not dfs(next_node_id):
+                if not is_tree(next_node_id):
                     return False
             return True
 
         # Start DFS from root to check for cycles and if all nodes are reachable
-        is_tree = dfs(root_candidates[0])
+        assert is_tree(root), 'Not all nodes are reachable'
 
         # Check if all nodes were visited (tree is connected)
-        is_connected = len(visited) == len(self.__nodes)
-        return is_tree and is_connected
+        assert len(visited) == len(self.__nodes), 'Tree is not connected'
+
 
     __preprocess_steps: list[callable] = [
         original_graph,
         __invert_outgoing_file_edges,
         __duplicate_file_ip_leaves,
-        __add_virtual_root,
-        __is_valid_tree
+        __add_virtual_root
     ]
 
     def preprocess(self, output_dir: Path = None) -> 'Tree':
@@ -603,11 +591,6 @@ class Tree:
                              node_ids[dst],
                              feature=edge.get_token())
         return digraph
-
-    def assert_tree(self) -> None:
-        for node in self.get_nodes():
-            incoming_edges = self.get_incoming_edge_ids(node.get_id())
-            assert len(incoming_edges) <= 1, f'Node {node.get_id()} has {len(incoming_edges)} incoming edges'
 
     def assert_complete(self) -> None:
         for edge in self.get_edges():
