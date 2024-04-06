@@ -233,6 +233,8 @@ class GraphProcessor:
             self.__re_add_with_model(pruned_graphs)
         elif model_type == 'bucket':
             self.__re_add_with_bucket(pruned_graphs)
+        else:
+            raise ValueError(f'Unexpected model type {model_type}')
 
         if len(self.stats.get(NUM_UNMOVED_SUBTREES, [])) > 0:
             num_unmoved_subtrees = self.stats[NUM_UNMOVED_SUBTREES]
@@ -349,3 +351,4 @@ class GraphProcessor:
             if stat not in self.stats:
                 self.stats[stat] = []
             self.stats[stat].extend(values)
+
