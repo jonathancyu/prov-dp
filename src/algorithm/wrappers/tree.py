@@ -10,6 +10,12 @@ from .edge import Edge
 from .node import Node
 from ...graphson import RawEdge, RawNode, RawGraph, NodeType
 
+@dataclass
+class Marker:
+    height: int
+    size: int
+    path: str
+    tree: 'Tree'
 
 @dataclass
 class NodeStats:
@@ -38,6 +44,7 @@ class Tree:
     root_node_id: int | None
 
     training_data: list[tuple[str, 'Tree']]
+    marked_nodes: dict[int, Marker] # node_id: data
     marked_node_paths: dict[int, str]  # node_id: path
     stats: dict[str, list[float]]  # Used to keep track of stats from within forked processes
 
@@ -97,6 +104,7 @@ class Tree:
         self.__subtree_lookup = {}
         self.__node_stats = {}
         self.training_data = []
+        self.marked_nodes = {}
         self.marked_node_paths = {}
         self.stats = {}
         self.__training_data: list[tuple[list[int], Tree]] = []
@@ -509,7 +517,7 @@ class Tree:
         # -f-> T is already in the graph, so attach it to A and we're done
         edge_f.set_src_id(edge_e.get_src_id())
 
-    def __len__(self) -> int:
+    def size(self) -> int:
         return len(self.__nodes)
 
     def add_stat(self, stat: str, value: float):
