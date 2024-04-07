@@ -6,7 +6,7 @@ from typing import Generator
 import numpy as np
 from tqdm import tqdm
 
-from src.algorithm.wrappers.tree import Marker
+from src.algorithm.wrappers.tree import Marker, TreeStats
 
 from .graph_model import GraphModel
 from .utility import print_stats, batch_list, logistic_function, smart_map
@@ -122,14 +122,56 @@ class GraphProcessor:
             paths,
             f'Preprocessing graphs'
         ))
+        self.print_tree_stats(trees)
         return trees
 
-    def load_and_prune_graphs(self, paths: list[Path]) -> list[Tree]:
-        trees = list(self.__map(
-            Tree.load_file,
-            paths,
-            f'{self.__step()} Loading graphs'
+    def get_tree_stats(self, trees: list[Tree]) -> tuple:  # TODO: return ANYTHING other than this..
+        stats: list[TreeStats] = list(smart_map(
+            func=Tree.get_stats,
+            items=trees,
+            single_threaded=self.__single_threaded,
+            desc='Calculating stats'
         ))
+
+        node_stats = {
+            'heights': [],
+            'depths': [],
+            'sizes': [],
+            'degrees': []
+        }
+
+        tree_stats = {
+            'heights': [],
+            'sizes': [],
+            'degrees': [],
+            'diameters': []
+        }
+        for stat in tqdm(stats, desc='Aggregating stats'):
+            # Node stats
+            node_stats['heights'].extend(stat.heights)
+            node_stats['depths'].extend(stat.depths)
+            node_stats['sizes'].extend(stat.sizes)
+            node_stats['degrees'].extend(stat.degrees)
+
+            # Tree stats
+            tree_stats['heights'].append(stat.height)
+            tree_stats['sizes'].append(stat.size)
+            tree_stats['degrees'].append(stat.degree)
+            tree_stats['diameters'].append(stat.diameter)
+
+        return node_stats, tree_stats
+
+    def print_tree_stats(self, trees: list[Tree]):
+        _, tree_stats = self.get_tree_stats(trees)
+        print_stats('Tree height', tree_stats['heights'])
+        print_stats('Tree size', tree_stats['sizes'])
+        print_stats('Degrees', tree_stats['degrees'])
+        print_stats('Diameters', tree_stats['diameters'])
+
+    # TODO: put this into GraphProcessor.perturb
+    def load_and_prune_graphs(self, paths: list[Path]) -> list[Tree]:
+        trees = self.preprocess_graphs(paths)
+
         pruned_trees = list(self.__map(
             self.prune,
             trees,
@@ -210,6 +252,7 @@ class GraphProcessor:
         return tree
 
     def perturb_graphs(self, paths: list[Path]) -> list[Tree]:
+        # TODO: move into prune graphs function
         pruned_graph_path = self.output_dir / 'pruned_graphs.pkl'
         if self.__load_perturbed_graphs and pruned_graph_path.exists():
             # Load graphs and training data from file
@@ -242,6 +285,7 @@ class GraphProcessor:
             self.stats[PERCENT_UNMOVED_SUBTREES] = [(x / max(y, 0.0001)) * 100
                                                     for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
         self.__print_stats()
+        self.print_tree_stats(pruned_graphs)
         return pruned_graphs
 
     def __re_add_with_bucket(self, pruned_trees: list[Tree]):
