@@ -271,13 +271,16 @@ class GraphProcessor:
                       f'training samples to {pruned_graph_path}')
 
 
-        model_type = 'bucket'  # TODO: make this a CLI arg
+        model_type = 'mlp'  # TODO: make this a CLI arg
         if model_type == 'mlp':
             self.__re_add_with_model(pruned_graphs)
         elif model_type == 'bucket':
             self.__re_add_with_bucket(pruned_graphs)
         else:
             raise ValueError(f'Unexpected model type {model_type}')
+
+        for tree in pruned_graphs:
+            tree.assert_valid_tree()
 
         if len(self.stats.get(NUM_UNMOVED_SUBTREES, [])) > 0:
             num_unmoved_subtrees = self.stats[NUM_UNMOVED_SUBTREES]
@@ -375,10 +378,9 @@ class GraphProcessor:
                     if subtree.graph_id == tree.graph_id:
                         unmoved_subtrees += 1
 
-                # Stats
-                model.print_distance_stats()
-                self.__add_stat(NUM_UNMOVED_SUBTREES, unmoved_subtrees)
-                assert total == len(node_ids)
+            # Stats
+            self.__add_stat(NUM_UNMOVED_SUBTREES, unmoved_subtrees)
+            assert total == len(node_ids)
 
 
     def __print_stats(self):

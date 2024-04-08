@@ -356,11 +356,11 @@ class Tree:
 
         visited = set()
 
-        def is_tree(node_id: int) -> bool:
+        def is_tree(node_id: int):
             assert node_id not in visited, 'Found a cycle'
 
             visited.add(node_id)
-            for edge_id in self.__outgoing_lookup.get(node_id, []):
+            for edge_id in self.get_outgoing_edge_ids(node_id):
                 next_node_id = self.__edges[edge_id].get_dst_id()  # Assuming Edge has get_dst_id method
                 if not is_tree(next_node_id):
                     return False
@@ -370,7 +370,7 @@ class Tree:
         assert is_tree(root), 'Not all nodes are reachable'
 
         # Check if all nodes were visited (tree is connected)
-        assert len(visited) == len(self.__nodes), 'Tree is not connected'
+        assert len(visited) == len(self.__nodes), f'Visited {len(visited)}/{len(self.__nodes)}'
 
 
     __preprocess_steps: list[callable] = [
@@ -459,6 +459,7 @@ class Tree:
         @param node_id_to_replace: node to replace with subtree
         @param graph: subtree to replace with
         """
+        # self.assert_valid_tree()
         node_id_translation = {}
         edge_id_translation = {}
         # Update node IDs to avoid collision in the current graph
@@ -486,7 +487,7 @@ class Tree:
         assert len(orphan_nodes) == 1, f'Expected 1 orphan node, got {len(orphan_nodes)}/{len(graph.get_nodes())}'
         R = orphan_nodes[0]
 
-        # Update edge IDs to avoid collision in the current graph, and bring up to date with node IDs
+        # Update edge IDs in the subtree to avoid collision in the current graph, and bring up to date with node IDs
         for old_edge in graph.get_edges():
             # Copy the edge, and give it a new ID
             edge = deepcopy(old_edge)
@@ -502,6 +503,8 @@ class Tree:
             # Add the ID to the lookup
             edge_id_translation[old_edge.get_id()] = new_edge_id
             self.add_edge(edge)
+            assert new_edge_id in self.get_outgoing_edge_ids(edge.get_src_id())
+            assert new_edge_id in self.get_incoming_edge_ids(edge.get_dst_id())
             # Mark the edge to indicate it's added after the fact
             edge.marked = True
 
@@ -513,8 +516,6 @@ class Tree:
         outgoing_edges = [
             self.get_edge(e) for e in self.get_outgoing_edge_ids(R.get_id())
         ]
-        if len(outgoing_edges) != 1:
-            print()
         assert len(outgoing_edges) == 1
         edge_f = outgoing_edges[0]
 
@@ -531,7 +532,11 @@ class Tree:
         # Remove R from the graph
         self.remove_node(R)
         # -f-> T is already in the graph, so attach it to A and we're done
-        edge_f.set_src_id(edge_e.get_src_id())
+        A_id = edge_e.get_src_id()
+        edge_f.set_src_id(A_id)
+        self.__outgoing_lookup[A_id].add(edge_f.get_id())  # HACK: not good either
+        assert edge_f.get_id() in self.get_outgoing_edge_ids(edge_e.get_src_id())
+        self.assert_valid_tree()
 
     def size(self) -> int:
         return len(self.__nodes)
@@ -638,16 +643,21 @@ class Tree:
         return root_ids[0]
 
     def get_stats(self) -> 'TreeStats':
+        self.__node_stats = {}  # HACK:  this is not good
         self.init_node_stats(self.get_root(), 0)
+        self.assert_valid_tree()
         heights = []
         depths = []
         sizes = []
         degrees = []
         G = self.to_nx().to_undirected()
-        diameter = max([max(j.values()) for (i, j) in nx.shortest_path_length(G)])
+        diameter = max([max(j.values()) for (_, j) in nx.shortest_path_length(G)])
         del G
 
         for node_id in self.__nodes.keys():
+            assert len(self.__node_stats) == len(self.__nodes), f'{len(self.__node_stats)}, {len(self.__nodes)}'
+            assert node_id in self.__nodes, f'Node {node_id} doesnt exist'
+            assert node_id in self.__node_stats, self.get_incoming_edge_ids(node_id)
             stat = self.get_node_stats(node_id)
             heights.append(stat.height)
             depths.append(stat.depth)
