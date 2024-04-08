@@ -46,6 +46,7 @@ class GraphProcessor:
     __load_model: bool
 
     # Model parameters
+    __reattach_mode: str
     __num_epochs: int
     __prediction_batch_size: int
 
@@ -63,6 +64,7 @@ class GraphProcessor:
                  load_perturbed_graphs: bool = False,
                  load_graph2vec: bool = False,
                  load_model: bool = False,
+                 reattach_mode: str = 'bucket',
                  num_epochs: int = 10,
                  prediction_batch_size: int = 10):
         # Pruning parameters
@@ -90,6 +92,9 @@ class GraphProcessor:
         # Model parameters
         self.__num_epochs = num_epochs
         self.__prediction_batch_size = prediction_batch_size
+
+        # Reattach mode
+        self.__reattach_mode = reattach_mode
 
         # Checkpoint flags
         self.__load_perturbed_graphs = load_perturbed_graphs
@@ -271,7 +276,7 @@ class GraphProcessor:
                       f'training samples to {pruned_graph_path}')
 
 
-        model_type = 'mlp'  # TODO: make this a CLI arg
+        model_type = self.__reattach_mode
         if model_type == 'mlp':
             self.__re_add_with_model(pruned_graphs)
         elif model_type == 'bucket':
