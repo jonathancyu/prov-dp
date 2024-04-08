@@ -345,7 +345,7 @@ class Tree:
     # Sanity check for the tree: Verify it is a valid tree
     def assert_valid_tree(self):
         # A valid tree must have at least one node
-        assert self.__nodes
+        assert self.__nodes is not None and len(self.__nodes) > 0
 
         # Find the root: a node with no incoming edges
         root_candidates = [node_id for node_id, edges in self.__incoming_lookup.items() if len(edges) == 0]
