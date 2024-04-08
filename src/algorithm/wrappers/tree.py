@@ -445,15 +445,6 @@ class Tree:
     def get_edge(self, edge_id: int) -> Edge:
         return self.__edges.get(edge_id)
 
-    def get_root_node_id(self) -> int:
-        root_nodes = [node
-                      for node in self.get_nodes()
-                      if len(self.get_incoming_edge_ids(node.get_id())) == 0]
-        if len(root_nodes) != 1:
-            raise RuntimeError(f'Expected 1 root node, got {len(root_nodes)}: '
-                               ', '.join([node.get_token() for node in root_nodes]))
-        return root_nodes[0].get_id()
-
     def replace_node_with_tree(self,
                                node_id_to_replace: int,
                                graph: 'Tree') -> None:
