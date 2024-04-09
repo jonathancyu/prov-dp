@@ -2,6 +2,7 @@ import json
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 import graphviz as gv
 import networkx as nx
@@ -52,11 +53,7 @@ class Tree:
     __edges: dict[int, Edge]
     __incoming_lookup: dict[int, set[int]]  # node_id: set[edge_id]
     __outgoing_lookup: dict[int, set[int]]  # node_id: set[edge_id]
-    __subtree_lookup: dict[int, 'Tree']
     __node_stats: dict[int, NodeStats]
-
-    __subtree_size_lookup: dict[int, int]  # node_id: size of tree rooted at node
-    __training_data: list[tuple[list[int], 'Tree']]  # (path, subtree) tuples
 
     @staticmethod
     def load_file(json_path: Path) -> 'Tree':
@@ -80,8 +77,8 @@ class Tree:
         return tree
 
     def __init__(self,
-                 graph: RawGraph = None,
-                 source_edge_ref_id: int = None):
+                 graph: RawGraph | None = None,
+                 source_edge_ref_id: int | None = None):
         graph = graph or RawGraph()
         self.__incoming_lookup = {}
         self.__outgoing_lookup = {}
@@ -90,13 +87,11 @@ class Tree:
         self.__init_source(source_edge_ref_id)
 
         # Algorithm-specific fields
-        self.__subtree_lookup = {}
         self.__node_stats = {}
         self.training_data = []
         self.marked_nodes = {}
         self.marked_node_paths = {}
         self.stats = {}
-        self.__training_data: list[tuple[list[int], Tree]] = []
 
     def __init_nodes(self, nodes: list[RawNode]):
         # Create a lookup by node ID
@@ -124,7 +119,7 @@ class Tree:
 
     def get_subtree(self,
                     root_node_id: int,
-                    visited_node_ids: set[int] = None) -> 'Tree':
+                    visited_node_ids: set[int] | None = None) -> 'Tree':
         """
         :param root_node_id: ID of the root node
         :param visited_node_ids: Accumulating list of node IDs that have already been visited
@@ -373,7 +368,7 @@ class Tree:
         assert len(visited) == len(self.__nodes), f'Visited {len(visited)}/{len(self.__nodes)}'
 
 
-    __preprocess_steps: list[callable] = [
+    __preprocess_steps: list[Callable] = [
         original_graph,
         __invert_outgoing_file_edges,
         __duplicate_file_ip_leaves,
