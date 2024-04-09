@@ -1,7 +1,7 @@
 import pickle
 from collections import deque
 from pathlib import Path
-from typing import Generator
+from typing import Callable, Generator
 
 import numpy as np
 from tqdm import tqdm
@@ -35,7 +35,6 @@ class GraphProcessor:
 
     # Processing pipeline
     __single_threaded: bool
-    __process_steps: list[callable]
 
     # Step labels
     __step_number: int
@@ -109,7 +108,7 @@ class GraphProcessor:
         return f'({self.__step_number})'
 
     def __map(self,
-              func: callable,
+              func: Callable,
               items: list,
               desc: str = '') -> Generator:
         generator = smart_map(
@@ -217,8 +216,9 @@ class GraphProcessor:
         # Returns tuple (pruned tree, list of training data)
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
-        tree.init_node_stats(tree.root_node_id, 0)
-        queue: deque[tuple[int, list[int]]] = deque([(tree.root_node_id, [])])
+        root_node_id = tree.get_root()
+        tree.init_node_stats(root_node_id, 0)
+        queue: deque[tuple[int, list[int]]] = deque([(root_node_id, [])])
         visited_node_ids: set[int] = set()
         while len(queue) > 0:
             # Standard BFS operations
@@ -292,6 +292,7 @@ class GraphProcessor:
         if len(self.stats.get(NUM_UNMOVED_SUBTREES, [])) > 0:
             num_unmoved_subtrees = self.stats[NUM_UNMOVED_SUBTREES]
             num_marked_nodes = self.stats[NUM_MARKED_NODES]
+            # TODO: this is broken
             self.stats[PERCENT_UNMOVED_SUBTREES] = [(x / max(y, 0.0001)) * 100
                                                     for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
         self.__print_stats()
@@ -319,9 +320,9 @@ class GraphProcessor:
             for node_id, marker in tree.marked_nodes.items():
                 distances = size_array - marker.size
 
-                epsilon_2 = 1
+                self.__epsilon_2 = 1
                 # Not the actual stdev - this controls the "tightness" of the distribution
-                stdev = 1 / epsilon_2  # low epsilon -> high stdev -> less likely to choose tree w/ matching size
+                stdev = 1 / self.__epsilon_2  # low epsilon -> high stdev -> less likely to choose tree w/ matching size
                 weights = np.exp((-1/2) * ((distances/stdev) ** 2))  # Gaussian-esque distribution
                 probabilities = weights / sum(weights)
 
