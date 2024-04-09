@@ -127,6 +127,7 @@ class GraphProcessor:
             paths,
             f'Preprocessing graphs'
         ))
+        print('Data1 stats:')
         self.print_tree_stats(trees)
         return trees
 
@@ -173,8 +174,19 @@ class GraphProcessor:
         print_stats('Degrees', tree_stats['degrees'])
         print_stats('Diameters', tree_stats['diameters'])
 
-    # TODO: put this into GraphProcessor.perturb
     def load_and_prune_graphs(self, paths: list[Path]) -> list[Tree]:
+        # Try to load checkpoint if one exists
+        pruned_graph_path = self.output_dir / 'pruned_graphs.pkl'
+        if self.__load_perturbed_graphs and pruned_graph_path.exists():
+            # Load graphs and training data from file
+            print(f'{self.__step()} Loading pruned graphs and training data from {pruned_graph_path}')
+            with open(pruned_graph_path, 'rb') as f:
+                pruned_graphs, train_data = pickle.load(f)
+                self.__training_data = train_data
+                print(f'  Loaded {len(pruned_graphs)} graphs and {len(train_data)} training samples')
+                return pruned_graphs
+
+        # Load and convert input graphs to trees
         trees = self.preprocess_graphs(paths)
 
         pruned_trees = list(self.__map(
@@ -182,13 +194,21 @@ class GraphProcessor:
             trees,
             f'{self.__step()} Pruning graphs'
         ))
-        # Extract training data and stats from trees
+
+        # Aggregate training data from trees
         self.__training_data = []
         for tree in pruned_trees:
             self.__training_data.extend(tree.training_data)
             self.__add_stats(tree.stats)
 
         self.__print_stats()
+
+        # Write result to checkpoint
+        with open(pruned_graph_path, 'wb') as f:
+            # Save a (pruned_graphs, training_data) tuple
+            pickle.dump((pruned_trees, self.__training_data), f)
+            print(f'  Wrote {len(pruned_trees)} graphs and {len(self.__training_data)} '
+                  f'training samples to {pruned_graph_path}')
 
         return pruned_trees
 
@@ -211,7 +231,6 @@ class GraphProcessor:
             # Dr. De: more metrics to consider: height/level at which a node is sitting (distance from leaf).
             #         can we use this along with the size to get a better result?
             # calculate the probability of pruning a given tree
-
             node_stats = tree.get_node_stats(src_node_id)
             subtree_size, height, depth = node_stats.size, node_stats.height, node_stats.depth
             # assert depth == len(path)
@@ -257,24 +276,7 @@ class GraphProcessor:
         return tree
 
     def perturb_graphs(self, paths: list[Path]) -> list[Tree]:
-        # TODO: move into prune graphs function
-        pruned_graph_path = self.output_dir / 'pruned_graphs.pkl'
-        if self.__load_perturbed_graphs and pruned_graph_path.exists():
-            # Load graphs and training data from file
-            print(f'{self.__step()} Loading pruned graphs and training data from {pruned_graph_path}')
-            with open(pruned_graph_path, 'rb') as f:
-                pruned_graphs, train_data = pickle.load(f)
-                self.__training_data = train_data
-                print(f'  Loaded {len(pruned_graphs)} graphs and {len(train_data)} training samples')
-        else:
-            # Perturb graphs and write graphs and training data to file
-            pruned_graphs = self.load_and_prune_graphs(paths)
-            with open(pruned_graph_path, 'wb') as f:
-                # Save a (pruned_graphs, training_data) tuple
-                pickle.dump((pruned_graphs, self.__training_data), f)
-                print(f'  Wrote {len(pruned_graphs)} graphs and {len(self.__training_data)} '
-                      f'training samples to {pruned_graph_path}')
-
+        pruned_graphs = self.load_and_prune_graphs(paths)
 
         model_type = self.__reattach_mode
         if model_type == 'mlp':
@@ -293,6 +295,7 @@ class GraphProcessor:
             self.stats[PERCENT_UNMOVED_SUBTREES] = [(x / max(y, 0.0001)) * 100
                                                     for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
         self.__print_stats()
+        print('Data2 stats:')
         self.print_tree_stats(pruned_graphs)
         return pruned_graphs
 
