@@ -320,10 +320,10 @@ class GraphProcessor:
             for node_id, marker in tree.marked_nodes.items():
                 distances = size_array - marker.size
 
-                self.__epsilon_2 = 1
                 # Not the actual stdev - this controls the "tightness" of the distribution
-                stdev = 1 / self.__epsilon_2  # low epsilon -> high stdev -> less likely to choose tree w/ matching size
-                weights = np.exp((-1/2) * ((distances/stdev) ** 2))  # Gaussian-esque distribution
+                # TODO: not set in stone
+                spread = 1 / self.__epsilon_2  # low epsilon -> high stdev -> less likely to choose tree w/ matching size
+                weights = (1/distances) ^ spread
                 probabilities = weights / sum(weights)
 
                 choice = np.random.choice(indices, p=probabilities)
