@@ -351,13 +351,31 @@ class Tree:
 
         visited = set()
 
-        def is_tree(node_id: int):
-            assert node_id not in visited, 'Found a cycle'
+        def get_cycle(path: list[str]) -> str:
+            last = path[-1]
+            first = None
+            for i, t in enumerate(path):
+                if t == last:
+                    first = i
+                    break
+            assert first is not None, "Cycle doesn't exist, but get_cycle was called"
+
+            return " ".join(path[first:])
+
+        def is_tree(node_id: int, path: list | None = None):
+            if path is None:
+                path = []
+            node = self.get_node(node_id)
+            path = path + [f"[{node_id}: {node.get_token()}]"]
+
+            assert node_id not in visited, f'Found a cycle: {get_cycle(path)}'
 
             visited.add(node_id)
             for edge_id in self.get_outgoing_edge_ids(node_id):
-                next_node_id = self.__edges[edge_id].get_dst_id()  # Assuming Edge has get_dst_id method
-                if not is_tree(next_node_id):
+                edge = self.get_edge(edge_id)
+                next_node_id = edge.get_dst_id()
+
+                if not is_tree(next_node_id, path + [f"--{edge.get_token()}->"]):
                     return False
             return True
 
