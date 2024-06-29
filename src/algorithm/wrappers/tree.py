@@ -143,7 +143,6 @@ class Tree:
             next_node_id = edge.get_dst_id()
             if next_node_id in visited_node_ids:
                 continue
-            # Add edge to the accumulating subgraph
 
             # Get the next subgraph, then add the connecting edge, and subgraph to the accumulating subgraph
             next_subgraph = self.get_subtree(edge.get_dst_id(), visited_node_ids)
@@ -152,6 +151,7 @@ class Tree:
             for new_node in next_subgraph.get_nodes():  # Nodes need to be added first
                 subtree.add_node(deepcopy(new_node))
 
+            # Add edge to the accumulating subgraph
             subtree.add_edge(deepcopy(edge))
             for new_edge in next_subgraph.get_edges():
                 subtree.add_edge(deepcopy(new_edge))
@@ -243,15 +243,6 @@ class Tree:
     def get_incoming_edge_ids(self, node_id: int) -> list[int]:
         return list(self.__incoming_lookup[node_id])
 
-    # Preprocessing functions
-    def __invert_edge(self, edge_id: int) -> None:
-        edge = self.get_edge(edge_id)
-        self.remove_edge(edge)
-
-        edge.invert()
-        self.add_edge(edge)
-
-
     # Step 1. Original graph
     def original_graph(self) -> None:
         pass
@@ -267,7 +258,17 @@ class Tree:
         for edge_id in edges_to_invert:
             edge = self.get_edge(edge_id)
             assert edge.get_src_id() != edge.get_dst_id()
-            self.__invert_edge(edge_id)
+
+            self.remove_edge(edge)  # Remove then re-add edge to update adjacency lookups
+            edge.invert()  # Flip source and destination
+            self.add_edge(edge)
+
+        # Assert there are no system resources w/ outgoing edges
+        for node in self.get_nodes():
+            if node.get_type() == NodeType.PROCESS_LET:
+                continue
+            assert len(self.get_outgoing_edge_ids(node.get_id())) == 0
+
 
     # The graph is now a directed acyclic graph - Dr. De
     # Step 3. Remove lattice structure: Duplicate file/IP nodes for each incoming edge
@@ -319,7 +320,15 @@ class Tree:
         # Add disjoint trees to root's children
         for node in self.get_nodes():
             # If this is a virtual node, or if it's not a root node, skip
-            if len(self.get_incoming_edge_ids(node.get_id())) > 0 or node is root_node:
+
+            non_self_cycle_incoming_edges = []
+            for edge_id in self.get_incoming_edge_ids(node.get_id()):
+                edge = self.get_edge(edge_id)
+                if edge.get_src_id() == edge.get_dst_id():
+                    continue
+                non_self_cycle_incoming_edges.append(edge_id)
+
+            if len(non_self_cycle_incoming_edges) > 0 or node is root_node:
                 continue
 
             # Create edge from virtual root to subtree root
@@ -390,7 +399,7 @@ class Tree:
         __add_virtual_root
     ]
 
-    def preprocess(self, output_dir: Path = None) -> 'Tree':
+    def preprocess(self, output_dir: Path = Path('./')) -> 'Tree':
         for i, step in enumerate(self.__preprocess_steps):
             step(self)
             if output_dir is not None:
