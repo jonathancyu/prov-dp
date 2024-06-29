@@ -374,7 +374,7 @@ class Tree:
             node = self.get_node(node_id)
             path = path + [f"[{node_id}: {node.get_token()}]"]
 
-            assert node_id not in visited, f'Found a cycle: {get_cycle(path)}'
+            assert node_id not in visited, f'Found a cycle, already visited {node_id}: {get_cycle(path)}'
 
             visited.add(node_id)
             for edge_id in self.get_outgoing_edge_ids(node_id):
