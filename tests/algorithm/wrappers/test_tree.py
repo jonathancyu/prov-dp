@@ -42,17 +42,20 @@ class TestTree:
         graph_paths: list[Path] = sorted(attack_graphs + benign_graphs)
 
         result_generator = smart_map(
-            func=process, items=graph_paths[:200], single_threaded=False
+            func=process, items=graph_paths, single_threaded=False
         )
         results = {True: [], False: []}
         dirs = {True: Counter(), False: Counter()}
+        errors = Counter()
 
         for result in list(result_generator):
             success = result.success
             path = result.path.relative_to(data_path)
 
             if not success:
-                file.write(f"Failed {path} with error {result.message}\n")
+                file.write(f"Failed {path} with error\n  {result.message}\n")
+                errors.update([result.message[:5]])
+
             results[success].append(result)
             dirs[success].update([path.parent])
 
@@ -61,8 +64,9 @@ class TestTree:
         def format_counters(counter: Counter) -> str:
             items = [f"{k}: {v}" for k, v in counter.items()]
             return "\n".join(items)
-        file.write(f"\nSUCCESS:\n{format_counters(dirs[True])}\n")
-        file.write(f"\nFAILURE:\n{format_counters(dirs[False])}\n")
+        file.write("Errors:\n" + format_counters(errors))
+        # file.write(f"\nSUCCESS:\n{format_counters(dirs[True])}\n")
+        # file.write(f"\nFAILURE:\n{format_counters(dirs[False])}\n")
 
         file.close()
 

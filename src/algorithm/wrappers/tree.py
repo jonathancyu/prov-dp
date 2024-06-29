@@ -383,7 +383,7 @@ class Tree:
         assert is_tree(root), 'Not all nodes are reachable'
 
         # Check if all nodes were visited (tree is connected)
-        assert len(visited) == len(self.__nodes), f'Visited {len(visited)}/{len(self.__nodes)}'
+        assert len(visited) == len(self.__nodes), f'Visited {len(visited)}/{len(self.__nodes)}, tree is NOT connected'
 
 
     __preprocess_steps: list[Callable] = [
