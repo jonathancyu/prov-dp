@@ -22,8 +22,8 @@ def run_processor(args):
     args.output_dir = args.output_dir.with_stem(
         f"{args.output_dir.stem}"
         f"_{args.reattach_mode}"
-        f"_e1={args.epsilon1}"
-        f"_e2={args.epsilon2}"
+        f"_e1={args.epsilon_1}"
+        f"_e2={args.epsilon_2}"
         f"_a={args.alpha}"
         f"_b={args.beta}"
         f"_c={args.gamma}"

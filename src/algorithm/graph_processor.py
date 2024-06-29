@@ -328,10 +328,14 @@ class GraphProcessor:
                 spread = (
                     1 / self.__epsilon_2
                 )  # low epsilon -> high stdev -> less likely to choose tree w/ matching size
-                weights = (1 / distances) ^ spread
+                weights = (1 / distances) ** spread
                 probabilities = weights / sum(weights)
 
-                choice = np.random.choice(indices, p=probabilities)
+                if np.isnan(probabilities).any():
+                    # TODO: this occurs when all sizes are the same equal
+                    choice = np.random.choice(indices)
+                else:
+                    choice = np.random.choice(indices, p=probabilities)
                 subtree: Tree = bucket[choice]
 
                 tree.replace_node_with_tree(node_id, subtree)

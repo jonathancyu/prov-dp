@@ -14,13 +14,14 @@ class TestRunConfigurations:
             "output_dir": output_path / "tc3-theia" / "data2" / "benign",
             "reattach_mode": "bucket",
             "num_graphs": 10,
-            "epsilon1": 1,
-            "epsilon2": 1,
+            "epsilon_1": 0.1,
+            "epsilon_2": 0.1,
             "alpha": 0.5,
             "beta": 0.5,
             "gamma": 0.5,
             "num_epochs": 100,
             "prediction_batch_size": 5,
+            "single_threaded": True
         }
         arg_namespace = Namespace(**args)
         run_processor(arg_namespace)
