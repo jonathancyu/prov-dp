@@ -5,13 +5,15 @@ from src.cli.perturb import run_processor
 
 class TestRunConfigurations:
     def test_tc3_theia(self):
-        data_path = Path('~/workspace/SyssecLab/differential-privacy/data/')
-        output_path = Path('~/workspace/SyssecLab/differential-privacy/prov-dp/output/')
+        data_path = Path.home() / 'workspace' / 'SyssecLab' / 'differential-privacy' / 'data'
+        output_path = data_path / 'output'
         args = {
             'input_dir': data_path / 'benign_graphs' / 'tc3-theia' / 'firefox' / 'nd',
             'output_dir': output_path / 'tc3-theia' / 'data2' / 'benign',
-            'num_graphs': 250,
-            'epsilon1': 0.1,
+            'reattach_mode': 'bucket',
+            'num_graphs': 10,
+            'epsilon1': 1,
+            'epsilon2': 1,
             'alpha': 0.5,
             'beta': 0.5,
             'gamma': 0.5,
