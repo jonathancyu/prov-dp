@@ -32,6 +32,8 @@ def parse_args():
     # Algorithm configuration
     arg_parser.add_argument('-s', '--single_threaded', action='store_true',
                             help='Disable multiprocessing (for debugging)')
+    arg_parser.add_argument('-r', '--reattach-mode', choices=['mlp', 'bucket'],
+                            help='Mode to use when reattaching pruned subtrees')
 
     # Model parameters
     arg_parser.add_argument('-Ne', '--num_epochs', type=int, default=10,

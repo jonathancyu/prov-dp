@@ -4,7 +4,6 @@ import json
 import pickle
 import random
 
-import numpy as np
 from tqdm import tqdm
 
 from src import GraphProcessor, Tree
@@ -20,6 +19,7 @@ def run_processor(args):
         args.output_dir = args.output_dir.with_stem(
             f'{args.output_dir.stem}_N={args.num_graphs}')
     args.output_dir = args.output_dir.with_stem(f'{args.output_dir.stem}'
+                                                f'_{args.reattach_mode}'
                                                 f'_e1={args.epsilon1}'
                                                 f'_e2={args.epsilon2}'
                                                 f'_a={args.alpha}'

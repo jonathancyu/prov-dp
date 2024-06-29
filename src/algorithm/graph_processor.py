@@ -1,11 +1,12 @@
 import pickle
 from collections import deque
 from pathlib import Path
-from typing import Generator
+from typing import Callable, Generator
 
-import networkx as nx
 import numpy as np
 from tqdm import tqdm
+
+from src.algorithm.wrappers.tree import Marker, TreeStats
 
 from .graph_model import GraphModel
 from .utility import print_stats, batch_list, logistic_function, smart_map
@@ -34,7 +35,6 @@ class GraphProcessor:
 
     # Processing pipeline
     __single_threaded: bool
-    __process_steps: list[callable]
 
     # Step labels
     __step_number: int
@@ -45,6 +45,7 @@ class GraphProcessor:
     __load_model: bool
 
     # Model parameters
+    __reattach_mode: str
     __num_epochs: int
     __prediction_batch_size: int
 
@@ -62,6 +63,7 @@ class GraphProcessor:
                  load_perturbed_graphs: bool = False,
                  load_graph2vec: bool = False,
                  load_model: bool = False,
+                 reattach_mode: str = 'bucket',
                  num_epochs: int = 10,
                  prediction_batch_size: int = 10):
         # Pruning parameters
@@ -90,6 +92,9 @@ class GraphProcessor:
         self.__num_epochs = num_epochs
         self.__prediction_batch_size = prediction_batch_size
 
+        # Reattach mode
+        self.__reattach_mode = reattach_mode
+
         # Checkpoint flags
         self.__load_perturbed_graphs = load_perturbed_graphs
         self.__load_graph2vec = load_graph2vec
@@ -103,7 +108,7 @@ class GraphProcessor:
         return f'({self.__step_number})'
 
     def __map(self,
-              func: callable,
+              func: Callable,
               items: list,
               desc: str = '') -> Generator:
         generator = smart_map(
@@ -121,26 +126,88 @@ class GraphProcessor:
             paths,
             f'Preprocessing graphs'
         ))
+        print('Data1 stats:')
+        self.print_tree_stats(trees)
         return trees
 
-    def load_and_prune_graphs(self, paths: list[Path]) -> list[Tree]:
-        trees = list(self.__map(
-            Tree.load_file,
-            paths,
-            f'{self.__step()} Loading graphs'
+    def get_tree_stats(self, trees: list[Tree]) -> tuple:  # TODO: return ANYTHING other than this..
+        stats: list[TreeStats] = list(smart_map(
+            func=Tree.get_stats,
+            items=trees,
+            single_threaded=self.__single_threaded,
+            desc='Calculating stats'
         ))
+
+        node_stats = {
+            'heights': [],
+            'depths': [],
+            'sizes': [],
+            'degrees': []
+        }
+
+        tree_stats = {
+            'heights': [],
+            'sizes': [],
+            'degrees': [],
+            'diameters': []
+        }
+        for stat in tqdm(stats, desc='Aggregating stats'):
+            # Node stats
+            node_stats['heights'].extend(stat.heights)
+            node_stats['depths'].extend(stat.depths)
+            node_stats['sizes'].extend(stat.sizes)
+            node_stats['degrees'].extend(stat.degrees)
+
+            # Tree stats
+            tree_stats['heights'].append(stat.height)
+            tree_stats['sizes'].append(stat.size)
+            tree_stats['degrees'].append(stat.degree)
+            tree_stats['diameters'].append(stat.diameter)
+
+        return node_stats, tree_stats
+
+    def print_tree_stats(self, trees: list[Tree]):
+        _, tree_stats = self.get_tree_stats(trees)
+        print_stats('Tree height', tree_stats['heights'])
+        print_stats('Tree size', tree_stats['sizes'])
+        print_stats('Degrees', tree_stats['degrees'])
+        print_stats('Diameters', tree_stats['diameters'])
+
+    def load_and_prune_graphs(self, paths: list[Path]) -> list[Tree]:
+        # Try to load checkpoint if one exists
+        pruned_graph_path = self.output_dir / 'pruned_graphs.pkl'
+        if self.__load_perturbed_graphs and pruned_graph_path.exists():
+            # Load graphs and training data from file
+            print(f'{self.__step()} Loading pruned graphs and training data from {pruned_graph_path}')
+            with open(pruned_graph_path, 'rb') as f:
+                pruned_graphs, train_data = pickle.load(f)
+                self.__training_data = train_data
+                print(f'  Loaded {len(pruned_graphs)} graphs and {len(train_data)} training samples')
+                return pruned_graphs
+
+        # Load and convert input graphs to trees
+        trees = self.preprocess_graphs(paths)
+
         pruned_trees = list(self.__map(
             self.prune,
             trees,
             f'{self.__step()} Pruning graphs'
         ))
-        # Extract training data and stats from trees
+
+        # Aggregate training data from trees
         self.__training_data = []
         for tree in pruned_trees:
             self.__training_data.extend(tree.training_data)
             self.__add_stats(tree.stats)
 
         self.__print_stats()
+
+        # Write result to checkpoint
+        with open(pruned_graph_path, 'wb') as f:
+            # Save a (pruned_graphs, training_data) tuple
+            pickle.dump((pruned_trees, self.__training_data), f)
+            print(f'  Wrote {len(pruned_trees)} graphs and {len(self.__training_data)} '
+                  f'training samples to {pruned_graph_path}')
 
         return pruned_trees
 
@@ -149,8 +216,9 @@ class GraphProcessor:
         # Returns tuple (pruned tree, list of training data)
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
-        tree.init_node_stats(tree.root_node_id, 0)
-        queue: deque[tuple[int, list[int]]] = deque([(tree.root_node_id, [])])
+        root_node_id = tree.get_root()
+        tree.init_node_stats(root_node_id, 0)
+        queue: deque[tuple[int, list[int]]] = deque([(root_node_id, [])])
         visited_node_ids: set[int] = set()
         while len(queue) > 0:
             # Standard BFS operations
@@ -163,15 +231,13 @@ class GraphProcessor:
             # Dr. De: more metrics to consider: height/level at which a node is sitting (distance from leaf).
             #         can we use this along with the size to get a better result?
             # calculate the probability of pruning a given tree
-            # TODO: populate hashmap: (node_id: (size, height, depth))
-
             node_stats = tree.get_node_stats(src_node_id)
             subtree_size, height, depth = node_stats.size, node_stats.height, node_stats.depth
             # assert depth == len(path)
             distance = (self.__alpha * subtree_size) + (self.__beta * height) + (self.__gamma * depth)
             p = logistic_function(self.__epsilon_1 * distance)  # big distance -> lower probability of pruning
             prune_edge: bool = np.random.choice([True, False],
-                                                p=[p, 1 - p])
+                                                 p=[p, 1 - p])
             # if we prune, don't add children to queue
             if prune_edge and len(path) > 1:  # don't prune ephemeral root by restricting depth to > 1
                 # remove the tree rooted at this edge's dst_id from the graph
@@ -180,8 +246,16 @@ class GraphProcessor:
                 path_string = tree.path_to_string(path)
                 tree.marked_node_paths[src_node_id] = path_string
 
+                # Mark the node and keep its stats
+                tree.marked_nodes[src_node_id] = Marker(
+                    height=height,
+                    size=subtree_size,
+                    path=path_string,
+                    tree=pruned_tree
+                )
+               
                 # add tree, and path to the tree to the training data
-                tree.training_data.append((tree.path_to_string(path), pruned_tree))
+                tree.training_data.append((tree.path_to_string(path), pruned_tree)) # TODO: add to Marker class?
 
                 # ensure we don't try to bfs into the pruned tree
                 visited_node_ids.update(node.get_id() for node in pruned_tree.get_nodes())
@@ -202,23 +276,72 @@ class GraphProcessor:
         return tree
 
     def perturb_graphs(self, paths: list[Path]) -> list[Tree]:
-        pruned_graph_path = self.output_dir / 'pruned_graphs.pkl'
-        if self.__load_perturbed_graphs and pruned_graph_path.exists():
-            # Load graphs and training data from file
-            print(f'{self.__step()} Loading pruned graphs and training data from {pruned_graph_path}')
-            with open(pruned_graph_path, 'rb') as f:
-                pruned_graphs, train_data = pickle.load(f)
-                self.__training_data = train_data
-                print(f'  Loaded {len(pruned_graphs)} graphs and {len(train_data)} training samples')
-        else:
-            # Perturb graphs and write graphs and training data to file
-            pruned_graphs = self.load_and_prune_graphs(paths)
-            with open(pruned_graph_path, 'wb') as f:
-                # Save a (pruned_graphs, training_data) tuple
-                pickle.dump((pruned_graphs, self.__training_data), f)
-                print(f'  Wrote {len(pruned_graphs)} graphs and {len(self.__training_data)} '
-                      f'training samples to {pruned_graph_path}')
+        pruned_graphs = self.load_and_prune_graphs(paths)
 
+        model_type = self.__reattach_mode
+        if model_type == 'mlp':
+            self.__re_add_with_model(pruned_graphs)
+        elif model_type == 'bucket':
+            self.__re_add_with_bucket(pruned_graphs)
+        else:
+            raise ValueError(f'Unexpected model type {model_type}')
+
+        for tree in pruned_graphs:
+            tree.assert_valid_tree()
+
+        if len(self.stats.get(NUM_UNMOVED_SUBTREES, [])) > 0:
+            num_unmoved_subtrees = self.stats[NUM_UNMOVED_SUBTREES]
+            num_marked_nodes = self.stats[NUM_MARKED_NODES]
+            # TODO: this is broken
+            self.stats[PERCENT_UNMOVED_SUBTREES] = [(x / max(y, 0.0001)) * 100
+                                                    for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
+        self.__print_stats()
+        print('Data2 stats:')
+        self.print_tree_stats(pruned_graphs)
+        return pruned_graphs
+
+    def __re_add_with_bucket(self, pruned_trees: list[Tree]):
+        paths = []
+        bucket = []
+        for path, tree in self.__training_data:
+            paths.append(path)
+            bucket.append(tree)
+
+        indices = np.arange(len(bucket))
+        size_array = np.array([ tree.size() for tree in bucket ], dtype=int)
+        assert len(indices) == len(size_array) == len(bucket)
+
+
+        for tree in tqdm(pruned_trees, desc=f'{self.__step()} Re-attaching subgraphs'):
+            # Stats
+            self.__add_stat(NUM_MARKED_NODES, len(tree.marked_node_paths))
+            unmoved_subtrees = 0
+
+            for node_id, marker in tree.marked_nodes.items():
+                distances = size_array - marker.size
+
+                # Not the actual stdev - this controls the "tightness" of the distribution
+                # TODO: not set in stone
+                spread = 1 / self.__epsilon_2  # low epsilon -> high stdev -> less likely to choose tree w/ matching size
+                weights = (1/distances) ^ spread
+                probabilities = weights / sum(weights)
+
+                choice = np.random.choice(indices, p=probabilities)
+                subtree: Tree = bucket[choice]
+             
+                tree.replace_node_with_tree(node_id, subtree)
+
+                # Stats
+                # Recall: pruned subtrees have an additional node
+                self.__add_stat(ATTACHED_TREE_SIZE, (subtree.size()-1))
+                if subtree.graph_id == tree.graph_id:
+                    unmoved_subtrees += 1
+                
+
+            # Stats
+            self.__add_stat(NUM_UNMOVED_SUBTREES, unmoved_subtrees)
+        
+    def __re_add_with_model(self, pruned_graphs: list[Tree]):
         # Train model
         print(f'{self.__step()} Training model')
         paths = []
@@ -228,12 +351,12 @@ class GraphProcessor:
             graphs.append(tree)
 
         model = GraphModel(
-             paths=paths,
-             graphs=graphs,
-             context_length=8,
-             base_model_path=self.output_dir / 'models',
-             load_graph2vec=self.__load_graph2vec,
-             load_model=self.__load_model
+            paths=paths,
+            graphs=graphs,
+            context_length=8,
+            base_model_path=self.output_dir / 'models',
+            load_graph2vec=self.__load_graph2vec,
+            load_model=self.__load_model
         )
         model.train(epochs=self.__num_epochs)
 
@@ -252,45 +375,22 @@ class GraphProcessor:
                     [tree.marked_node_paths[node_id]
                      for node_id in batch]
                 )
+
                 # Attach predicted subgraph to the corresponding edge
-                for i, subgraph in enumerate(predictions):
+                for i, subtree in enumerate(predictions):
                     total += 1
                     assert tree.get_node(batch[i]) is not None
-                    tree.replace_node_with_tree(batch[i], subgraph)
+                    tree.replace_node_with_tree(batch[i], subtree)
 
                     # Stats
-                    self.__add_stat(ATTACHED_TREE_SIZE, len(subgraph))
-                    if subgraph.graph_id == tree.graph_id:
+                    self.__add_stat(ATTACHED_TREE_SIZE, subtree.size())
+                    if subtree.graph_id == tree.graph_id:
                         unmoved_subtrees += 1
-
-            assert total == len(node_ids)
 
             # Stats
             self.__add_stat(NUM_UNMOVED_SUBTREES, unmoved_subtrees)
+            assert total == len(node_ids)
 
-        if len(self.stats.get(NUM_UNMOVED_SUBTREES, [])) > 0:
-            num_unmoved_subtrees = self.stats[NUM_UNMOVED_SUBTREES]
-            num_marked_nodes = self.stats[NUM_MARKED_NODES]
-            self.stats[PERCENT_UNMOVED_SUBTREES] = [(x / max(y, 0.0001)) * 100
-                                                    for x, y in zip(num_unmoved_subtrees, num_marked_nodes)]
-        self.__print_stats()
-        model.print_distance_stats()
-        return pruned_graphs
-
-    @staticmethod
-    def get_single_tree_stats(tree: Tree):
-        outdegrees = []
-        max_degree = 0
-        for node in tree.get_nodes():
-            node_id = node.get_id()
-            outgoing_edges = tree.get_outgoing_edge_ids(node_id)
-            outdegree = len(outgoing_edges)
-            max_degree = max(outdegree, max_degree)
-            outdegrees.append(outdegree)
-        height = tree.get_tree_height(tree.root_node_id, )
-        G = tree.to_nx().to_undirected()
-        diameter = max([max(j.values()) for (i, j) in nx.shortest_path_length(G)])
-        return outdegrees, max_degree, height, diameter
 
     def __print_stats(self):
         for stat, values in self.stats.items():
@@ -306,3 +406,4 @@ class GraphProcessor:
             if stat not in self.stats:
                 self.stats[stat] = []
             self.stats[stat].extend(values)
+
