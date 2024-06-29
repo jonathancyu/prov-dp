@@ -15,7 +15,9 @@ def batch_run(args):
 
     for epsilon_1, epsilon_2, alpha, beta, gamma in configurations:
         current_args = deepcopy(args)
-        print(f'(0) beginning epsilon_1={epsilon_1}, alpha={alpha}, beta={beta}, gamma={gamma}')
+        print(
+            f"(0) beginning epsilon_1={epsilon_1}, alpha={alpha}, beta={beta}, gamma={gamma}"
+        )
         current_args.epsilon1 = epsilon_1
         current_args.epsilon2 = epsilon_2
         current_args.alpha = alpha
@@ -30,5 +32,5 @@ def main(args):
     batch_run(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(parse_args())

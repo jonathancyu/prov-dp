@@ -6,10 +6,10 @@ from .graphsonobject import GraphsonObject
 
 
 class NodeType(Enum):
-    PROCESS_LET = 'ProcessNode'
-    FILE = 'FileNode'
-    IP_CHANNEL = 'SocketChannelNode'
-    VIRTUAL = 'VirtualNode'
+    PROCESS_LET = "ProcessNode"
+    FILE = "FileNode"
+    IP_CHANNEL = "SocketChannelNode"
+    VIRTUAL = "VirtualNode"
 
     def __str__(self):
         return self.name
@@ -19,8 +19,8 @@ class NodeType(Enum):
 
 
 class RawNode(GraphsonObject):
-    id: int = Field(..., alias='_id')
-    type: NodeType = Field(..., alias='TYPE')
+    id: int = Field(..., alias="_id")
+    type: NodeType = Field(..., alias="TYPE")
     marked: bool = False
 
     def __hash__(self) -> int:

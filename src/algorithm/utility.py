@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-def smart_map(func: callable, items: list, single_threaded: bool, desc: str = ''):
+def smart_map(func: callable, items: list, single_threaded: bool, desc: str = ""):
     if single_threaded:
         # Do a simple loop
         for graph in tqdm(items, desc=desc):
@@ -18,8 +18,11 @@ def smart_map(func: callable, items: list, single_threaded: bool, desc: str = ''
         # instead of using the same object, so we have to return objects from the
         # function to get the changes back
         futures = [
-            executor.submit(func, *item) if isinstance(item, tuple)
-            else executor.submit(func, item)
+            (
+                executor.submit(func, *item)
+                if isinstance(item, tuple)
+                else executor.submit(func, item)
+            )
             for item in items
         ]
         with tqdm(total=len(futures), desc=desc) as pbar:
@@ -30,15 +33,17 @@ def smart_map(func: callable, items: list, single_threaded: bool, desc: str = ''
 
 def print_stats(name: str, samples: list) -> None:
     if len(samples) == 0:
-        print(f'  {name} (N=0)')
+        print(f"  {name} (N=0)")
         return
-    print(f'  {name} (N={len(samples)}) - mean: {np.mean(samples)}, std: {np.std(samples)}, '
-          f'min: {np.min(samples)}, max: {np.max(samples)}')
+    print(
+        f"  {name} (N={len(samples)}) - mean: {np.mean(samples)}, std: {np.std(samples)}, "
+        f"min: {np.min(samples)}, max: {np.max(samples)}"
+    )
 
 
 def logistic_function(x: float) -> float:
     with warnings.catch_warnings():
-        warnings.filterwarnings('error', category=RuntimeWarning)
+        warnings.filterwarnings("error", category=RuntimeWarning)
         try:
             return 1 / (1 + np.exp(x))
         except RuntimeWarning:
@@ -48,25 +53,22 @@ def logistic_function(x: float) -> float:
 def batch_list(input_list: list, batch_size: int) -> Iterator[list]:
     num_elements = len(input_list)
     for start in range(0, num_elements, batch_size):
-        yield input_list[start:start + batch_size]
+        yield input_list[start : start + batch_size]
 
 
 def json_value(value: any, type_str: str) -> dict:
     try:
-        if type_str == 'string':
+        if type_str == "string":
             value = str(value)
-        elif type_str == 'long' or type_str == 'integer':
+        elif type_str == "long" or type_str == "integer":
             value = int(value)
-        elif type_str == 'boolean':
-            value = str(value).lower() == 'true'
+        elif type_str == "boolean":
+            value = str(value).lower() == "true"
     except ValueError:
         pass
     except TypeError:
         pass
-    return {
-        'type': type_str,
-        'value': value
-    }
+    return {"type": type_str, "value": value}
 
 
 def get_cycle(path: list[str]) -> str:
