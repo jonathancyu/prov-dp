@@ -399,7 +399,7 @@ class Tree:
         __add_virtual_root
     ]
 
-    def preprocess(self, output_dir: Path = Path('./')) -> 'Tree':
+    def preprocess(self, output_dir: Path = None) -> 'Tree':
         for i, step in enumerate(self.__preprocess_steps):
             step(self)
             if output_dir is not None:
