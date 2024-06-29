@@ -246,14 +246,11 @@ class Tree:
     # Preprocessing functions
     def __invert_edge(self, edge_id: int) -> None:
         edge = self.get_edge(edge_id)
-        src_id, dst_id = edge.get_src_id(), edge.get_dst_id()
-        self.get_edge(edge_id).invert()
+        self.remove_edge(edge)
 
-        self.__outgoing_lookup[src_id].remove(edge_id)
-        self.__incoming_lookup[src_id].add(edge_id)
+        edge.invert()
+        self.add_edge(edge)
 
-        self.__incoming_lookup[dst_id].remove(edge_id)
-        self.__outgoing_lookup[dst_id].add(edge_id)
 
     # Step 1. Original graph
     def original_graph(self) -> None:
