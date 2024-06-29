@@ -435,7 +435,6 @@ class Tree:
         subtree_root = subtree.get_node(root_node_id)
         assert subtree_root is not None
         assert len(subtree.get_incoming_edge_ids(root_node_id)) == 1
-        assert self.get_node(root_node_id) is not None
 
         return subtree
 
@@ -452,10 +451,14 @@ class Tree:
         return ' '.join(tokens)
 
     def get_node(self, node_id: int) -> Node:
-        return self.__nodes.get(node_id)
+        node = self.__nodes.get(node_id)
+        assert node is not None, f'Node {node_id} does not exist'
+        return node
 
     def get_edge(self, edge_id: int) -> Edge:
-        return self.__edges.get(edge_id)
+        edge = self.__edges.get(edge_id)
+        assert edge is not None, f'Edge {edge_id} does not exist'
+        return edge
 
     def replace_node_with_tree(self,
                                node_id_to_replace: int,
@@ -537,7 +540,6 @@ class Tree:
         assert len(incoming_edges) == 1
         edge_e_id = incoming_edges[0]
         edge_e = self.get_edge(edge_e_id)
-        assert edge_e is not None
         self.remove_edge(edge_e)  # Remove edge before node to preserve graph state
         self.remove_node(X)
 
@@ -621,14 +623,11 @@ class Tree:
             assert node.get_id() is not None, f'Node {node.get_token()} has None ID'
             for edge_id in self.get_incoming_edge_ids(node_id):
                 edge = self.get_edge(edge_id)
-                assert edge is not None, f'Node {node.get_token()} has no incoming edge {edge_id}'
                 assert edge.get_dst_id() == node_id, \
                     (f'Node {node_id} has incoming edge {edge_id} '
                      f'with wrong destination ({edge.get_src_id()} -> {edge.get_dst_id()})')
             for edge_id in self.get_outgoing_edge_ids(node_id):
                 edge = self.get_edge(edge_id)
-                assert edge is not None, \
-                    f'Node {node.get_token()} has no outgoing edge {edge_id}, {node.marked}'
                 assert edge.get_src_id() == node_id, \
                     f'Node {node.get_token()} has outgoing edge {edge_id} with wrong source'
 
