@@ -67,3 +67,15 @@ def json_value(value: any, type_str: str) -> dict:
         'type': type_str,
         'value': value
     }
+
+
+def get_cycle(path: list[str]) -> str:
+    last = path[-1]
+    first = None
+    for i, t in enumerate(path):
+        if t == last:
+            first = i
+            break
+    assert first is not None, "Cycle doesn't exist, but get_cycle was called"
+
+    return " ".join(path[first:])

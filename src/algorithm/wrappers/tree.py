@@ -7,6 +7,8 @@ from typing import Callable
 import graphviz as gv
 import networkx as nx
 
+from src.algorithm.utility import get_cycle
+
 from .edge import Edge
 from .node import Node
 from ...graphson import RawEdge, RawNode, RawGraph, NodeType
@@ -357,16 +359,7 @@ class Tree:
 
         visited = set()
 
-        def get_cycle(path: list[str]) -> str:
-            last = path[-1]
-            first = None
-            for i, t in enumerate(path):
-                if t == last:
-                    first = i
-                    break
-            assert first is not None, "Cycle doesn't exist, but get_cycle was called"
 
-            return " ".join(path[first:])
 
         def is_tree(node_id: int, path: list | None = None):
             if path is None:
@@ -374,7 +367,7 @@ class Tree:
             node = self.get_node(node_id)
             path = path + [f"[{node_id}: {node.get_token()}]"]
 
-            assert node_id not in visited, f'Found a cycle, already visited {node_id}: {get_cycle(path)}'
+            assert node_id not in visited, f'Found a cycle: {get_cycle(path)}. Incoming: {[self.get_edge(e).get_token() for e in self.get_incoming_edge_ids(node_id)]}'
 
             visited.add(node_id)
             for edge_id in self.get_outgoing_edge_ids(node_id):
