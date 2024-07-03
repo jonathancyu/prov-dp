@@ -572,13 +572,17 @@ class Tree:
         self.remove_edge(edge_e)  # Remove edge before node to preserve graph state
         self.remove_node(X)
 
+        # Remove f so we can modify it. Must happen before removing R to preserve graph state
+        self.remove_edge(edge_f)
         # Remove R from the graph
         self.remove_node(R)
+
         # -f-> T is already in the graph, so attach it to A and we're done
         A_id = edge_e.get_src_id()
         edge_f.set_src_id(A_id)
-        self.__outgoing_lookup[A_id].add(edge_f.get_id())  # HACK: not good either
+        self.add_edge(edge_f)  # Add f back into the graph
         assert edge_f.get_id() in self.get_outgoing_edge_ids(edge_e.get_src_id())
+
         self.assert_valid_tree()
 
     def size(self) -> int:
