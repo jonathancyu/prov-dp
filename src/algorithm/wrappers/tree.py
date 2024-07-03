@@ -249,7 +249,18 @@ class Tree:
     def original_graph(self) -> None:
         pass
 
-    # Step 2. Break cycles: Invert all outgoing edges from files/IPs
+    # Step 2. Remove self-referential edges
+    def __remove_self_referential_edges(self) -> None:
+        edges_to_remove = []
+        for edge in self.get_edges():
+            if edge.get_src_id() == edge.get_dst_id() or "PROC_END_End_Processlet" in edge.get_token():
+                edges_to_remove.append(edge)
+
+        for edge in edges_to_remove:
+            self.remove_edge(edge)
+
+
+    # Step 3. Break cycles: Invert all outgoing edges from files/IPs
     def __invert_outgoing_file_edges(self) -> None:
         edges_to_invert = []
         for node in self.get_nodes():
@@ -274,7 +285,7 @@ class Tree:
             assert len(self.get_outgoing_edge_ids(node.get_id())) == 0
 
     # The graph is now a directed acyclic graph - Dr. De
-    # Step 3. Remove lattice structure: Duplicate file/IP nodes for each incoming edge
+    # Step 4. Remove lattice structure: Duplicate file/IP nodes for each incoming edge
     def __duplicate_file_ip_leaves(self) -> None:
         nodes = self.get_nodes().copy()
         for node in nodes:
@@ -304,7 +315,7 @@ class Tree:
             # Remove original node
             self.remove_node(node)
 
-    # Step 4. Convert forest to a tree
+    # Step 5. Convert forest to a tree
     def __add_virtual_root(self) -> None:
         agent_id = self.get_nodes()[0].node.model_extra[
             "AGENT_ID"
@@ -399,6 +410,7 @@ class Tree:
 
     __preprocess_steps: list[Callable] = [
         original_graph,
+        __remove_self_referential_edges,
         __invert_outgoing_file_edges,
         __duplicate_file_ip_leaves,
         __add_virtual_root,
