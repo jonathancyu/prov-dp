@@ -249,16 +249,18 @@ class Tree:
     def original_graph(self) -> None:
         pass
 
-    # Step 2. Remove self-referential edges
-    def __remove_self_referential_edges(self) -> None:
+    # Step 2. Remove self-referential edges and End_Processlet edges
+    def __filter_edges(self) -> None:
         edges_to_remove = []
         for edge in self.get_edges():
-            if edge.get_src_id() == edge.get_dst_id() or "PROC_END_End_Processlet" in edge.get_token():
+            if (
+                edge.get_src_id() == edge.get_dst_id()
+                or edge.get_op_type() == "End_Processlet"
+            ):
                 edges_to_remove.append(edge)
 
         for edge in edges_to_remove:
             self.remove_edge(edge)
-
 
     # Step 3. Break cycles: Invert all outgoing edges from files/IPs
     def __invert_outgoing_file_edges(self) -> None:
@@ -410,7 +412,7 @@ class Tree:
 
     __preprocess_steps: list[Callable] = [
         original_graph,
-        __remove_self_referential_edges,
+        __filter_edges,
         __invert_outgoing_file_edges,
         __duplicate_file_ip_leaves,
         __add_virtual_root,
