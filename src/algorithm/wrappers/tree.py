@@ -48,7 +48,7 @@ class Tree:
     graph_id: int | None
     root_node_id: int | None
 
-    training_data: list[tuple[str, "Tree"]]
+    pruned_subtrees: list[tuple[str, "Tree"]]
     marked_nodes: dict[int, Marker]  # node_id: data
     marked_node_paths: dict[int, str]  # node_id: path
     stats: dict[
@@ -91,7 +91,7 @@ class Tree:
 
         # Algorithm-specific fields
         self.__node_stats = {}
-        self.training_data = []
+        self.pruned_subtrees = []
         self.marked_nodes = {}
         self.marked_node_paths = {}
         self.stats = {}

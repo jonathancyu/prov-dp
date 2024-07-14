@@ -38,7 +38,7 @@ class GraphProcessor:
     __gamma: float
 
     # List to aggregate training data (path: str, subtree: Tree) tuples
-    __training_data: list[tuple[str, Tree]]
+    __pruned_subtrees: list[tuple[str, Tree]]
 
     # Processing pipeline
     __single_threaded: bool
@@ -78,7 +78,7 @@ class GraphProcessor:
         self.__gamma = gamma
 
         # List to aggregate training data
-        self.__training_data = []
+        self.__pruned_subtrees = []
 
         # Logging
         self.__step_number = 0
@@ -164,7 +164,7 @@ class GraphProcessor:
             )
             with open(pruned_graph_path, "rb") as f:
                 pruned_graphs, train_data = pickle.load(f)
-                self.__training_data = train_data
+                self.__pruned_subtrees = train_data
                 print(
                     f"  Loaded {len(pruned_graphs)} graphs and {len(train_data)} training samples"
                 )
@@ -178,9 +178,9 @@ class GraphProcessor:
         )
 
         # Aggregate training data from trees
-        self.__training_data = []
+        self.__pruned_subtrees = []
         for tree in pruned_trees:
-            self.__training_data.extend(tree.training_data)
+            self.__pruned_subtrees.extend(tree.training_data)
             self.__add_stats(tree.stats)
 
         self.__print_stats()
@@ -188,9 +188,9 @@ class GraphProcessor:
         # Write result to checkpoint
         with open(pruned_graph_path, "wb") as f:
             # Save a (pruned_graphs, training_data) tuple
-            pickle.dump((pruned_trees, self.__training_data), f)
+            pickle.dump((pruned_trees, self.__pruned_subtrees), f)
             print(
-                f"  Wrote {len(pruned_trees)} graphs and {len(self.__training_data)} "
+                f"  Wrote {len(pruned_trees)} graphs and {len(self.__pruned_subtrees)} "
                 f"training samples to {pruned_graph_path}"
             )
 
@@ -298,7 +298,7 @@ class GraphProcessor:
 
     def __re_add_with_bucket(self, pruned_trees: list[Tree]):
         buckets: dict[int, list[Tree]] = {}
-        for _, tree in self.__training_data:  # TODO: rename to pruned_subtrees
+        for _, tree in self.__pruned_subtrees:
             size = tree.size()
             if size not in buckets:
                 buckets[size] = []
