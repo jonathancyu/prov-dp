@@ -77,36 +77,12 @@ def parse_args():
         help="Mode to use when reattaching pruned subtrees",
     )
 
-    # Model parameters
-    arg_parser.add_argument(
-        "-Ne", "--num_epochs", type=int, default=10, help="Number of training epochs"
-    )
-    arg_parser.add_argument(
-        "-pb",
-        "--prediction_batch_size",
-        type=int,
-        default=10,
-        help="Batch size for path -> graph predictions",
-    )
-
     # Checkpoint flags
     arg_parser.add_argument(
         "-p",
         "--load_perturbed_graphs",
         action="store_true",
         help="Load perturbed graphs from output directory",
-    )
-    arg_parser.add_argument(
-        "-g",
-        "--load_graph2vec",
-        action="store_true",
-        help="Load graph2vec model from output directory",
-    )
-    arg_parser.add_argument(
-        "-m",
-        "--load_model",
-        action="store_true",
-        help="Load parameters from output directory",
     )
     return arg_parser.parse_args()
 

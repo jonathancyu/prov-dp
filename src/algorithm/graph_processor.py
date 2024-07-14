@@ -58,11 +58,7 @@ class GraphProcessor:
         output_dir: Path = Path("."),
         single_threaded: bool = False,
         load_perturbed_graphs: bool = False,
-        load_graph2vec: bool = False,
-        load_model: bool = False,
         reattach_mode: str = "bucket",
-        num_epochs: int = 10,
-        prediction_batch_size: int = 10,
     ):
         # Seed
         random.seed(RANDOM_SEED)
@@ -86,20 +82,14 @@ class GraphProcessor:
 
         # Algorithm configuration
         self.__single_threaded = single_threaded
-        self.__num_epochs = num_epochs
-        self.__prediction_batch_size = prediction_batch_size
 
         # Model parameters
-        self.__num_epochs = num_epochs
-        self.__prediction_batch_size = prediction_batch_size
 
         # Reattach mode
         self.__reattach_mode = reattach_mode
 
         # Checkpoint flags
         self.__load_perturbed_graphs = load_perturbed_graphs
-        self.__load_graph2vec = load_graph2vec
-        self.__load_model = load_model
 
         # Stats
         self.stats = {}

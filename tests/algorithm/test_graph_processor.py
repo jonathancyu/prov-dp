@@ -18,8 +18,6 @@ class TestRunConfigurations:
             alpha=0.5,
             beta=0.5,
             gamma=0.5,
-            num_epochs=100,
-            prediction_batch_size=5,
             single_threaded=True,
         )
 
