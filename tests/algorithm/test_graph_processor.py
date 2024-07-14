@@ -1,5 +1,6 @@
 from argparse import Namespace
 from pathlib import Path
+from src.algorithm.graph_processor import GraphProcessor
 from src.cli.perturb import run_processor
 
 
@@ -8,20 +9,23 @@ class TestRunConfigurations:
         data_path = (
             Path.home() / "workspace" / "SyssecLab" / "differential-privacy" / "data"
         )
-        output_path = data_path / "output"
-        args = {
-            "input_dir": data_path / "benign_graphs" / "tc3-theia" / "firefox" / "nd",
-            "output_dir": output_path / "tc3-theia" / "data2" / "benign",
-            "reattach_mode": "bucket",
-            "num_graphs": 10,
-            "epsilon_1": 0.1,
-            "epsilon_2": 0.1,
-            "alpha": 0.5,
-            "beta": 0.5,
-            "gamma": 0.5,
-            "num_epochs": 100,
-            "prediction_batch_size": 5,
-            "single_threaded": True
-        }
-        arg_namespace = Namespace(**args)
-        run_processor(arg_namespace)
+        input_path: Path = data_path / "benign_graphs" / "tc3-theia" / "firefox" / "nd"
+        output_path: Path = data_path / "output"
+
+        graph_processor = GraphProcessor(
+            output_dir=output_path / "tc3-theia" / "data2" / "benign",
+            reattach_mode="bucket",
+            epsilon_1=0.1,
+            epsilon_2=0.1,
+            alpha=0.5,
+            beta=0.5,
+            gamma=0.5,
+            num_epochs=100,
+            prediction_batch_size=5,
+            single_threaded=True,
+        )
+
+        input_paths: list[Path] = list(input_path.rglob("nd*.json"))[:10]
+        perturbed_graphs = list(graph_processor.perturb_graphs(input_paths))
+        for tree in perturbed_graphs:
+            tree.assert_valid_tree()
