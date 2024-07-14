@@ -8,8 +8,7 @@ from tqdm import tqdm
 
 from src.algorithm.wrappers.tree import Marker, TreeStats
 
-from .graph_model import GraphModel
-from .utility import print_stats, batch_list, logistic_function, smart_map
+from .utility import print_stats, logistic_function, smart_map
 from .wrappers import Tree
 
 PRUNED_TREE_SIZE = "pruned tree size (#nodes)"
@@ -281,9 +280,7 @@ class GraphProcessor:
         pruned_graphs = self.load_and_prune_graphs(paths)
 
         model_type = self.__reattach_mode
-        if model_type == "mlp":
-            self.__re_add_with_model(pruned_graphs)
-        elif model_type == "bucket":
+        if model_type == "bucket":
             self.__re_add_with_bucket(pruned_graphs)
         else:
             raise ValueError(f"Unexpected model type {model_type}")
@@ -342,61 +339,13 @@ class GraphProcessor:
 
                 # Stats
                 # Recall: pruned subtrees have an additional node
+                # TODO: same node id or not
                 self.__add_stat(ATTACHED_TREE_SIZE, (subtree.size() - 1))
                 if subtree.graph_id == tree.graph_id:
                     unmoved_subtrees += 1
 
             # Stats
             self.__add_stat(NUM_UNMOVED_SUBTREES, unmoved_subtrees)
-
-    def __re_add_with_model(self, pruned_graphs: list[Tree]):
-        # Train model
-        print(f"{self.__step()} Training model")
-        paths = []
-        graphs = []
-        for path, tree in self.__training_data:
-            paths.append(path)
-            graphs.append(tree)
-
-        model = GraphModel(
-            paths=paths,
-            graphs=graphs,
-            context_length=8,
-            base_model_path=self.output_dir / "models",
-            load_graph2vec=self.__load_graph2vec,
-            load_model=self.__load_model,
-        )
-        model.train(epochs=self.__num_epochs)
-
-        # Add graphs back (epsilon_2)
-        for tree in tqdm(pruned_graphs, desc=f"{self.__step()} Re-attaching subgraphs"):
-            # Stats
-            self.__add_stat(NUM_MARKED_NODES, len(tree.marked_node_paths))
-            unmoved_subtrees = 0
-
-            # Re-attach a random to each marked edge in batches
-            node_ids = list(tree.marked_node_paths.keys())
-            total = 0
-            for batch in batch_list(node_ids, self.__prediction_batch_size):
-                # Get a prediction for each edge in the batch
-                predictions = model.predict(
-                    [tree.marked_node_paths[node_id] for node_id in batch]
-                )
-
-                # Attach predicted subgraph to the corresponding edge
-                for i, subtree in enumerate(predictions):
-                    total += 1
-                    assert tree.get_node(batch[i]) is not None
-                    tree.replace_node_with_tree(batch[i], subtree)
-
-                    # Stats
-                    self.__add_stat(ATTACHED_TREE_SIZE, subtree.size())
-                    if subtree.graph_id == tree.graph_id:
-                        unmoved_subtrees += 1
-
-            # Stats
-            self.__add_stat(NUM_UNMOVED_SUBTREES, unmoved_subtrees)
-            assert total == len(node_ids)
 
     def __print_stats(self):
         for stat, values in self.stats.items():
