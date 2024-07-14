@@ -249,6 +249,10 @@ class Tree:
     def original_graph(self) -> None:
         pass
 
+    #TODO: don't do this (yet)
+    #TODO: consolidate process nodes leading to the same process into a single process/event
+    # ex) A->C, B->C, then D->C and remove A,B (and consolidate incoming edges as well)
+
     # Step 2. Remove self-referential edges and End_Processlet edges
     def __filter_edges(self) -> None:
         edges_to_remove = []

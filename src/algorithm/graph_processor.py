@@ -201,7 +201,6 @@ class GraphProcessor:
         return pruned_trees
 
     def prune(self, tree: Tree) -> Tree:
-
         # Returns tuple (pruned tree, list of training data)
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
@@ -239,7 +238,7 @@ class GraphProcessor:
             # if we prune, don't add children to queue
             if (
                 prune_edge and len(path) > 1
-            ):  # don't prune ephemeral root by restricting depth to > 1
+            ):  # don't prune virtual root by restricting depth to > 1
                 # remove the tree rooted at this edge's dst_id from the graph
                 pruned_tree = tree.prune_tree(src_node_id)
                 # Keep track of the node and its path, so we can attach to it later
@@ -302,10 +301,8 @@ class GraphProcessor:
         return pruned_graphs
 
     def __re_add_with_bucket(self, pruned_trees: list[Tree]):
-        paths = []
         bucket = []
-        for path, tree in self.__training_data:
-            paths.append(path)
+        for _, tree in self.__training_data: # TODO: rename to pruned_subtrees
             bucket.append(tree)
 
         indices = np.arange(len(bucket))
@@ -317,19 +314,23 @@ class GraphProcessor:
             self.__add_stat(NUM_MARKED_NODES, len(tree.marked_node_paths))
             unmoved_subtrees = 0
 
+            # TODO: this needs significant speedup
+            # TODO: list -> dict by size, randomly choose bucket (p = d * N_trees), THEN uniformly pick a tree
             for node_id, marker in tree.marked_nodes.items():
-                distances = size_array - marker.size
+                distances = size_array - marker.size # TODO: take absolute value OR square
 
-                # Not the actual stdev - this controls the "tightness" of the distribution
                 # TODO: not set in stone
+                # TODO: Graph this curve
+                # TODO: seed python and numpy RNG when generating figures
                 spread = (
-                    1 / self.__epsilon_2
-                )  # low epsilon -> high stdev -> less likely to choose tree w/ matching size
+                    self.__epsilon_2
+                )  # low epsilon -> more uniform curve -> less likely to choose tree w/ matching size
                 weights = (1 / distances) ** spread
                 probabilities = weights / sum(weights)
 
                 if np.isnan(probabilities).any():
                     # TODO: this occurs when all sizes are the same equal
+                    # TODO: 
                     choice = np.random.choice(indices)
                 else:
                     choice = np.random.choice(indices, p=probabilities)

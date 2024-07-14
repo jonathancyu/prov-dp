@@ -14,7 +14,7 @@ def run_processor(args):
     input_paths = list(args.input_dir.rglob("nd*.json"))
     # Apply graph limit
     if args.num_graphs is not None:
-        random.seed(args.num_graphs)
+        random.seed(args.num_graphs) # TODO: add numpy seed as well
         input_paths = random.sample(input_paths, args.num_graphs)
         args.output_dir = args.output_dir.with_stem(
             f"{args.output_dir.stem}_N={args.num_graphs}"
