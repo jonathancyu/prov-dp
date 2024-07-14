@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import pickle
 import random
 from collections import deque
@@ -19,6 +20,12 @@ NUM_MARKED_NODES = "# marked nodes"
 ATTACHED_TREE_SIZE = "attached tree size (#nodes)"
 NUM_UNMOVED_SUBTREES = "# unmoved subtrees"
 PERCENT_UNMOVED_SUBTREES = "% unmoved subtrees"
+
+
+@dataclass
+class GraphStats:
+    node_stats: dict
+    tree_stats: dict
 
 
 # TODO: SRP..?
@@ -111,9 +118,7 @@ class GraphProcessor:
         self.print_tree_stats(trees)
         return trees
 
-    def get_tree_stats(
-        self, trees: list[Tree]
-    ) -> tuple:  # TODO: return ANYTHING other than this..
+    def get_graph_stats(self, trees: list[Tree]) -> GraphStats:
         stats: list[TreeStats] = list(
             smart_map(
                 func=Tree.get_stats,
@@ -139,10 +144,11 @@ class GraphProcessor:
             tree_stats["degrees"].append(stat.degree)
             tree_stats["diameters"].append(stat.diameter)
 
-        return node_stats, tree_stats
+        return GraphStats(node_stats=node_stats, tree_stats=tree_stats)
 
     def print_tree_stats(self, trees: list[Tree]):
-        _, tree_stats = self.get_tree_stats(trees)
+        graph_stats = self.get_graph_stats(trees)
+        tree_stats = graph_stats.tree_stats
         print_stats("Tree height", tree_stats["heights"])
         print_stats("Tree size", tree_stats["sizes"])
         print_stats("Degrees", tree_stats["degrees"])
@@ -292,7 +298,7 @@ class GraphProcessor:
 
     def __re_add_with_bucket(self, pruned_trees: list[Tree]):
         buckets: dict[int, list[Tree]] = {}
-        for _, tree in self.__training_data: # TODO: rename to pruned_subtrees
+        for _, tree in self.__training_data:  # TODO: rename to pruned_subtrees
             size = tree.size()
             if size not in buckets:
                 buckets[size] = []
@@ -310,13 +316,17 @@ class GraphProcessor:
             # TODO: this needs significant speedup
             # TODO: list -> dict by size, randomly choose bucket (p = d * N_trees), THEN uniformly pick a tree
             for node_id, marker in tree.marked_nodes.items():
-                spread = self.__epsilon_2  # low epsilon -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
+                spread = (
+                    self.__epsilon_2
+                )  # low epsilon -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
                 distances = (size_array - marker.size) ** spread
 
                 # TODO: not set in stone
                 # TODO: Graph this curve
-                unscaled_weights = (1 / distances)
-                weights = np.multiply(unscaled_weights, count_array)  # Scale weight to be proportional to bucket size (element-wise mul)
+                unscaled_weights = 1 / distances
+                weights = np.multiply(
+                    unscaled_weights, count_array
+                )  # Scale weight to be proportional to bucket size (element-wise mul)
                 probabilities = weights / sum(weights)
                 # (1) Choose bucket with probability proportional to bucket size, inversely proportional to difference in size
                 if np.isnan(probabilities).any():
@@ -327,7 +337,9 @@ class GraphProcessor:
                 size_choice = np.random.choice(size_array, p=probabilities)
                 bucket_choice: list[Tree] = buckets[size_choice]
 
-                subtree: Tree = random.choice(bucket_choice) # (2) Choose uniformly from bucket
+                subtree: Tree = random.choice(
+                    bucket_choice
+                )  # (2) Choose uniformly from bucket
 
                 tree.replace_node_with_tree(node_id, subtree)
 
