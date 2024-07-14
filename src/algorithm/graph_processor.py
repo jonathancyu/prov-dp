@@ -301,13 +301,16 @@ class GraphProcessor:
         return pruned_graphs
 
     def __re_add_with_bucket(self, pruned_trees: list[Tree]):
-        bucket = []
+        buckets: dict[int, list[Tree]] = {}
         for _, tree in self.__training_data: # TODO: rename to pruned_subtrees
-            bucket.append(tree)
+            size = tree.size()
+            if size not in buckets:
+                buckets[size] = []
+            buckets[size].append(tree)
 
-        indices = np.arange(len(bucket))
-        size_array = np.array([tree.size() for tree in bucket], dtype=int)
-        assert len(indices) == len(size_array) == len(bucket)
+        size_array = np.array([size for size in buckets.keys()])
+        count_array = np.array([len(bucket) for _, bucket in buckets.items()])
+        assert len(size_array) == len(buckets)
 
         for tree in tqdm(pruned_trees, desc=f"{self.__step()} Re-attaching subgraphs"):
             # Stats
@@ -317,23 +320,24 @@ class GraphProcessor:
             # TODO: this needs significant speedup
             # TODO: list -> dict by size, randomly choose bucket (p = d * N_trees), THEN uniformly pick a tree
             for node_id, marker in tree.marked_nodes.items():
-                distances = size_array - marker.size # TODO: take absolute value OR square
+                spread = self.__epsilon_2  # low epsilon -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
+                distances = (size_array - marker.size) ** spread
 
                 # TODO: not set in stone
                 # TODO: Graph this curve
-                spread = (
-                    self.__epsilon_2
-                )  # low epsilon -> more uniform curve -> less likely to choose tree w/ matching size
-                weights = (1 / distances) ** spread
+                unscaled_weights = (1 / distances)
+                weights = np.multiply(unscaled_weights, count_array)  # Scale weight to be proportional to bucket size (element-wise mul)
                 probabilities = weights / sum(weights)
-
+                # (1) Choose bucket with probability proportional to bucket size, inversely proportional to difference in size
                 if np.isnan(probabilities).any():
-                    # TODO: this occurs when all sizes are the same equal
-                    # TODO: 
-                    choice = np.random.choice(indices)
-                else:
-                    choice = np.random.choice(indices, p=probabilities)
-                subtree: Tree = bucket[choice]
+                    # TODO: sizes are equal -> distance is 0 -> div by 0
+                    print("WARN: Found a NaN probability when reattaching")
+                    n = len(size_array)
+                    probabilities = np.ones(n) / n
+                size_choice = np.random.choice(size_array, p=probabilities)
+                bucket_choice: list[Tree] = buckets[size_choice]
+
+                subtree: Tree = random.choice(bucket_choice) # (2) Choose uniformly from bucket
 
                 tree.replace_node_with_tree(node_id, subtree)
 
