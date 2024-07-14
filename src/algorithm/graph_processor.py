@@ -1,4 +1,5 @@
 import pickle
+import random
 from collections import deque
 from pathlib import Path
 from typing import Callable, Generator
@@ -8,7 +9,7 @@ from tqdm import tqdm
 
 from src.algorithm.wrappers.tree import Marker, TreeStats
 
-from .utility import print_stats, logistic_function, smart_map
+from .utility import print_stats, logistic_function, smart_map, RANDOM_SEED
 from .wrappers import Tree
 
 PRUNED_TREE_SIZE = "pruned tree size (#nodes)"
@@ -40,13 +41,9 @@ class GraphProcessor:
 
     # Checkpoint flags
     __load_perturbed_graphs: bool
-    __load_graph2vec: bool
-    __load_model: bool
 
     # Model parameters
     __reattach_mode: str
-    __num_epochs: int
-    __prediction_batch_size: int
 
     # Stats
     stats: dict[str, list[float]]
@@ -67,6 +64,9 @@ class GraphProcessor:
         num_epochs: int = 10,
         prediction_batch_size: int = 10,
     ):
+        # Seed
+        random.seed(RANDOM_SEED)
+        np.random.seed(RANDOM_SEED)
         # Pruning parameters
         self.__epsilon_1 = epsilon_1
         self.__epsilon_2 = epsilon_2
@@ -321,7 +321,6 @@ class GraphProcessor:
 
                 # TODO: not set in stone
                 # TODO: Graph this curve
-                # TODO: seed python and numpy RNG when generating figures
                 spread = (
                     self.__epsilon_2
                 )  # low epsilon -> more uniform curve -> less likely to choose tree w/ matching size

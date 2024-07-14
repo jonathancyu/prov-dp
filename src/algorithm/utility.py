@@ -5,6 +5,7 @@ from typing import Iterator
 import numpy as np
 from tqdm import tqdm
 
+RANDOM_SEED = 2024
 
 def smart_map(func: callable, items: list, single_threaded: bool, desc: str = ""):
     if single_threaded:
