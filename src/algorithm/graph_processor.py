@@ -19,6 +19,7 @@ PRUNED_TREE_DEPTH = "pruned tree depth"
 NUM_MARKED_NODES = "# marked nodes"
 ATTACHED_TREE_SIZE = "attached tree size (#nodes)"
 NUM_UNMOVED_SUBTREES = "# unmoved subtrees"
+NUM_UNCHANGED_SUBTREES = "# unchanged subtrees"
 PERCENT_UNMOVED_SUBTREES = "% unmoved subtrees"
 
 
@@ -38,7 +39,7 @@ class GraphProcessor:
     __gamma: float
 
     # List to aggregate training data (path: str, subtree: Tree) tuples
-    __pruned_subtrees: list[tuple[str, Tree]]
+    __pruned_subtrees: list[Marker]
 
     # Processing pipeline
     __single_threaded: bool
@@ -163,24 +164,24 @@ class GraphProcessor:
                 f"{self.__step()} Loading pruned graphs and training data from {pruned_graph_path}"
             )
             with open(pruned_graph_path, "rb") as f:
-                pruned_graphs, train_data = pickle.load(f)
-                self.__pruned_subtrees = train_data
+                pruned_graphs, pruned_subtrees = pickle.load(f)
+                self.__pruned_subtrees = pruned_subtrees
                 print(
-                    f"  Loaded {len(pruned_graphs)} graphs and {len(train_data)} training samples"
+                    f"  Loaded {len(pruned_graphs)} graphs and {len(pruned_subtrees)} training samples"
                 )
                 return pruned_graphs
 
         # Load and convert input graphs to trees
-        trees = self.preprocess_graphs(paths)
+        trees: list[Tree] = self.preprocess_graphs(paths)
 
-        pruned_trees = list(
+        pruned_trees: list[Tree] = list(
             self.__map(self.prune, trees, f"{self.__step()} Pruning graphs")
         )
 
         # Aggregate training data from trees
-        self.__pruned_subtrees = []
+        self.__pruned_subtrees: list[Marker] = []
         for tree in pruned_trees:
-            self.__pruned_subtrees.extend(tree.training_data)
+            self.__pruned_subtrees.extend(tree.marked_nodes.values())
             self.__add_stats(tree.stats)
 
         self.__print_stats()
@@ -200,7 +201,7 @@ class GraphProcessor:
         # Returns tuple (pruned tree, list of training data)
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
-        root_node_id = tree.get_root()
+        root_node_id = tree.get_root_id()
         tree.init_node_stats(root_node_id, 0)
         queue: deque[tuple[int, list[int]]] = deque([(root_node_id, [])])
         visited_node_ids: set[int] = set()
@@ -239,17 +240,15 @@ class GraphProcessor:
                 pruned_tree = tree.prune_tree(src_node_id)
                 # Keep track of the node and its path, so we can attach to it later
                 path_string = tree.path_to_string(path)
-                tree.marked_node_paths[src_node_id] = path_string
 
                 # Mark the node and keep its stats
                 tree.marked_nodes[src_node_id] = Marker(
-                    height=height, size=subtree_size, path=path_string, tree=pruned_tree
+                    node_id=src_node_id,
+                    height=height,
+                    size=subtree_size,
+                    path=path_string,
+                    tree=pruned_tree,
                 )
-
-                # add tree, and path to the tree to the training data
-                tree.training_data.append(
-                    (tree.path_to_string(path), pruned_tree)
-                )  # TODO: add to Marker class?
 
                 # ensure we don't try to bfs into the pruned tree
                 visited_node_ids.update(
@@ -310,12 +309,11 @@ class GraphProcessor:
 
         for tree in tqdm(pruned_trees, desc=f"{self.__step()} Re-attaching subgraphs"):
             # Stats
-            self.__add_stat(NUM_MARKED_NODES, len(tree.marked_node_paths))
+            self.__add_stat(NUM_MARKED_NODES, len(tree.marked_nodes))
             unmoved_subtrees = 0
+            unchanged_subtrees = 0
 
-            # TODO: this needs significant speedup
-            # TODO: list -> dict by size, randomly choose bucket (p = d * N_trees), THEN uniformly pick a tree
-            for node_id, marker in tree.marked_nodes.items():
+            for marker in tree.marked_nodes:
                 spread = (
                     self.__epsilon_2
                 )  # low epsilon -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
@@ -341,17 +339,24 @@ class GraphProcessor:
                     bucket_choice
                 )  # (2) Choose uniformly from bucket
 
-                tree.replace_node_with_tree(node_id, subtree)
+                tree.replace_node_with_tree(marker.node_id, subtree)
 
                 # Stats
                 # Recall: pruned subtrees have an additional node
-                # TODO: same node id or not
                 self.__add_stat(ATTACHED_TREE_SIZE, (subtree.size() - 1))
+
+                # If the graph ID is the same, this subtree is in the same graph.
                 if subtree.graph_id == tree.graph_id:
                     unmoved_subtrees += 1
 
+                    # If the root ID is the same, this subtree was effectively not moved.
+                    subtree_root = subtree.get_node(subtree.get_root_id())
+                    if subtree_root.get_id() == marker.node_id:
+                        unchanged_subtrees += 1
+
             # Stats
             self.__add_stat(NUM_UNMOVED_SUBTREES, unmoved_subtrees)
+            self.__add_stat(NUM_UNCHANGED_SUBTREES, unmoved_subtrees)
 
     def __print_stats(self):
         for stat, values in self.stats.items():

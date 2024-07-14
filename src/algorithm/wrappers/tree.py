@@ -16,6 +16,7 @@ from ...graphson import RawEdge, RawNode, RawGraph, NodeType
 
 @dataclass
 class Marker:
+    node_id: int
     height: int
     size: int
     path: str
@@ -48,9 +49,7 @@ class Tree:
     graph_id: int | None
     root_node_id: int | None
 
-    pruned_subtrees: list[tuple[str, "Tree"]]
-    marked_nodes: dict[int, Marker]  # node_id: data
-    marked_node_paths: dict[int, str]  # node_id: path
+    marked_nodes: list[Marker]
     stats: dict[
         str, list[float]
     ]  # Used to keep track of stats from within forked processes
@@ -91,9 +90,7 @@ class Tree:
 
         # Algorithm-specific fields
         self.__node_stats = {}
-        self.pruned_subtrees = []
-        self.marked_nodes = {}
-        self.marked_node_paths = {}
+        self.marked_nodes = []
         self.stats = {}
 
     def __init_nodes(self, nodes: list[RawNode]):
@@ -686,7 +683,7 @@ class Tree:
     def get_tree_height(self, root_node_id) -> int:
         return self.__node_stats[root_node_id].height
 
-    def get_root(self) -> int:
+    def get_root_id(self) -> int:
         root_ids = [
             node_id
             for node_id in self.__nodes.keys()
@@ -697,7 +694,7 @@ class Tree:
 
     def get_stats(self) -> "TreeStats":
         self.__node_stats = {}  # HACK:  this is not good
-        self.init_node_stats(self.get_root(), 0)
+        self.init_node_stats(self.get_root_id(), 0)
         self.assert_valid_tree()
         heights = []
         depths = []
