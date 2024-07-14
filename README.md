@@ -37,3 +37,20 @@ This script calculates various statistics for trees inside the specified directo
 python -m src.cli.tree_stats -i ../data/attack_graphs \
   -o output/tc3-theia/data1/benign -s
 ```
+
+# Project overview
+## src.algorithm
+This package contains the core logic of the project.
+- `graph_processor.py` is responsible for loading files, pruning trees, and then reattaching the pruned trees according to differential privacy. The core of the differential privacy pipeline can be called using `GraphProcessor.perturb_graphs`.
+## src.algorithm.wrappers
+- `edge.py, node.py` contains simple wrappers for `src.graphson.raw_edge` and `src.graphson.raw_node`, respectively.
+- `tree.py` contains the graph-to-tree converson logic, as well as functions to help prune and re-attach subtrees.
+## src.cli
+This package contains CLI wrappers to interact with the `algorithm` package.
+- `perturb.py` - Run the graph processing pipeline
+- `batch_perturb.py` - Run the graph processing pipeline multiple times across different permutations of differential privacy settings.
+- `preprocess.py` - Convert provenance graphs into trees
+- `tree_stats.py` - Generate statistics and figures from the graph-to-tree conversion process.
+## src.graphson
+This package contains simple Pydantic models used to serialize graphs to and from json.
+
