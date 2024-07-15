@@ -28,7 +28,7 @@ def process(path: Path) -> Result:
 class TestTree:
 
     def test_load_file_works_for_all_darpa_data(self):
-        file = open('output.txt', 'w')
+        file = open("output.txt", "w")
         data_path = (
             Path.home() / "workspace" / "SyssecLab" / "differential-privacy" / "data"
         )
@@ -64,11 +64,11 @@ class TestTree:
         def format_counters(counter: Counter) -> str:
             items = [f"{k}: {v}" for k, v in counter.items()]
             return "\n".join(items)
+
         file.write("Errors:\n" + format_counters(errors))
         # file.write(f"\nSUCCESS:\n{format_counters(dirs[True])}\n")
         # file.write(f"\nFAILURE:\n{format_counters(dirs[False])}\n")
 
         file.close()
-
 
         assert len(results[False]) == 0
