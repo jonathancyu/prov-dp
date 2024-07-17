@@ -317,18 +317,20 @@ class GraphProcessor:
                 spread = (
                     self.__epsilon_2
                 )  # low epsilon -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
-                distances = (size_array - marker.size) ** spread
+                # TODO: check up on this, this where DP comes into play
+                distances = (size_array - marker.size) ** spread # TODO: abs?
 
                 # TODO: not set in stone
                 # TODO: Graph this curve
                 unscaled_weights = 1 / distances
                 weights = np.multiply(
                     unscaled_weights, count_array
-                )  # Scale weight to be proportional to bucket size (element-wise mul)
+                )  # Scale weight by corresponding bucket size (pair-wise multiplication)
+
                 probabilities = weights / sum(weights)
                 # (1) Choose bucket with probability proportional to bucket size, inversely proportional to difference in size
                 if np.isnan(probabilities).any():
-                    # TODO: sizes are equal -> distance is 0 -> div by 0
+                    # TODO: sizes are equal -> distance is 0 -> div by 0, maybe put difference into sigmoid
                     print("WARN: Found a NaN probability when reattaching")
                     n = len(size_array)
                     probabilities = np.ones(n) / n
