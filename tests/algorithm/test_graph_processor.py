@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from src.algorithm.graph_processor import GraphProcessor
 
@@ -21,7 +22,14 @@ class TestRunConfigurations:
             single_threaded=True,
         )
 
-        input_paths: list[Path] = list(input_path.rglob("nd*.json"))[:10]
+        input_paths: list[Path] = list(input_path.rglob("nd*.json"))[:100]
         perturbed_graphs = list(graph_processor.perturb_graphs(input_paths))
+
         for tree in perturbed_graphs:
             tree.assert_valid_tree()
+
+        # Write stats to json
+        stat_path = output_path / "processor_stats.json"
+        print(f"Writing stats to {stat_path}")
+        with open(stat_path, "w") as f:
+            f.write(json.dumps(graph_processor.stats))
