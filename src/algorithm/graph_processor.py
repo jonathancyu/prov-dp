@@ -21,6 +21,7 @@ ATTACHED_TREE_SIZE = "attached tree size (#nodes)"
 NUM_UNMOVED_SUBTREES = "# unmoved subtrees"
 NUM_UNCHANGED_SUBTREES = "# unchanged subtrees"
 PERCENT_UNMOVED_SUBTREES = "% unmoved subtrees"
+REATTACH_PROBAILITIES = "reattach probabilities"
 
 
 @dataclass
@@ -72,6 +73,8 @@ class GraphProcessor:
         random.seed(RANDOM_SEED)
         np.random.seed(RANDOM_SEED)
         # Pruning parameters
+        print(f"Epsilon_1={epsilon_1}, Epsilon_2={epsilon_2}")
+        print(f"a={alpha}, b={beta}, c={gamma}")
         self.__epsilon_1 = epsilon_1
         self.__epsilon_2 = epsilon_2
         self.__alpha = alpha
@@ -181,7 +184,7 @@ class GraphProcessor:
         # Aggregate training data from trees
         self.__pruned_subtrees: list[Marker] = []
         for tree in pruned_trees:
-            self.__pruned_subtrees.extend(tree.marked_nodes.values())
+            self.__pruned_subtrees.extend(tree.marked_nodes)
             self.__add_stats(tree.stats)
 
         self.__print_stats()
@@ -242,13 +245,13 @@ class GraphProcessor:
                 path_string = tree.path_to_string(path)
 
                 # Mark the node and keep its stats
-                tree.marked_nodes[src_node_id] = Marker(
+                tree.marked_nodes.append(Marker(
                     node_id=src_node_id,
                     height=height,
                     size=subtree_size,
                     path=path_string,
                     tree=pruned_tree,
-                )
+                ))
 
                 # ensure we don't try to bfs into the pruned tree
                 visited_node_ids.update(
@@ -297,16 +300,21 @@ class GraphProcessor:
 
     def __re_add_with_bucket(self, pruned_trees: list[Tree]):
         buckets: dict[int, list[Tree]] = {}
-        for _, tree in self.__pruned_subtrees:
-            size = tree.size()
+        for marker in self.__pruned_subtrees:
+            size = marker.size
             if size not in buckets:
                 buckets[size] = []
-            buckets[size].append(tree)
+            buckets[size].append(marker.tree)
+
+        print("Bucket sizes:")
+        for size in sorted(buckets.keys()):
+            print(f"  size {size}: {len(buckets[size])} subtrees")
 
         size_array = np.array([size for size in buckets.keys()])
         count_array = np.array([len(bucket) for _, bucket in buckets.items()])
         assert len(size_array) == len(buckets)
 
+        # TODO: parallelize
         for tree in tqdm(pruned_trees, desc=f"{self.__step()} Re-attaching subgraphs"):
             # Stats
             self.__add_stat(NUM_MARKED_NODES, len(tree.marked_nodes))
@@ -318,7 +326,7 @@ class GraphProcessor:
                     self.__epsilon_2
                 )  # low epsilon -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
                 # TODO: check up on this, this where DP comes into play
-                distances = (size_array - marker.size) ** spread # TODO: abs?
+                distances = (abs(size_array - marker.size) + 1) ** spread
 
                 # TODO: not set in stone
                 # TODO: Graph this curve
@@ -329,11 +337,6 @@ class GraphProcessor:
 
                 probabilities = weights / sum(weights)
                 # (1) Choose bucket with probability proportional to bucket size, inversely proportional to difference in size
-                if np.isnan(probabilities).any():
-                    # TODO: sizes are equal -> distance is 0 -> div by 0, maybe put difference into sigmoid
-                    print("WARN: Found a NaN probability when reattaching")
-                    n = len(size_array)
-                    probabilities = np.ones(n) / n
                 size_choice = np.random.choice(size_array, p=probabilities)
                 bucket_choice: list[Tree] = buckets[size_choice]
 
