@@ -37,7 +37,7 @@ def print_stats(name: str, samples: list) -> None:
         print(f"  {name} (N=0)")
         return
     print(
-        f"  {name} (N={len(samples)}) - mean: {np.mean(samples)}, std: {np.std(samples)}, "
+        f"  {name} (N={len(samples)}) - mean: {np.mean(samples):.4f}, std: {np.std(samples):.4f}, "
         f"min: {np.min(samples)}, max: {np.max(samples)}"
     )
 
