@@ -329,7 +329,6 @@ class GraphProcessor:
                 distances = (abs(size_array - marker.size) + 1) ** spread
 
                 # TODO: not set in stone
-                # TODO: Graph this curve
                 unscaled_weights = 1 / distances
                 weights = np.multiply(
                     unscaled_weights, count_array

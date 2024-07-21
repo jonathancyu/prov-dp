@@ -12,10 +12,6 @@ class Result:
     message: str
 
 
-def get_graphs(path: Path):
-    return path.rglob("nd*json")
-
-
 def process(path: Path) -> Result:
     try:
         tree = Tree.load_file(path)
