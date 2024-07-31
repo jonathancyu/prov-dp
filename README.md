@@ -27,8 +27,6 @@ python -m src.cli.perturb \
   --alpha 0.1 \
   --beta 0.1 \
   --gamma 0.1 \
-  --num_epochs 1000 \
-  --prediction_batch_size 5
   ```
 
 ## Calculate tree statistics
