@@ -27,7 +27,7 @@ python -m src.cli.perturb \
   --epsilon2 1 \
   --alpha 0.1 \
   --beta 0.1 \
-  --gamma 0.1 \
+  --gamma 0.1
   ```
 
 ## Calculate tree statistics
