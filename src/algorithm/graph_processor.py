@@ -276,7 +276,7 @@ class GraphProcessor:
     def perturb_graphs(self, paths: list[Path]) -> list[Tree]:
         pruned_graphs = self.load_and_prune_graphs(paths)
 
-        model_type = self.__reattach_mode
+        model_type = "bucket"  # TODO: self.__reattach_mode
         if model_type == "bucket":
             self.__re_add_with_bucket(pruned_graphs)
         else:
