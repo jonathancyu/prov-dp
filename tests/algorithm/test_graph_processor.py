@@ -23,11 +23,16 @@ class TestRunConfigurations:
             single_threaded=True,
         )
 
-        input_paths: list[Path] = list(input_path.rglob("nd*.json"))[:10]
+        input_paths: list[Path] = list(input_path.rglob("nd*.json"))[:1]
         perturbed_graphs = list(graph_processor.perturb_graphs(input_paths))
 
         for tree in perturbed_graphs:
             tree.assert_valid_tree()
+            base_file_name = f"nd_{tree.graph_id}_processletevent"
+            file_path = output_path / base_file_name / f"{base_file_name}.json"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(file_path, "w") as f:
+                f.write(tree.to_json())
 
         # Write stats to json
         stat_path = output_path / "processor_stats.json"

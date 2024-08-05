@@ -60,6 +60,7 @@ STR_FIELDS_VER_SPECIFIC_EXCLUDED = {
         "RENAME_SET",
     ],
     "SocketChannelNode": [],
+    "VirtualNode": [],
 }
 
 # These vertex fields are included
@@ -69,6 +70,7 @@ INT_FIELDS_VER_SPECIFIC = {
     "ProcessNode": ["PROC_ORDINAL", "PID", "PROC_STARTTIME"],
     "SocketChannelNode": ["IS_INCOMING", "CONN_TYPE", "CHANNEL_STATE", "CHANNEL_TYPE"],
     "FileNode": [],
+    "VirtualNode": [],
 }
 
 # String fields to convert
@@ -81,6 +83,7 @@ STR_FIELDS_VER_SPECIFIC = {
         "REMOTE_INET_ADDR",
     ],
     "FileNode": ["FILENAME_SET", "VOL_ID", "DATA_ID"],
+    "VirtualNode": [],
 }
 
 # Of the subset of string fields to convert, which of these fields require preprocessing in terms of being a path
@@ -89,6 +92,7 @@ PATH_FIELDS_VER_SPECIFIC = {
     "ProcessNode": ["EXE_NAME", "CMD"],
     "SocketChannelNode": [],
     "FileNode": ["FILENAME_SET"],
+    "VirtualNode": [],
 }
 
 # EDGE FIELDS
@@ -155,6 +159,7 @@ NUMERICAL_MAPPING = {
         "Start_IP_Connection",
         "Execute_Processlet_Library",
         "End_Processlet",
+        "FILE_EXEC",
     ],
     "_label": [
         "PROC_CREATE",
@@ -282,7 +287,8 @@ def mapSingleNodeToCSVFormat(node):
     # common node integer features
     for common_feature in INT_FIELDS_COMMON_VER:
         if common_feature not in return_node:
-            print(common_feature, node[common_feature]["value"])
+            if node[common_feature]["value"] is None:
+                continue
             return_node[common_feature] = int(node[common_feature]["value"])
 
     # node specific integer features

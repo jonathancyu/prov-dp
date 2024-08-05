@@ -246,8 +246,8 @@ class Tree:
     def original_graph(self) -> None:
         pass
 
-    #TODO: don't do this (yet)
-    #TODO: consolidate process nodes leading to the same process into a single process/event
+    # TODO: don't do this (yet)
+    # TODO: consolidate process nodes leading to the same process into a single process/event
     # ex) A->C, B->C, then D->C and remove A,B (and consolidate incoming edges as well)
 
     # Step 2. Remove self-referential edges and End_Processlet edges
@@ -332,6 +332,7 @@ class Tree:
         raw_root_node.model_extra["CMD"] = "VIRTUAL"
         raw_root_node.model_extra["_label"] = "VIRTUAL"
         raw_root_node.model_extra["AGENT_ID"] = agent_id
+        raw_root_node.model_extra["REF_ID"] = -1
 
         root_node = Node(raw_root_node)
         self.add_node(root_node)
@@ -362,6 +363,14 @@ class Tree:
                         OPTYPE="FILE_EXEC",
                         _label="FILE_EXEC",
                         EVENT_START=0,
+                        EVENT_START_STR=0,
+                        REL_TIME_START=0,
+                        REL_TIME_END=0,
+                        EVENT_END=0,
+                        EVENT_END_STR=0,
+                        TIME_START=0,
+                        TIME_END=0,
+                        IS_ALERT=0,
                     )
                 )
             )
