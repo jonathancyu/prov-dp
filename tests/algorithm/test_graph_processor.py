@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from src.algorithm.graph_processor import GraphProcessor
+from src.graphson.json_to_csv import mapJSONToCSV
 
 
 class TestRunConfigurations:
@@ -22,7 +23,7 @@ class TestRunConfigurations:
             single_threaded=True,
         )
 
-        input_paths: list[Path] = list(input_path.rglob("nd*.json"))[:100]
+        input_paths: list[Path] = list(input_path.rglob("nd*.json"))[:10]
         perturbed_graphs = list(graph_processor.perturb_graphs(input_paths))
 
         for tree in perturbed_graphs:
@@ -33,3 +34,7 @@ class TestRunConfigurations:
         print(f"Writing stats to {stat_path}")
         with open(stat_path, "w") as f:
             f.write(json.dumps(graph_processor.stats))
+
+        # Json to csv
+        for json_path in list(output_path.rglob("nd*.json")):
+            mapJSONToCSV(json_path, json_path.parent)
