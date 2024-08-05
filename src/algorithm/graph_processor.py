@@ -245,13 +245,15 @@ class GraphProcessor:
                 path_string = tree.path_to_string(path)
 
                 # Mark the node and keep its stats
-                tree.marked_nodes.append(Marker(
-                    node_id=src_node_id,
-                    height=height,
-                    size=subtree_size,
-                    path=path_string,
-                    tree=pruned_tree,
-                ))
+                tree.marked_nodes.append(
+                    Marker(
+                        node_id=src_node_id,
+                        height=height,
+                        size=subtree_size,
+                        path=path_string,
+                        tree=pruned_tree,
+                    )
+                )
 
                 # ensure we don't try to bfs into the pruned tree
                 visited_node_ids.update(
