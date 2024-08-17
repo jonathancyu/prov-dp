@@ -1,13 +1,19 @@
+from typing import Any, Callable, Iterable
 import warnings
 from concurrent.futures import ProcessPoolExecutor
-from typing import Iterator
 
 import numpy as np
 from tqdm import tqdm
 
 RANDOM_SEED = 2024
 
-def smart_map(func: callable, items: list, single_threaded: bool, desc: str = ""):
+
+def smart_map(
+    func: Callable[[Any], Any],
+    items: Iterable[Any],
+    single_threaded: bool,
+    desc: str = "",
+):
     if single_threaded:
         # Do a simple loop
         for graph in tqdm(items, desc=desc):
@@ -51,13 +57,13 @@ def logistic_function(x: float) -> float:
             return 0
 
 
-def batch_list(input_list: list, batch_size: int) -> Iterator[list]:
+def batch_list(input_list: list, batch_size: int) -> Iterable[list]:
     num_elements = len(input_list)
     for start in range(0, num_elements, batch_size):
         yield input_list[start : start + batch_size]
 
 
-def json_value(value: any, type_str: str) -> dict:
+def json_value(value: Any, type_str: str) -> dict:
     try:
         if type_str == "string":
             value = str(value)

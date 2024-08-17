@@ -14,7 +14,6 @@ class TestRunConfigurations:
 
         graph_processor = GraphProcessor(
             output_dir=output_path / "tc3-theia" / "data2" / "benign",
-            reattach_mode="bucket",
             epsilon_1=0.01,
             epsilon_2=1,
             alpha=0,

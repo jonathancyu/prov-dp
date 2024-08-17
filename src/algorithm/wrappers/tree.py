@@ -21,6 +21,7 @@ class Marker:
     size: int
     path: str
     tree: "Tree"
+    bucket: int | None
 
 
 @dataclass
@@ -428,7 +429,7 @@ class Tree:
         __add_virtual_root,
     ]
 
-    def preprocess(self, output_dir: Path = None) -> "Tree":
+    def preprocess(self, output_dir: Path | None = None) -> "Tree":
         for i, step in enumerate(self.__preprocess_steps):
             step(self)
             if output_dir is not None:

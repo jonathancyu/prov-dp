@@ -3,7 +3,7 @@ import pickle
 import random
 from collections import deque
 from pathlib import Path
-from typing import Callable, Generator
+from typing import Any, Callable, Generator, Iterable
 
 import numpy as np
 from tqdm import tqdm
@@ -22,6 +22,14 @@ NUM_UNMOVED_SUBTREES = "# unmoved subtrees"
 NUM_UNCHANGED_SUBTREES = "# unchanged subtrees"
 PERCENT_UNMOVED_SUBTREES = "% unmoved subtrees"
 REATTACH_PROBAILITIES = "reattach probabilities"
+
+
+@dataclass
+class ReattachData:
+    epsilon_2: float
+    tree: Tree
+    size_array: np.ndarray
+    count_array: np.ndarray
 
 
 @dataclass
@@ -51,23 +59,19 @@ class GraphProcessor:
     # Checkpoint flags
     __load_perturbed_graphs: bool
 
-    # Model parameters
-    __reattach_mode: str
-
     # Stats
     stats: dict[str, list[float]]
 
     def __init__(
-        self,
-        epsilon_1: float = 1,
-        epsilon_2: float = 0,
-        alpha: float = 0.5,
-        beta: float = 0,
-        gamma: float = 0,
-        output_dir: Path = Path("."),
-        single_threaded: bool = False,
-        load_perturbed_graphs: bool = False,
-        reattach_mode: str = "bucket",
+            self,
+            epsilon_1: float = 1,
+            epsilon_2: float = 0,
+            alpha: float = 0.5,
+            beta: float = 0,
+            gamma: float = 0,
+            output_dir: Path = Path("."),
+            single_threaded: bool = False,
+            load_perturbed_graphs: bool = False,
     ):
         # Seed
         random.seed(RANDOM_SEED)
@@ -94,11 +98,6 @@ class GraphProcessor:
         # Algorithm configuration
         self.__single_threaded = single_threaded
 
-        # Model parameters
-
-        # Reattach mode
-        self.__reattach_mode = reattach_mode
-
         # Checkpoint flags
         self.__load_perturbed_graphs = load_perturbed_graphs
 
@@ -109,7 +108,9 @@ class GraphProcessor:
         self.__step_number += 1
         return f"({self.__step_number})"
 
-    def __map(self, func: Callable, items: list, desc: str = "") -> Generator:
+    def __map(
+            self, func: Callable[[Any], Any], items: Iterable[Any], desc: str = ""
+    ) -> Generator:
         generator = smart_map(
             func=func, items=items, single_threaded=self.__single_threaded, desc=desc
         )
@@ -117,7 +118,7 @@ class GraphProcessor:
             yield item
 
     def preprocess_graphs(self, paths: list[Path]) -> list[Tree]:
-        trees = list(self.__map(Tree.load_file, paths, f"Preprocessing graphs"))
+        trees = list(self.__map(Tree.load_file, paths, "Preprocessing graphs"))
         print("Data1 stats:")
         self.print_tree_stats(trees)
         return trees
@@ -227,9 +228,9 @@ class GraphProcessor:
             )
             # assert depth == len(path)
             distance = (
-                (self.__alpha * subtree_size)
-                + (self.__beta * height)
-                + (self.__gamma * depth)
+                    (self.__alpha * subtree_size)
+                    + (self.__beta * height)
+                    + (self.__gamma * depth)
             )
             p = logistic_function(
                 self.__epsilon_1 * distance
@@ -237,7 +238,7 @@ class GraphProcessor:
             prune_edge: bool = np.random.choice([True, False], p=[p, 1 - p])
             # if we prune, don't add children to queue
             if (
-                prune_edge and len(path) > 1
+                    prune_edge and len(path) > 1
             ):  # don't prune virtual root by restricting depth to > 1
                 # remove the tree rooted at this edge's dst_id from the graph
                 pruned_tree = tree.prune_tree(src_node_id)
@@ -252,6 +253,7 @@ class GraphProcessor:
                         size=subtree_size,
                         path=path_string,
                         tree=pruned_tree,
+                        bucket=None,
                     )
                 )
 
@@ -300,6 +302,30 @@ class GraphProcessor:
         self.print_tree_stats(pruned_graphs)
         return pruned_graphs
 
+    def __set_buckets(self, data: ReattachData) -> Tree:
+        epsilon_2, tree, size_array, count_array = (
+            data.epsilon_2,
+            data.tree,
+            data.size_array,
+            data.count_array,
+        )
+        for marker in tree.marked_nodes:
+            spread = epsilon_2  # low epsilon -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
+            # TODO: check up on this, this where DP comes into play
+            distances = (abs(size_array - marker.size) + 1) ** spread
+
+            # TODO: not set in stone
+            unscaled_weights = 1 / distances
+            weights = np.multiply(
+                unscaled_weights, count_array
+            )  # Scale weight by corresponding bucket size (pair-wise multiplication)
+
+            probabilities = weights / sum(weights)
+            # (1) Choose bucket with probability proportional to bucket size, inversely proportional to difference in size
+            size_choice = np.random.choice(size_array, p=probabilities)
+            marker.bucket = size_choice
+        return tree
+
     def __re_add_with_bucket(self, pruned_trees: list[Tree]):
         buckets: dict[int, list[Tree]] = {}
         for marker in self.__pruned_subtrees:
@@ -312,34 +338,36 @@ class GraphProcessor:
         for size in sorted(buckets.keys()):
             print(f"  size {size}: {len(buckets[size])} subtrees")
 
+
         size_array = np.array([size for size in buckets.keys()])
         count_array = np.array([len(bucket) for _, bucket in buckets.items()])
         assert len(size_array) == len(buckets)
+        # Determine bucket to reattach from in parallel
+        reattach_data: list[ReattachData] = [ReattachData(
+                epsilon_2=self.__epsilon_2,
+                tree=tree,
+                size_array=size_array,
+                count_array=count_array,
+            ) for tree in pruned_trees]
+        ready_for_reattach = list(self.__map(
+            self.__set_buckets,
+            reattach_data,
+            desc=f"{self.__step()} Calculating item to reattach",
+        ))
 
-        # TODO: parallelize
-        for tree in tqdm(pruned_trees, desc=f"{self.__step()} Re-attaching subgraphs"):
+        # Perform the actual reattachment
+        # Hard to do in parallel b/c we don't want to copy our entire dataset to a subprocess' memory
+        for tree in tqdm(
+                ready_for_reattach, desc=f"{self.__step()} Re-attaching subgraphs"
+        ):
             # Stats
             self.__add_stat(NUM_MARKED_NODES, len(tree.marked_nodes))
             unmoved_subtrees = 0
             unchanged_subtrees = 0
 
             for marker in tree.marked_nodes:
-                spread = (
-                    self.__epsilon_2
-                )  # low epsilon -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
-                # TODO: check up on this, this where DP comes into play
-                distances = (abs(size_array - marker.size) + 1) ** spread
-
-                # TODO: not set in stone
-                unscaled_weights = 1 / distances
-                weights = np.multiply(
-                    unscaled_weights, count_array
-                )  # Scale weight by corresponding bucket size (pair-wise multiplication)
-
-                probabilities = weights / sum(weights)
-                # (1) Choose bucket with probability proportional to bucket size, inversely proportional to difference in size
-                size_choice = np.random.choice(size_array, p=probabilities)
-                bucket_choice: list[Tree] = buckets[size_choice]
+                assert marker.bucket is not None
+                bucket_choice: list[Tree] = buckets[marker.bucket]
 
                 subtree: Tree = random.choice(
                     bucket_choice
