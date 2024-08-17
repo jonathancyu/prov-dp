@@ -33,7 +33,8 @@ python -m src.cli.perturb \
 ## Calculate tree statistics
 This script calculates various statistics for trees inside the specified directory.
 ```shell
-python -m src.cli.tree_stats -i ../data/attack_graphs \
+python -m src.cli.tree_stats \
+  -i ../data/attack_graphs \
   -o output/tc3-theia/data1/benign -s
 ```
 
