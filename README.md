@@ -3,7 +3,9 @@ This repository contains the library and notebooks related to applying different
 provenance graphs.
 
 ## Quick Start
-To begin, run `pip install -r requirements.txt`.
+1. Create a new virtual environment: `pip -m venv venv`
+2. Activate virtual environment: `source venv/bin/activate`
+3. Install dependencies via `pip install -r requirements.txt`
 
 Note: Scripts are ran using `python -m` to avoid having to manipulate the `PYTHONPATH` environment variable.
 
@@ -39,7 +41,7 @@ python -m src.cli.tree_stats \
 ```
 
 ## Convert to Csv
-Given an input directory, for each .json file, add a two csv files (one for edges, one for nodes) to the json's directory.
+Given an input directory, for each graph .json file, extract the graphs' features into csv files inside of the files' directory.
 These csv files are then used as input to the GNN pipeline.
 ```shell
 python -m src.cli.add_csv \
@@ -59,7 +61,7 @@ This package contains CLI wrappers to interact with the `algorithm` package.
 - `batch_perturb.py` - Run the graph processing pipeline multiple times across different permutations of differential privacy settings.
 - `preprocess.py` - Convert provenance graphs into trees
 - `tree_stats.py` - Generate statistics and figures from the graph-to-tree conversion process.
-- `json_to_csv.py` - Convert json graph to csv format for input into the GNN
+- `add_csv.py` - Convert json graph to csv format for input into the GNN
 ## src.graphson
 This package contains simple Pydantic models used to serialize graphs to and from json.
 
