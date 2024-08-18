@@ -38,6 +38,14 @@ python -m src.cli.tree_stats \
   -o output/tc3-theia/data1/benign -s
 ```
 
+## Convert to Csv
+Given an input directory, for each .json file, add a two csv files (one for edges, one for nodes) to the json's directory.
+These csv files are then used as input to the GNN pipeline.
+```shell
+python -m src.cli.add_csv \
+  -i ../data/output/tc3-theia/data2/
+```
+
 # Project overview
 ## src.algorithm
 This package contains the core logic of the project.
@@ -51,6 +59,7 @@ This package contains CLI wrappers to interact with the `algorithm` package.
 - `batch_perturb.py` - Run the graph processing pipeline multiple times across different permutations of differential privacy settings.
 - `preprocess.py` - Convert provenance graphs into trees
 - `tree_stats.py` - Generate statistics and figures from the graph-to-tree conversion process.
+- `json_to_csv.py` - Convert json graph to csv format for input into the GNN
 ## src.graphson
 This package contains simple Pydantic models used to serialize graphs to and from json.
 

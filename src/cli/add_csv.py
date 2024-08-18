@@ -1,25 +1,11 @@
-import sys
-import torch
-
-from pathlib import PureWindowsPath
-from transformers import AutoTokenizer, AutoModel
-
-import json
-import glob
-import pathlib
-import os
-import logging
-import pickle
+import argparse
 import io
-
-import pandas as pd
-import numpy as np
-
-from base64 import b64encode
-from tqdm import tqdm
+import json
+import logging
+import os
+import pickle
 
 # Converts .json graph file into a set of .csv files
-
 # data/
 # |-- ProcessNode.csv        # process nodes
 # |-- FileNode.csv           # file nodes
@@ -28,9 +14,15 @@ from tqdm import tqdm
 # |-- ProcessNode_PROC_CREATE_ProcessNode.csv  # Process creates another process
 # |-- ProcessNode_READ_WRITE_FileNode.csv  # Process writes to a file
 # |-- ...etc
-
 # Supress warinings from Pandas complaining about the usage of df.append
 import warnings
+from base64 import b64encode
+from pathlib import Path, PureWindowsPath
+
+import numpy as np
+import pandas as pd
+import torch
+from transformers import AutoModel, AutoTokenizer
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -469,91 +461,25 @@ def mapSingleEdgeToCSVFormat(edge):
     return return_edge
 
 
-def mapJSONToCSV(input_json_file_name, output_dir):
-    with open(input_json_file_name, "r", encoding="utf-8") as input_file_obj:
+def add_csv_to_json(input_file: Path):
+    with open(input_file, "r", encoding="utf-8") as input_file_obj:
         jsonObject = json.load(input_file_obj)
 
     node_map = parseNodesFromJSON(jsonObject)
 
-    toNodeCSV(node_map, output_dir)
+    toNodeCSV(node_map, input_file.parent)
     print()
-    toEdgeCSV(jsonObject, node_map, output_dir)
+    toEdgeCSV(jsonObject, node_map, input_file.parent)
 
 
 logging.basicConfig(filename="odd_relations.log", level=logging.INFO)
 
 
-def main():
-    # FIXME(@kjee): this is not pretty. Let's use `argparse` module.
-    if len(sys.argv) < 2:
-        print(
-            "Error. If you wish to convert one .json file into .csv, please use python3 jsonToCSV.py single <json_file> <output_dir>"
-        )
-        print(
-            "If you wish to convert a directory of .json file into .csv, please use python3 jsonToCSV.py all <input dir>"
-        )
-        exit(-1)
-
-    if sys.argv[1] == "single":
-        if len(sys.argv) != 4:
-            print("Format: python3 jsonToCsv.py single <json_file> <output_dir>")
-            exit(-1)
-
-        input_file_name = sys.argv[2]
-        output_dir = sys.argv[3]
-
-        mapJSONToCSV(input_file_name, output_dir)
-    elif sys.argv[1] == "all":
-        if len(sys.argv) != 3:
-            print("Format: python3 jsonToCsv.py all <input_dir>")
-            exit(-1)
-
-        input_dir = sys.argv[2]
-
-        print("Gathering files...")
-        # grab path to every .json file contained under the input directory
-        json_file_paths = list(
-            glob.iglob(input_dir + "**/nd[- _]*.json", recursive=True)
-        ) + list(glob.iglob(input_dir + "**/graph.json", recursive=True))
-
-        # print('Checking finished files...')
-        # import datetime
-        # finished_files = []
-        # for json_file in tqdm(json_file_paths):
-        #     output_dir = str(pathlib.Path(json_file).parent.resolve())
-        #     # Skip the files that's already converted. Change the date to when last time the script is executed.
-        #     last_result_file = os.path.join(
-        #         output_dir, 'ProcessNode~PROC_CREATE~ProcessNode.csv')
-        #     if os.path.exists(last_result_file) and os.path.getmtime(
-        #             last_result_file) > datetime.datetime(2022, 12,
-        #                                                   5).timestamp():
-        #         finished_files.append(json_file)
-
-        # json_file_paths = [
-        #     json_file for json_file in json_file_paths
-        #     if json_file not in finished_files
-        # ]
-        # print('Skipped', len(finished_files), 'files.')
-
-        for json_file in tqdm(json_file_paths):
-            output_dir = str(
-                pathlib.Path(json_file).parent.resolve()
-            )  # get directory of file
-
-            mapJSONToCSV(json_file, output_dir)
-    else:
-        # FIXME (@kjee): let's use logging module.
-        print(
-            "Error. If you wish to convert one .json file into .csv, please use python3 jsonToCSV.py single <json_file> <output_dir>"
-        )
-        print(
-            "If you wish to convert a directory of .json file into .csv, please use python3 jsonToCSV.py all <input dir>"
-        )
-        exit(-1)
-
-    print()
-    print("Done!")
-
-
 if __name__ == "__main__":
-    main()
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-i", "--input_dir", type=Path, help="Input directory path")
+
+    args = arg_parser.parse_args()
+
+    for json_path in list(args.input_dir.rglob("nd*.json")):
+        add_csv_to_json(json_path)

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from src.algorithm.graph_processor import GraphProcessor
-from src.graphson.json_to_csv import mapJSONToCSV
+from src.cli.add_csv import add_csv_to_json
 
 
 class TestRunConfigurations:
@@ -41,4 +41,4 @@ class TestRunConfigurations:
 
         # Json to csv
         for json_path in list(output_path.rglob("nd*.json")):
-            mapJSONToCSV(json_path, json_path.parent)
+            add_csv_to_json(json_path)
