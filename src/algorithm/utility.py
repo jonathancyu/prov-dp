@@ -13,6 +13,7 @@ def smart_map(
     items: Iterable[Any],
     single_threaded: bool,
     desc: str = "",
+    max_workers: int | None = None,
 ):
     if single_threaded:
         # Do a simple loop
@@ -20,7 +21,7 @@ def smart_map(
             yield func(graph)
         return
 
-    with ProcessPoolExecutor() as executor:
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # When we multiprocess, objects are pickled and copied in the child process
         # instead of using the same object, so we have to return objects from the
         # function to get the changes back
