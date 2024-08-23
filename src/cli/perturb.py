@@ -20,11 +20,14 @@ def run_processor(args):
         )
     args.output_dir = args.output_dir.with_stem(
         f"{args.output_dir.stem}"
-        f"_e1={args.epsilon1}"
-        f"_e2={args.epsilon2}"
+        f"_e1={args.epsilon_1}"
+        f"_e2={args.epsilon_2}"
         f"_a={args.alpha}"
         f"_b={args.beta}"
         f"_c={args.gamma}"
+    )
+    print(
+        f"Started run with input {args.input_dir}, and parameters {args.output_dir.stem}"
     )
 
     # Run graph processor
@@ -60,6 +63,7 @@ def to_processor_args(args):
     processor_args = {}
     for arg, value in vars(args).items():
         if arg not in parameters:
+            print(f"WARNING: {arg} not in parameters")
             continue
         processor_args[arg] = value
 

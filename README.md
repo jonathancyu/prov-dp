@@ -25,8 +25,8 @@ To run the graph perturbation pipeline, run the following. More information on t
 python -m src.cli.perturb \
   -i ../data/benign_graphs/tc3-theia/firefox/nd \
   -o output/tc3-theia/data2/benign \
-  --epsilon1 1 \
-  --epsilon2 1 \
+  --epsilon_1 1 \
+  --epsilon_2 1 \
   --alpha 0.1 \
   --beta 0.1 \
   --gamma 0.1
