@@ -329,12 +329,14 @@ class GraphProcessor:
             unchanged_subtrees = 0
 
             for marker in tree.marked_nodes:
+                perturbed_size = round(
+                    marker.size + np.random.laplace(0, 1 / self.__epsilon_2)
+                )
                 spread = (
-                    self.__epsilon_2
-                )  # low epsilon -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
+                    1
+                )  # low spread -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
                 # TODO: check up on this, this where DP comes into play
-                # TODO: could also add some noise to the size. maybe spread is our sensitivity?
-                distances = (abs(size_array - marker.size) + 1) ** spread
+                distances = (abs(size_array - perturbed_size) + 1) ** spread
 
                 # TODO: not set in stone
                 unscaled_weights = 1 / distances
