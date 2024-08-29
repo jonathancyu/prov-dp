@@ -1,19 +1,44 @@
+from dataclasses import dataclass
 import itertools
 from copy import deepcopy
 
 from .perturb import run_processor, parse_args
 
 
+@dataclass
+class Configuration:
+    epsilon: float
+    delta: float
+    alpha: float
+
+
 def batch_run(args):
-    epsilon_1s = [0.1, 0.5, 10, 15]
-    epsilon_2s = [0.1, 0.5, 10, 15]
-    alphas = [0, 0.5]
-    betas = [0, 0.5]
-    gammas = [0, 0.5]
 
-    configurations = itertools.product(epsilon_1s, epsilon_2s, alphas, betas, gammas)
+    configurations = [
+        # All values fixed (Table 4)
+        Configuration(epsilon=1, delta=0.5, alpha=0.5),
+        # Varying privacy budget (Table 4)
+        Configuration(epsilon=0.1, delta=0.5, alpha=0.5),
+        Configuration(epsilon=1, delta=0.5, alpha=0.5),
+        Configuration(epsilon=10, delta=0.5, alpha=0.5),
+        # Varying hyperparameters (Table 6)
+        # Varying alpha
+        Configuration(epsilon=1, delta=0.5, alpha=0.1),
+        Configuration(epsilon=1, delta=0.5, alpha=0.5),
+        Configuration(epsilon=1, delta=0.5, alpha=0.9),
+        # Varying delta
+        Configuration(epsilon=1, delta=0.1, alpha=0.5),
+        Configuration(epsilon=1, delta=0.5, alpha=0.5),
+        Configuration(epsilon=1, delta=0.9, alpha=0.5),
+    ]
 
-    for epsilon_1, epsilon_2, alpha, beta, gamma in configurations:
+    for config in configurations:
+        epsilon_1 = config.epsilon * config.delta
+        epsilon_2 = config.epsilon * (1 - config.delta)
+        alpha = config.alpha
+        beta = 0
+        gamma = 0
+
         current_args = deepcopy(args)
         print(
             f"(0) beginning epsilon_1={epsilon_1}, alpha={alpha}, beta={beta}, gamma={gamma}"
