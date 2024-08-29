@@ -7,6 +7,8 @@ from src.algorithm import GraphProcessor
 from .utility import save_dot
 
 
+# TODO: Need to add a param limit so we can ensure the preprocessed uses the same
+# random sample as the perturbed
 def main(args):
     input_paths = list(args.input_dir.rglob("*.json"))
 
