@@ -468,7 +468,6 @@ def add_csv_to_json(input_file: Path):
     node_map = parseNodesFromJSON(jsonObject)
 
     toNodeCSV(node_map, input_file.parent)
-    print()
     toEdgeCSV(jsonObject, node_map, input_file.parent)
 
 
@@ -477,7 +476,9 @@ logging.basicConfig(filename="odd_relations.log", level=logging.INFO)
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("-i", "--input_dir", type=Path, help="Input directory path")
+    arg_parser.add_argument(
+        "-i", "--input_dir", type=Path, help="Input directory path", required=True
+    )
 
     args = arg_parser.parse_args()
 
