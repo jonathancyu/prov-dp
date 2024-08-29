@@ -20,21 +20,21 @@ def graph(data: list, bins: int, stat: str, output_dir: Path):
     plt.savefig(str(output_dir / f"{stat}.pdf"))
 
 
+def calculate_stats(input_path: Path) -> TreeStats:
+    tree = Tree.load_file(input_path)
+    stats = tree.get_stats()
+    del tree
+    return stats
+
+
 def main(args):
     input_dir: Path = args.input_dir
+    print(f"Begining {input_dir}")
     input_paths: list[Path] = list(input_dir.rglob("nd*.json"))
-    trees: list[Tree] = list(
-        smart_map(
-            func=Tree.load_file,
-            items=input_paths,
-            single_threaded=args.single_threaded,
-            desc="Loading trees",
-        )
-    )
     stats: list[TreeStats] = list(
         smart_map(
-            func=Tree.get_stats,
-            items=trees,
+            func=calculate_stats,
+            items=input_paths,
             single_threaded=args.single_threaded,
             desc="Calculating stats",
         )
@@ -59,6 +59,9 @@ def main(args):
     output_dir: Path = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     for stat, values in tree_stats.items():
+        print(
+            f"{stat}: avg= {sum(values)/len(values):.4f}, min= {min(values):.4f}, max= {max(values):.4f}"
+        )
         graph(values, args.num_bins, stat, args.output_dir)
 
     with open(output_dir / "dataset_stats.json", "w") as file:
