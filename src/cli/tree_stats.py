@@ -56,32 +56,21 @@ def main(args):
         tree_stats["degrees"].append(stat.degree)
         tree_stats["diameters"].append(stat.diameter)
 
-    output_dir: Path = args.output_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
     for stat, values in tree_stats.items():
         print(
-            f"{stat}: avg= {sum(values)/len(values):.4f}, min= {min(values):.4f}, max= {max(values):.4f}"
+            f"tree {stat}: avg= {sum(values)/len(values):.4f}, min= {min(values):.4f}, max= {max(values):.4f}"
         )
-        graph(values, args.num_bins, stat, args.output_dir)
 
-    with open(output_dir / "dataset_stats.json", "w") as file:
-        file.write(json.dumps({"node_stats": node_stats, "tree_stats": tree_stats}))
+    for stat, values in node_stats.items():
+        print(
+            f"node_stats {stat}: avg= {sum(values)/len(values):.4f}, min= {min(values):.4f}, max= {max(values):.4f}"
+        )
 
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
     args.add_argument(
         "-i", "--input_dir", help="Input directory", type=Path, required=True
-    )
-    args.add_argument(
-        "-o",
-        "--output_dir",
-        help="Output directory for figures",
-        type=Path,
-        default=Path("./output"),
-    )
-    args.add_argument(
-        "-n", "--num_bins", help="Number of bins for histogram", type=int, default=25
     )
 
     args.add_argument("-s", "--single-threaded", action="store_true")
