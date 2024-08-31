@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import random
 
 from tqdm import tqdm
 
@@ -7,10 +8,10 @@ from src.algorithm import GraphProcessor
 from .utility import save_dot
 
 
-# TODO: Need to add a param limit so we can ensure the preprocessed uses the same
-# random sample as the perturbed
 def main(args):
-    input_paths = list(args.input_dir.rglob("*.json"))
+    input_paths = list(args.input_dir.rglob("nd*.json"))
+    input_paths = random.sample(input_paths, args.num_graphs)
+    print(f"Preprocessing {args.input_dir}")
 
     # Run graph processor
     tree_shaker = GraphProcessor()
