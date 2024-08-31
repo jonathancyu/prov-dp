@@ -13,13 +13,18 @@ def graph(data: list, bins: int, stat: str, output_dir: Path, base_name: str = "
         data=data,
         bins=bins,
     )
-    sns.despine(left=True, bottom=True)
-    sns.set_theme(style="white")
+    sns.despine()
+    sns.set_palette("bright")
+    sns.set_style("white")
+    plt.xticks(fontsize=22)
+    plt.yticks(fontsize=22)
+
     plt.ylabel("Count")
     plt.xlabel(stat)
     plt.yscale("log")
     plt.title(f"{stat} distribution")
     plt.savefig(str(output_dir / f"{stat}{base_name}.pdf"))
+    plt.close()
 
 
 def to_df_row(data: dict) -> dict:
@@ -40,24 +45,27 @@ def main(input_dir: Path, output_dir: Path):
         row = {}
         parent = file_path.parent
         parameter_str = parent.name[len("perturbed_") :]
+        row["dataset"] = parent.parent.name
+        print(row["dataset"])
         for param in parameter_str.split("_"):
             split = param.split("=")
             assert len(split) == 2
             row[split[0]] = float(split[1])
         row["delta"] = row["e1"] / (row["e1"] + row["e2"])
-        print(row)
 
         # Load json
         with open(file_path, "r") as f:
             row_data = json.load(f)
-            for key, value in row_data.items():
-                row[key] = value
+
+        for key, value in to_df_row(row_data).items():
+            row[key] = value
 
         # Add to df
-        rows.append(to_df_row(row_data))
+        rows.append(row)
 
         # Pruned subtree distribution histogram
-        subtree_sizes = row["pruned tree size (#nodes)"]
+        print(row.keys())
+        subtree_sizes = row_data["pruned tree size (#nodes)"]
         assert subtree_sizes is not None
         graph(
             subtree_sizes,
