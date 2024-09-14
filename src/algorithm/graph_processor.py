@@ -9,6 +9,8 @@ from typing import Any, Callable, Generator, Iterable
 import numpy as np
 from tqdm import tqdm
 
+from src.algorithm.wrappers.graph import Graph
+from src.graphson import RawGraph
 from src.algorithm.wrappers.tree import Marker, TreeStats
 
 from .utility import print_stats, logistic_function, smart_map, RANDOM_SEED
@@ -120,8 +122,26 @@ class GraphProcessor:
         for item in generator:
             yield item
 
+    @classmethod
+    def load_tree_from_file(cls, path: Path) -> Tree:
+        file_name = str(path.stem)
+        if "-" in file_name:
+            split = file_name.split("-")
+        elif "_" in file_name:
+            split = file_name.split("_")
+        else:
+            raise ValueError(f"Invalid file name: {file_name}")
+        ref_id = -1
+        if len(split) == 3:
+            ref_id = int(split[1])
+        graph = Graph(RawGraph.load_file(path), ref_id)
+        tree = Tree(graph)
+        tree.assert_valid_tree()
+
+        return tree
+
     def preprocess_graphs(self, paths: list[Path]) -> list[Tree]:
-        trees = list(self.__map(Tree.load_file, paths, "Preprocessing graphs"))
+        trees = list(self.__map(self.load_tree_from_file, paths, "Preprocessing graphs"))
         print("Data1 stats:")
         self.print_tree_stats(trees)
         return trees

@@ -1,4 +1,5 @@
 from typing import Counter
+from src.algorithm.graph_processor import GraphProcessor
 from src.algorithm.utility import smart_map
 from src.algorithm.wrappers.tree import Tree
 from pathlib import Path
@@ -14,7 +15,7 @@ class Result:
 
 def process(path: Path) -> Result:
     try:
-        tree = Tree.load_file(path)
+        tree = GraphProcessor.load_tree_from_file(path)
         del tree
         return Result(path=path, success=True, message="Success")
     except AssertionError as e:
@@ -38,7 +39,7 @@ class TestTree:
         graph_paths: list[Path] = sorted(attack_graphs + benign_graphs)
 
         result_generator = smart_map(
-            func=process, items=graph_paths, single_threaded=False
+            func=process, items=graph_paths, single_threaded=True
         )
         results = {True: [], False: []}
         dirs = {True: Counter(), False: Counter()}
