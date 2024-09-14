@@ -83,19 +83,7 @@ class Tree(Graph):
 
         if input_graph is not None:
             # Modify self to become a graph
-            for i, step in enumerate(self.__preprocess_steps):
-                step(self)
-                if output_dir is not None:
-                    with open(
-                        output_dir / f'{i + 1}_{step.__name__.strip("_")}.json',
-                        "w",
-                        encoding="utf-8",
-                    ) as output_file:
-                        output_file.write(self.to_json())
-                    self.to_dot().save(
-                        output_dir / f'{i + 1}_{step.__name__.strip("_")}.dot'
-                    )
-                assert len(graph._edges) == len(self._edges)
+            self.preprocess()
 
     def get_subtree(
         self, root_node_id: int, visited_node_ids: set[int] | None = None
@@ -164,7 +152,7 @@ class Tree(Graph):
         return self._node_stats[node_id]
 
     # Step 1. Original graph
-    def original_graph(self) -> None:
+    def __original_graph(self) -> None:
         pass
 
     # TODO: don't do this (yet)
@@ -296,6 +284,65 @@ class Tree(Graph):
                 )
             )
 
+    # Undo Tree to Graph process
+    def __remove_virtual_components(self):
+        edges_to_remove = []
+        for edge in self.get_edges():
+            src_node = self.get_node(edge.get_src_id())
+            if src_node.get_type() == NodeType.VIRTUAL:
+                edges_to_remove.append(edge)
+
+        for edge in edges_to_remove:
+            self.remove_edge(edge)
+        node_ids_to_remove = []
+        for node in self.get_nodes():
+            if node.get_type() == NodeType.VIRTUAL:
+                node_ids_to_remove.append(node)
+        for node in node_ids_to_remove:
+            self.remove_node(node)
+
+    def __re_combine_resource_nodes(self):
+        node_lookup: dict[str, list[Node]] = {}
+        for node in self.get_nodes():
+            if node.get_type() == NodeType.PROCESS_LET:
+                continue
+            token = node.get_token()
+            if token in node_lookup:
+                node_lookup[token].append(node)
+            else:
+                node_lookup[token] = [node]
+
+        for node_list in node_lookup.values():
+            if len(node_list) == 1:
+                continue
+            # Since they're identical, arbitrarily select the first node
+            chosen_one = node_list[0]
+            for node in node_list[1:]:
+                # Recall: resource nodes have no outgoing edges
+                for incoming_edge_id in self.get_incoming_edge_ids(node.get_id()):
+                    edge = self.get_edge(incoming_edge_id)
+                    self.remove_edge(edge)
+                    edge.set_dst_id(chosen_one.get_id())
+                    self.add_edge(edge)
+                self.remove_node(node)
+
+    def __revert_resource_edge_direction(self):
+        candidates_to_invert: list[int] = []
+        for node in self.get_nodes():
+            if node.get_type() == NodeType.PROCESS_LET:
+                continue
+            node_id = node.get_id()
+            # all resource nodes only have incoming edges
+            assert len(self.get_outgoing_edge_ids(node_id)) == 0
+            candidates_to_invert.extend(self.get_incoming_edge_ids(node_id))
+
+        for edge_id in candidates_to_invert:
+            edge = self.get_edge(edge_id)
+            if "read" in edge.get_token().lower():
+                self.remove_edge(edge)
+                edge.invert()
+                self.add_edge(edge)
+
     # Sanity check for the tree: Verify it is a valid tree
     def assert_valid_tree(self):
         # A valid tree must have at least one node
@@ -341,29 +388,43 @@ class Tree(Graph):
             self._nodes
         ), f"Visited {len(visited)}/{len(self._nodes)}, tree is NOT connected"
 
-    __preprocess_steps: list[Callable] = [
-        original_graph,
-        __filter_edges,
-        __invert_outgoing_file_edges,
-        __duplicate_file_ip_leaves,
-        __add_virtual_root,
+    __conversion_steps: list[tuple[Callable | None, Callable | None]] = [
+        (__original_graph, None),
+        (__filter_edges, None),  # Edge filter cannot be undone
+        (__invert_outgoing_file_edges, __revert_resource_edge_direction),
+        (__duplicate_file_ip_leaves, __re_combine_resource_nodes),
+        (__add_virtual_root, __remove_virtual_components),
+        (None, __original_graph),
     ]
 
-    def preprocess(self, output_dir: Path | None = None) -> "Tree":
-        for i, step in enumerate(self.__preprocess_steps):
+    def __process_pipeline(
+        self, steps: list[Callable | None], output_dir: Path | None = None
+    ):
+        for i, step in enumerate(steps):
+            if step is None:
+                continue
             step(self)
+            step_name = f'{i + 1}_{step.__name__.strip("_")}'
             if output_dir is not None:
                 with open(
-                    output_dir / f'{i + 1}_{step.__name__.strip("_")}.json',
-                    "w",
-                    encoding="utf-8",
+                    output_dir / f"{step_name}.json", "w", encoding="utf-8"
                 ) as output_file:
                     output_file.write(self.to_json())
-                self.to_dot().save(
-                    output_dir / f'{i + 1}_{step.__name__.strip("_")}.dot'
-                )
+                self.to_dot().save(output_dir / f"{step_name}.dot")
 
+    def preprocess(self, output_dir: Path | None = None) -> "Tree":
+        self.__process_pipeline(
+            [step for step, _ in self.__conversion_steps], output_dir
+        )
         return self
+
+    # BUG: once this is called, the original tree object is no longer a legal tree
+    def revert_to_graph(self, output_dir: Path | None = None) -> Graph:
+        # TODO: what do do if resulting graph is disconnected?
+        self.__process_pipeline(
+            [step for _, step in reversed(self.__conversion_steps)], output_dir
+        )
+        return self.graph
 
     def prune_tree(self, root_node_id: int) -> "Tree":
         # Create subtree graph
@@ -515,35 +576,6 @@ class Tree(Graph):
         if stat not in self.stats:
             self.stats[stat] = []
         self.stats[stat].append(value)
-
-
-    def assert_complete(self) -> None:
-        for edge in self.get_edges():
-            assert (
-                edge.get_src_id() is not None
-            ), f"Edge {edge.get_id()} ({edge.get_token()} has None source"
-            assert (
-                edge.get_dst_id() is not None
-            ), f"Edge {edge.get_id()} ({edge.get_token()} has None destination"
-            if self.get_node(edge.get_src_id()) is None:
-                print(f"Edge {edge.get_id()} ({edge.get_token()}) has no source")
-            assert (
-                self.get_node(edge.get_dst_id()) is not None
-            ), f"Edge {edge.get_id()} ({edge.get_token()}) has no destination"
-        for node in self.get_nodes():
-            node_id = node.get_id()
-            assert node.get_id() is not None, f"Node {node.get_token()} has None ID"
-            for edge_id in self.get_incoming_edge_ids(node_id):
-                edge = self.get_edge(edge_id)
-                assert edge.get_dst_id() == node_id, (
-                    f"Node {node_id} has incoming edge {edge_id} "
-                    f"with wrong destination ({edge.get_src_id()} -> {edge.get_dst_id()})"
-                )
-            for edge_id in self.get_outgoing_edge_ids(node_id):
-                edge = self.get_edge(edge_id)
-                assert (
-                    edge.get_src_id() == node_id
-                ), f"Node {node.get_token()} has outgoing edge {edge_id} with wrong source"
 
     def get_tree_height(self, root_node_id) -> int:
         return self.__node_stats[root_node_id].height

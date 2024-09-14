@@ -7,6 +7,7 @@ from .edge import Edge
 from .node import Node
 from ...graphson import RawEdge, RawNode, RawGraph
 
+
 class Graph:
     graph_id: int | None
     root_node_id: int | None
@@ -175,7 +176,6 @@ class Graph:
             }
         )
 
-
     def get_root_id(self) -> int:
         root_ids = [
             node_id
@@ -184,3 +184,31 @@ class Graph:
         ]
         assert len(root_ids) == 1, f"Expected only 1 root, got {len(root_ids)}"
         return root_ids[0]
+
+    def assert_complete(self) -> None:
+        for edge in self.get_edges():
+            assert (
+                edge.get_src_id() is not None
+            ), f"Edge {edge.get_id()} ({edge.get_token()} has None source"
+            assert (
+                edge.get_dst_id() is not None
+            ), f"Edge {edge.get_id()} ({edge.get_token()} has None destination"
+            if self.get_node(edge.get_src_id()) is None:
+                print(f"Edge {edge.get_id()} ({edge.get_token()}) has no source")
+            assert (
+                self.get_node(edge.get_dst_id()) is not None
+            ), f"Edge {edge.get_id()} ({edge.get_token()}) has no destination"
+        for node in self.get_nodes():
+            node_id = node.get_id()
+            assert node.get_id() is not None, f"Node {node.get_token()} has None ID"
+            for edge_id in self.get_incoming_edge_ids(node_id):
+                edge = self.get_edge(edge_id)
+                assert edge.get_dst_id() == node_id, (
+                    f"Node {node_id} has incoming edge {edge_id} "
+                    f"with wrong destination ({edge.get_src_id()} -> {edge.get_dst_id()})"
+                )
+            for edge_id in self.get_outgoing_edge_ids(node_id):
+                edge = self.get_edge(edge_id)
+                assert (
+                    edge.get_src_id() == node_id
+                ), f"Node {node.get_token()} has outgoing edge {edge_id} with wrong source"

@@ -1,6 +1,7 @@
 from typing import Counter
 from src.algorithm.graph_processor import GraphProcessor
 from src.algorithm.utility import smart_map
+from src.algorithm.wrappers.graph import Graph
 from src.algorithm.wrappers.tree import Tree
 from pathlib import Path
 from dataclasses import dataclass
@@ -23,6 +24,18 @@ def process(path: Path) -> Result:
 
 
 class TestTree:
+    def test_convert_tree_and_back(self):
+        data_path = (
+            Path.home() / "workspace" / "SyssecLab" / "differential-privacy" / "data"
+        )
+        graph_pattern = "nd*json"
+        benign_graphs: list[Path] = list(
+            (data_path / "benign_graphs").rglob(graph_pattern)
+        )
+        graph_path = benign_graphs[0]
+        tree = GraphProcessor.load_tree_from_file(graph_path)
+        graph: Graph = tree.revert_to_graph(Path("./output"))
+        graph.assert_complete()
 
     def test_load_file_works_for_all_darpa_data(self):
         file = open("output.txt", "w")
