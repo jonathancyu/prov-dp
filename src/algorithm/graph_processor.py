@@ -65,8 +65,8 @@ class GraphProcessor:
 
     def __init__(
         self,
-        epsilon_1: float = 1,
-        epsilon_2: float = 0,
+        epsilon: float = 1,
+        delta: float = 0.5,
         alpha: float = 0.5,
         beta: float = 0,
         gamma: float = 0,
@@ -78,7 +78,9 @@ class GraphProcessor:
         random.seed(RANDOM_SEED)
         np.random.seed(RANDOM_SEED)
         # Pruning parameters
-        print(f"Epsilon_1={epsilon_1}, Epsilon_2={epsilon_2}")
+        epsilon_1 = epsilon * delta
+        epsilon_2 = epsilon * (1 - delta)
+        print(f"epsilon={epsilon}, delta={delta} (e_1={epsilon_1}, e_2={epsilon_2})")
         print(f"a={alpha}, b={beta}, c={gamma}")
         self.__epsilon_1 = epsilon_1
         self.__epsilon_2 = epsilon_2

@@ -20,23 +20,19 @@ def run_processor(args):
         )
     args.output_dir = args.output_dir.with_stem(
         f"{args.output_dir.stem}"
-        f"_e1={args.epsilon_1}"
-        f"_e2={args.epsilon_2}"
-        f"_a={args.alpha}"
+        f"_e={args.epsilon}"
+        f"_d={args.delta}"
+        f"__a={args.alpha}"
         f"_b={args.beta}"
         f"_c={args.gamma}"
     )
     print(
-        f"Started run with input {args.input_dir}, and parameters {args.output_dir.stem}"
+        f"Started run with input {args.input_dir}, and parameters {args.output_dir.name}"
     )
 
     # Run graph processor
     graph_processor = GraphProcessor(**to_processor_args(args))
     perturbed_graphs: list[Tree] = graph_processor.perturb_graphs(input_paths)
-
-    # Save final graph objects
-    with open(args.output_dir / "perturbed_graphs.pkl", "wb") as f:
-        pickle.dump(perturbed_graphs, f)
 
     # Save dot files
     for graph in tqdm(perturbed_graphs, desc="Saving graphs"):

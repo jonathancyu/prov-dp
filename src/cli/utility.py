@@ -27,18 +27,18 @@ def parse_args():
 
     # Differential privacy parameters
     arg_parser.add_argument(
-        "-e1",
-        "--epsilon_1",
+        "-e",
+        "--epsilon",
         type=float,
         default=1,
         help="Differential privacy budget for pruning",
     )
     arg_parser.add_argument(
-        "-e2",
-        "--epsilon_2",
+        "-d",
+        "--delta",
         type=float,
-        default=1,
-        help="Differential privacy budget for reattaching",
+        default=0.5,
+        help="Allocation of privacy budget between algorithm 1 and 2",
     )
 
     arg_parser.add_argument(

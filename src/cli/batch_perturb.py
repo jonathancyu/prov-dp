@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import itertools
 from copy import deepcopy
 
 from .perturb import run_processor, parse_args
@@ -43,18 +42,12 @@ def batch_run(args):
     ]
 
     for config in configurations:
-        epsilon_1 = config.epsilon * config.delta
-        epsilon_2 = config.epsilon * (1 - config.delta)
-        alpha = config.alpha
-        beta = config.beta
-        gamma = config.gamma
-
         current_args = deepcopy(args)
-        current_args.epsilon_1 = epsilon_1
-        current_args.epsilon_2 = epsilon_2
-        current_args.alpha = alpha
-        current_args.beta = beta
-        current_args.gamma = gamma
+        current_args.epsilon = config.epsilon
+        current_args.delta = config.delta
+        current_args.alpha = config.alpha
+        current_args.beta = config.beta
+        current_args.gamma = config.gamma
         run_processor(current_args)
         print()
         print()
