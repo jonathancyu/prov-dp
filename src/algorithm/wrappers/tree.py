@@ -48,6 +48,7 @@ class TreeStats:
 
 
 class Tree(Graph):
+    graph: Graph
     marked_nodes: list[Marker]
     stats: dict[
         str, list[float]
@@ -60,11 +61,14 @@ class Tree(Graph):
     _node_stats: dict[int, NodeStats]
 
     def __init__(
-        self, graph: Graph | None = None, output_dir: Path | None = None
+        self, input_graph: Graph | None = None, output_dir: Path | None = None
     ):
-        if graph is None:
+        if input_graph is None:
             graph = Graph()
+        else:
+            graph = input_graph
         # Sync data with graph
+        self.graph = graph
         self.graph_id = graph.graph_id
         self.root_node_id = graph.root_node_id
         self._nodes = graph._nodes
@@ -77,19 +81,21 @@ class Tree(Graph):
         self.marked_nodes = []
         self.stats = {}
 
-        # Modify self to become a graph
-        for i, step in enumerate(self.__preprocess_steps):
-            step(self)
-            if output_dir is not None:
-                with open(
-                    output_dir / f'{i + 1}_{step.__name__.strip("_")}.json',
-                    "w",
-                    encoding="utf-8",
-                ) as output_file:
-                    output_file.write(self.to_json())
-                self.to_dot().save(
-                    output_dir / f'{i + 1}_{step.__name__.strip("_")}.dot'
-                )
+        if input_graph is not None:
+            # Modify self to become a graph
+            for i, step in enumerate(self.__preprocess_steps):
+                step(self)
+                if output_dir is not None:
+                    with open(
+                        output_dir / f'{i + 1}_{step.__name__.strip("_")}.json',
+                        "w",
+                        encoding="utf-8",
+                    ) as output_file:
+                        output_file.write(self.to_json())
+                    self.to_dot().save(
+                        output_dir / f'{i + 1}_{step.__name__.strip("_")}.dot'
+                    )
+                assert len(graph._edges) == len(self._edges)
 
     def get_subtree(
         self, root_node_id: int, visited_node_ids: set[int] | None = None
@@ -543,7 +549,7 @@ class Tree(Graph):
         return self.__node_stats[root_node_id].height
 
     def get_stats(self) -> "TreeStats":
-        self.__node_stats = {}  # HACK:  this is not good
+        self._node_stats = {}  # HACK:  this is not good
         self.init_node_stats(self.get_root_id(), 0)
         self.assert_valid_tree()
         heights = []
@@ -554,10 +560,10 @@ class Tree(Graph):
         diameter = max([max(j.values()) for (_, j) in nx.shortest_path_length(G)])
         del G
 
+        assert len(self._node_stats) == len(
+            self._nodes
+        ), f"{len(self._node_stats)}, {len(self._nodes)}"
         for node_id in self._nodes.keys():
-            assert len(self._node_stats) == len(
-                self._nodes
-            ), f"{len(self._node_stats)}, {len(self._nodes)}"
             assert node_id in self._nodes, f"Node {node_id} doesnt exist"
             assert node_id in self._node_stats, self.get_incoming_edge_ids(node_id)
             stat = self.get_node_stats(node_id)
