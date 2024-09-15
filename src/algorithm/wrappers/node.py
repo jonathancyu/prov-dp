@@ -107,28 +107,47 @@ class Node:
             args["color"] = "greenyellow"
         return {key: Node.__sanitize(value) for key, value in args.items()}
 
-    __json_attributes: list[tuple[str, str]] = [
-        ("AGENT_ID", "long"),
-        ("PROC_ORDINAL", "string"),
-        ("PID", "long"),
-        ("EXE_NAME", "string"),
-        ("REF_DB", "string"),
-        ("FT_HOPCOUNT", "integer"),
-        ("PROC_STARTTIME", "long"),
-        ("OWNER_GROUP_ID", "string"),
-        ("CMD", "string"),
-        ("OWNER_UID", "string"),
-        ("TYPE", "string"),
-        ("REF_ID", "long"),
-        ("postgres", "long"),
-    ]
+    __json_attributes: dict[str, str] = {
+        "REF_DB": "string",
+        "DATA_ID": "string",
+        "AGENT_ID": "long",
+        "FILENAME_SET": "list",
+        "FILE_OWNER_GROUP_ID": "string",
+        "RENAME_SET": "list",
+        "VOL_ID": "string",
+        "FILE_OWNER_UID": "string",
+        "TYPE": "string",
+        "REF_ID": "long",
+        "BT_HOPCOUNT": "integer",
+        "postgres": "long",
+        "_id": "string",
+        "_type": "string",
+        "PROC_ORDINAL": "string",
+        "PID": "long",
+        "EXE_NAME": "string",
+        "FT_HOPCOUNT": "integer",
+        "PROC_STARTTIME": "long",
+        "OWNER_GROUP_ID": "string",
+        "CMD": "string",
+        "OWNER_UID": "string",
+        "IS_INCOMING": "boolean",
+        "CONN_TYPE": "integer",
+        "REMOTE_INET_ADDR": "string",
+        "REMOTE_PORT": "integer",
+        "LOCAL_PORT": "integer",
+        "LOCAL_INET_ADDR": "string",
+        "CHANNEL_STATE": "string",
+        "CHANNEL_TYPE": "string",
+        "PROC_OWNER_UID": "string",
+        "PROC_OWNER_GROUP_ID": "string",
+    }
 
     def to_json_dict(self) -> dict:
         model = self.node.model_dump(by_alias=True)
-        json_dict = {
-            attribute: json_value(model.get(attribute), type_str)
-            for attribute, type_str in self.__json_attributes
-        }
+        json_dict = {}
+        for attribute, value in model.items():
+            value_type = self.__json_attributes.get(attribute, "string")
+            json_dict[attribute] = json_value(value, value_type)
 
         json_dict["_id"] = str(self.get_id())
         json_dict["_type"] = "vertex"

@@ -68,30 +68,34 @@ class Edge:
         args["label"] += self.edge.label
         return args
 
-    __json_attributes: list[tuple[str, str]] = [
-        ("EVENT_START", "long"),
-        ("ACCESS_AMOUNT", "long"),
-        ("OPTYPE", "string"),
-        ("PROC_CREATE_INHERIT", "boolean"),
-        ("REL_TIME_START", "long"),
-        ("IS_ALERT", "boolean"),
-        ("TIME_START", "long"),
-        ("REL_TIME_END", "long"),
-        ("ALERT_INFO", "string"),
-        ("EVENT_START_STR", "string"),
-        ("TIME_END", "long"),
-        ("EVENT_END_STR", "string"),
-        ("PATH_NAME", "string"),
-        ("EVENT_END", "long"),
-        ("REF_ID", "long"),
-    ]
+    __json_attributes: dict[str, str] = {
+        "EVENT_START": "long",
+        "ACCESS_AMOUNT": "long",
+        "OPTYPE": "string",
+        "PROC_CREATE_INHERIT": "boolean",
+        "REL_TIME_START": "long",
+        "IS_ALERT": "boolean",
+        "TIME_START": "long",
+        "REL_TIME_END": "long",
+        "ALERT_INFO": "string",
+        "EVENT_START_STR": "string",
+        "TIME_END": "long",
+        "EVENT_END_STR": "string",
+        "PATH_NAME": "string",
+        "EVENT_END": "long",
+        "REF_ID": "long",
+        "FT_SOURCE": "boolean"
+    }
 
     def to_json_dict(self) -> dict:
         model = self.edge.model_dump(by_alias=True)
-        json_dict = {
-            attribute: json_value(model.get(attribute), type_str)
-            for attribute, type_str in self.__json_attributes
-        }
+        json_dict = {}
+        for attribute, value in model.items():
+            if attribute not in self.__json_attributes and not attribute.startswith("_"):
+                NOT_FOUND_EDGE.add(attribute)
+            value_type = self.__json_attributes.get(attribute, "string")
+            json_dict[attribute] = json_value(value, value_type)
+
         json_dict["_id"] = str(self.get_id())
         json_dict["_type"] = "edge"
         json_dict["_outV"] = str(self.get_src_id())
