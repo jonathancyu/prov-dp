@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 from src.algorithm.graph_processor import GraphProcessor
 from src.cli.add_csv import add_csv_to_json
@@ -6,6 +7,40 @@ from src.cli.utility import save_dot
 
 
 class TestRunConfigurations:
+    def test_convert_tree_and_back(self):
+        data_path = (
+            Path.home() / "workspace" / "SyssecLab" / "differential-privacy" / "data"
+        )
+        graph_pattern = "nd*json"
+        benign_graphs: list[Path] = list(
+            (data_path / "benign_graphs").rglob(graph_pattern)
+        )
+        graph_path = benign_graphs[0]
+        print("PATH: " + str(graph_path))
+        output_path = Path("./output") / graph_path.stem
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # Original
+        shutil.copyfile(graph_path, output_path / "1_original_graph.json")
+        tree = GraphProcessor.load_tree_from_file(graph_path)
+
+        # Tree
+        with open(output_path / "2_original_tree.json", "w") as f:
+            f.write(tree.to_json())
+        save_dot(tree.to_dot(), output_path / "2_original_tree.dot")
+
+        # Perturbed
+        processor = GraphProcessor()
+        perturbed_graphs = processor.perturb_graphs([graph_path])
+        with open(output_path / "3_modified_tree.json", "w") as f:
+            f.write(perturbed_graphs[0].to_json())
+        save_dot(perturbed_graphs[0].to_dot(), output_path / "3_modified_tree.dot")
+
+        # Graph
+        graph: Graph = perturbed_graphs[0].revert_to_graph()
+        with open(output_path / "4_reverted_graph.json", "w") as f:
+            f.write(graph.to_json())
+        save_dot(graph.to_dot(), output_path / "4_reverted_graph.dot")
     def test_tc3_theia(self):
         data_path = (
             Path.home() / "workspace" / "SyssecLab" / "differential-privacy" / "data"
@@ -42,5 +77,5 @@ class TestRunConfigurations:
             f.write(json.dumps(graph_processor.stats))
 
         # Json to csv
-        for json_path in list(output_path.rglob("nd*.json")):
-            add_csv_to_json(json_path)
+        # for json_path in list(output_path.rglob("nd*.json")):
+        #     add_csv_to_json(json_path)
