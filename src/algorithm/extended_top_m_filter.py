@@ -76,7 +76,6 @@ class ExtendedTopMFilter:
         epsilon_2: float,
     ) -> None:
         # Start by removing all edges
-        print(f"Filtering edge type: {edge_type}")
         for edge in edges:
             graph.remove_edge(edge)
 
@@ -98,11 +97,9 @@ class ExtendedTopMFilter:
             for edge in E_possible
             if ExtendedTopMFilter.__is_valid(edge, edge_type.op_type)
         ]
-        print(f"possible: {len(list(E_possible))}, valid: {len(E_valid)}")
         # [7]
-        val = (len(E_valid) / m_perturbed) - 1
-        assert val > 0, f"<{val}>"
-        epsilon_t = math.log(val)
+        # TODO: what if E_valid is empty?
+        epsilon_t = math.log((len(E_valid) / m_perturbed) - 1)
 
         # [8-13] Set filter bound
         if epsilon_1 < epsilon_t:
