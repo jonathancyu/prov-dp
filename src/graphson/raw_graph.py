@@ -1,8 +1,5 @@
 import json
 from pathlib import Path
-from typing import Callable
-
-from graphviz import Digraph
 from pydantic import BaseModel, Field
 
 from .raw_edge import RawEdge

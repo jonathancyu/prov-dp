@@ -1,7 +1,9 @@
+from collections import deque
 import json
 
 import graphviz as gv
 import networkx as nx
+from pydantic import conset
 
 from .edge import Edge
 from .node import Node
@@ -119,6 +121,47 @@ class Graph:
         edge = self._edges.get(edge_id)
         assert edge is not None, f"Edge {edge_id} does not exist"
         return edge
+
+    def has_edge(self, src_id: int, dst_id: int) -> bool:
+        # TODO: should edge type matter?
+        return dst_id in self.get_outgoing_edge_ids(src_id)
+
+    def remove_disconnected_components(self) -> None:
+        """
+        Traverse graph starting from root.
+        Remove all nodes/edges that cannot be reached
+        """
+        untouched_edge_ids: set[int] = set(self._edges.keys())
+        untouched_node_ids: set[int] = set(self._nodes.keys())
+
+        assert self.root_node_id is not None
+        queue: deque[int] = deque([self.root_node_id])
+        while len(queue) > 0:
+            node_id = queue.popleft()
+            if node_id not in untouched_node_ids:
+                continue
+            untouched_node_ids.remove(node_id)
+
+            # Add parent nodes
+            for edge_id_in in self.get_incoming_edge_ids(node_id):
+                if edge_id_in not in untouched_edge_ids:
+                    continue
+                untouched_edge_ids.remove(edge_id_in)
+                queue.append(self.get_edge(edge_id_in).get_src_id())
+
+            # Add child nodes
+            for edge_id_out in self.get_outgoing_edge_ids(node_id):
+                if edge_id_out not in untouched_edge_ids:
+                    continue
+                untouched_edge_ids.remove(edge_id_out)
+                queue.append(self.get_edge(edge_id_out).get_dst_id())
+
+        # Remove all edges that haven't been touched
+        for edge_id in untouched_edge_ids:
+            self.remove_edge(self.get_edge(edge_id))
+        # Now remove all untouched nodes
+        for node_id in untouched_node_ids:
+            self.remove_node(self.get_node(node_id))
 
     # Exporter functions
     def to_dot(self) -> gv.Digraph:
