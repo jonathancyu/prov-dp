@@ -124,24 +124,16 @@ class GraphProcessor:
 
     @classmethod
     def load_tree_from_file(cls, path: Path) -> Tree:
-        file_name = str(path.stem)
-        if "-" in file_name:
-            split = file_name.split("-")
-        elif "_" in file_name:
-            split = file_name.split("_")
-        else:
-            raise ValueError(f"Invalid file name: {file_name}")
-        ref_id = -1
-        if len(split) == 3:
-            ref_id = int(split[1])
-        graph = Graph(RawGraph.load_file(path), ref_id)
+        graph = Graph.load_file(path)
         tree = Tree(graph)
         tree.assert_valid_tree()
 
         return tree
 
     def preprocess_graphs(self, paths: list[Path]) -> list[Tree]:
-        trees = list(self.__map(self.load_tree_from_file, paths, "Preprocessing graphs"))
+        trees = list(
+            self.__map(self.load_tree_from_file, paths, "Preprocessing graphs")
+        )
         print("Data1 stats:")
         self.print_tree_stats(trees)
         return trees
@@ -354,9 +346,7 @@ class GraphProcessor:
                 perturbed_size = round(
                     marker.size + np.random.laplace(0, 1 / self.__epsilon_2)
                 )
-                spread = (
-                    1
-                )  # low spread -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
+                spread = 1  # low spread -> more uniform distance distribution -> more uniform probability -> less likely to choose tree w/ matching size
                 # TODO: check up on this, this where DP comes into play
                 distances = (abs(size_array - perturbed_size) + 1) ** spread
 

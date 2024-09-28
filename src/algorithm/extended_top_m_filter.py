@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pathlib import Path
 import itertools
 from random import shuffle
 
@@ -13,7 +12,7 @@ from src.graphson.raw_edge import RawEdge
 from src.graphson.raw_node import NodeType
 
 
-@dataclass
+@dataclass(frozen=True)  # set frozen to create hash method
 class EdgeType:
     src_type: NodeType
     dst_type: NodeType
@@ -30,6 +29,7 @@ class ExtendedTopMFilter:
         self, epsilon: float = 1, delta: float = 0.5, single_threaded: bool = False
     ):
         self.__epsilon = epsilon
+        self.__delta = delta
         self.__single_threaded = single_threaded
 
     def filter_graph(self, graph: Graph) -> None:
@@ -63,6 +63,10 @@ class ExtendedTopMFilter:
                 epsilon_2=self.__epsilon * (1 - self.__delta),
             )
 
+        # TODO: update algorithm to reflect this happens only after all filters are ran
+        # [28-36] Update graph. Keep only component containing original node if result is disconnected
+        graph.remove_disconnected_components()
+
     def __run_filter(
         self,
         graph: Graph,
@@ -72,12 +76,14 @@ class ExtendedTopMFilter:
         epsilon_2: float,
     ) -> None:
         # Start by removing all edges
+        print(f"Filtering edge type: {edge_type}")
         for edge in edges:
             graph.remove_edge(edge)
 
         # [3-4]
         m = len(edges)
-        m_perturbed = np.ceil(m + np.random.laplace(0, 1 / epsilon_2))
+        # TODO: breaks if leq 0 since we divide by it.
+        m_perturbed = max(1, np.ceil(m + np.random.laplace(0, 1 / epsilon_2)))
 
         # [5-6]
         V_s, V_d = [], []
@@ -86,15 +92,17 @@ class ExtendedTopMFilter:
                 V_s.append(node)
             if node.get_type() == edge_type.dst_type:
                 V_d.append(node)
-        E_possible = itertools.product(V_s, V_d)
-        E_valid: list[tuple[int, int]] = [
+        E_possible = list(itertools.product(V_s, V_d))
+        E_valid: list[tuple[Node, Node]] = [
             edge
             for edge in E_possible
             if ExtendedTopMFilter.__is_valid(edge, edge_type.op_type)
         ]
-
+        print(f"possible: {len(list(E_possible))}, valid: {len(E_valid)}")
         # [7]
-        epsilon_t = math.log((len(E_valid) / m_perturbed) - 1)
+        val = (len(E_valid) / m_perturbed) - 1
+        assert val > 0, f"<{val}>"
+        epsilon_t = math.log(val)
 
         # [8-13] Set filter bound
         if epsilon_1 < epsilon_t:
@@ -114,15 +122,15 @@ class ExtendedTopMFilter:
                 graph.add_edge(edge)
 
         # [21-27] Add new edges
-        # using for loop intstead of while to guarantee termination.
+        # using for loop instead of while to guarantee termination.
         # functionally the same though.
         shuffle(E_valid)  # [23]
-        for edge in E_valid:
+        for src, dst in E_valid:
+            src_id, dst_id = src.get_id(), dst.get_id()
             # [22]
             if len(graph.get_edges()) >= m_perturbed:
                 break
             # [24]
-            src_id, dst_id = edge
             if graph.has_edge(src_id, dst_id):
                 continue
             # [25] Add edge
@@ -138,10 +146,6 @@ class ExtendedTopMFilter:
                 )
             )
             graph.add_edge(new_edge)
-
-        # [28-36] Update graph. Keep only component containing original node if result is disconnected
-        garph.
-
 
     @classmethod
     def __is_valid(cls, edge: tuple[Node, Node], op_type: str) -> bool:

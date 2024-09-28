@@ -1,9 +1,9 @@
 from collections import deque
 import json
+from pathlib import Path
 
 import graphviz as gv
 import networkx as nx
-from pydantic import conset
 
 from .edge import Edge
 from .node import Node
@@ -18,6 +18,21 @@ class Graph:
     _edges: dict[int, Edge]
     _incoming_lookup: dict[int, set[int]]  # node_id: set[edge_id]
     _outgoing_lookup: dict[int, set[int]]  # node_id: set[edge_id]
+
+    @classmethod
+    def load_file(cls, path: Path) -> "Graph":
+        file_name = str(path.stem)
+        if "-" in file_name:
+            split = file_name.split("-")
+        elif "_" in file_name:
+            split = file_name.split("_")
+        else:
+            raise ValueError(f"Invalid file name: {file_name}")
+        ref_id = -1
+        if len(split) == 3:
+            ref_id = int(split[1])
+
+        return Graph(RawGraph.load_file(path), source_edge_ref_id=ref_id)
 
     def __init__(
         self, graph: RawGraph | None = None, source_edge_ref_id: int | None = None
