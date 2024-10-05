@@ -16,7 +16,6 @@ from src.graphson.raw_node import NodeType
 class EdgeType:
     src_type: NodeType
     dst_type: NodeType
-    op_type: str
 
 
 class ExtendedTopMFilter:
@@ -32,6 +31,12 @@ class ExtendedTopMFilter:
         self.__delta = delta
         self.__single_threaded = single_threaded
 
+    @classmethod
+    def update_node_times(cls, node: Node, edge: Edge) -> None:
+        time = edge.get_time()
+        node.min_time = time if node.min_time is None else min(node.min_time, time)
+        node.max_time = time if node.max_time is None else max(node.max_time, time)
+
     def filter_graph(self, graph: Graph) -> None:
         """
         Modifies the input graph according to the top-m filter
@@ -44,11 +49,11 @@ class ExtendedTopMFilter:
         for edge in edges:
             src = graph.get_node(edge.get_src_id())
             dst = graph.get_node(edge.get_dst_id())
-            edge_type = EdgeType(
-                src_type=src.get_type(),
-                dst_type=dst.get_type(),
-                op_type=edge.get_op_type(),
-            )
+            # Set min/max node times
+            ExtendedTopMFilter.update_node_times(src, edge)
+            ExtendedTopMFilter.update_node_times(dst, edge)
+
+            edge_type = EdgeType(src_type=src.get_type(), dst_type=dst.get_type())
             if edge_type not in edge_lookup:
                 edge_lookup[edge_type] = []
             edge_lookup[edge_type].append(edge)
@@ -67,6 +72,14 @@ class ExtendedTopMFilter:
         # [28-36] Update graph. Keep only component containing original node if result is disconnected
         graph.remove_disconnected_components()
 
+    __optype_lookup: dict[EdgeType, str] = {
+        EdgeType(NodeType.PROCESS_LET, NodeType.PROCESS_LET): "Start_Processlet",
+        EdgeType(NodeType.PROCESS_LET, NodeType.FILE): "Write",
+        EdgeType(NodeType.PROCESS_LET, NodeType.IP_CHANNEL): "Write",
+        EdgeType(NodeType.FILE, NodeType.PROCESS_LET): "Read",
+        EdgeType(NodeType.IP_CHANNEL, NodeType.PROCESS_LET): "Read",
+    }
+
     def __run_filter(
         self,
         graph: Graph,
@@ -76,7 +89,11 @@ class ExtendedTopMFilter:
         epsilon_2: float,
     ) -> None:
         # Start by removing all edges
+        min_time: int = edges[0].get_time()
+        max_time: int = edges[0].get_time()
         for edge in edges:
+            min_time = min(min_time, edge.get_time())
+            max_time = max(max_time, edge.get_time())
             graph.remove_edge(edge)
 
         # [3-4]
@@ -93,10 +110,9 @@ class ExtendedTopMFilter:
                 V_d.append(node)
         E_possible = list(itertools.product(V_s, V_d))
         E_valid: list[tuple[Node, Node]] = [
-            edge
-            for edge in E_possible
-            if ExtendedTopMFilter.__is_valid(edge, edge_type.op_type)
+            edge for edge in E_possible if ExtendedTopMFilter.__is_valid(edge)
         ]
+
         # [7]
         # TODO: what if E_valid is empty?
         epsilon_t = math.log((len(E_valid) / m_perturbed) - 1)
@@ -131,21 +147,27 @@ class ExtendedTopMFilter:
             if graph.has_edge(src_id, dst_id):
                 continue
             # [25] Add edge
+            op_type = self.__optype_lookup[edge_type]
+            left = src.min_time or min_time
+            right = src.max_time or max_time
+            if left == right:
+                edge_time = left
+            else:
+                edge_time = np.random.randint(left, right)
             new_edge = Edge(
                 RawEdge(
                     _id=graph.get_next_edge_id(),
                     _outV=src_id,
                     _inV=dst_id,
-                    OPTYPE=edge_type.op_type,
-                    # TODO: determine how to get these values
-                    _label="TODO",
-                    EVENT_START=-1,
+                    OPTYPE=op_type,
+                    _label=op_type,
+                    EVENT_START=edge_time,
                 )
             )
             graph.add_edge(new_edge)
 
     @classmethod
-    def __is_valid(cls, edge: tuple[Node, Node], op_type: str) -> bool:
+    def __is_valid(cls, edge: tuple[Node, Node]) -> bool:
         # TODO: Add further validations
         src, dst = edge
         return src != dst

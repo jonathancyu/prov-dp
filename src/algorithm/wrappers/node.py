@@ -8,6 +8,10 @@ class Node:
     outgoing_edges: set[int]
     marked: bool = False
 
+    # TODO: this is only used in ETmF, does it really belong here?
+    min_time: int | None = None
+    max_time: int | None = None
+
     def __init__(self, node: RawNode):
         self.node = node
         self.incoming_edges, self.outgoing_edges = set(), set()
