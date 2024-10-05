@@ -25,6 +25,7 @@ def run_processor(args):
         f"__a={args.alpha}"
         f"_b={args.beta}"
         f"_c={args.gamma}"
+        f"_e={args.eta}"
     )
     print(
         f"Started run with input {args.input_dir}, and parameters {args.output_dir.name}"

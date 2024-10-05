@@ -49,6 +49,7 @@ class GraphProcessor:
     __alpha: float
     __beta: float
     __gamma: float
+    __eta: float
 
     # List to aggregate training data (path: str, subtree: Tree) tuples
     __pruned_subtrees: list[Marker]
@@ -72,10 +73,12 @@ class GraphProcessor:
         alpha: float = 0.5,
         beta: float = 0,
         gamma: float = 0,
+        eta: float = 0,
         output_dir: Path = Path("."),
         single_threaded: bool = False,
         load_perturbed_graphs: bool = False,
     ):
+        assert alpha + beta + gamma + eta == 1, "Hyperparameters must sum to 1"
         # Seed
         random.seed(RANDOM_SEED)
         np.random.seed(RANDOM_SEED)
@@ -89,6 +92,7 @@ class GraphProcessor:
         self.__alpha = alpha
         self.__beta = beta
         self.__gamma = gamma
+        self.__eta = eta
 
         # List to aggregate training data
         self.__pruned_subtrees = []

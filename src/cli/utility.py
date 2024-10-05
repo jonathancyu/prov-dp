@@ -45,23 +45,30 @@ def parse_args():
         "-a",
         "--alpha",
         type=float,
-        default=1,
+        default=0.25,
         help="Weight of subtree size on pruning probability",
     )
     arg_parser.add_argument(
         "-b",
         "--beta",
         type=float,
-        default=1,
+        default=0.25,
         help="Weight of subtree height on pruning probability",
     )
     arg_parser.add_argument(
         "-c",
         "--gamma",
         type=float,
-        default=1,
+        default=0.25,
         help="Weight of subtree depth on pruning probability",
     )
+    arg_parser.add_argument(
+        "--eta",
+        type=float,
+        default=0.25,
+        help="Weight of node degree on pruning probability",
+    )
+
 
     # Algorithm configuration
     arg_parser.add_argument(

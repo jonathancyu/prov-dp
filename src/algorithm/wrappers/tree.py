@@ -27,9 +27,10 @@ class Marker:
 
 @dataclass
 class NodeStats:
+    degree: int
+    depth: int
     height: int
     size: int
-    depth: int
 
 
 @dataclass
@@ -130,7 +131,9 @@ class Tree(Graph):
         # initialize tree stat lookup
         edges = self.get_outgoing_edge_ids(root_node_id)
         if len(edges) == 0:
-            self._node_stats[root_node_id] = NodeStats(height=0, size=1, depth=depth)
+            self._node_stats[root_node_id] = NodeStats(
+                height=0, size=1, depth=depth, degree=0
+            )
             return
 
         size = 1
@@ -145,10 +148,10 @@ class Tree(Graph):
         height = 1 + max(heights_of_subtrees)
 
         self._node_stats[root_node_id] = NodeStats(
-            height=height, size=size, depth=depth
+            height=height, size=size, depth=depth, degree=len(edges)
         )
 
-    def get_node_stats(self, node_id: int):
+    def get_node_stats(self, node_id: int) -> NodeStats:
         return self._node_stats[node_id]
 
     # Step 1. Original graph
