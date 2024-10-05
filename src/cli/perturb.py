@@ -20,12 +20,12 @@ def run_processor(args):
         )
     args.output_dir = args.output_dir.with_stem(
         f"{args.output_dir.stem}"
-        f"_e={args.epsilon}"
-        f"_d={args.delta}"
-        f"__a={args.alpha}"
-        f"_b={args.beta}"
-        f"_c={args.gamma}"
-        f"_e={args.eta}"
+        f"_epsilon={args.epsilon}"
+        f"_delta={args.delta}"
+        f"__alpha={args.alpha}"
+        f"_beta={args.beta}"
+        f"_gamma={args.gamma}"
+        f"_eta={args.eta}"
     )
     print(
         f"Started run with input {args.input_dir}, and parameters {args.output_dir.name}"
