@@ -260,6 +260,7 @@ class GraphProcessor:
                 if len(path) == 0:
                     # TODO: Are we adding to bucket here? if so, what?
                     # If this is the root, remove the entire tree from the dataset.
+                    # TODO: add pruned flag so we can fully remove the tree
                     tree.clear()
                     return tree
 
