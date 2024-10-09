@@ -141,6 +141,14 @@ class Graph:
         # TODO: should edge type matter?
         return dst_id in self.get_outgoing_edge_ids(src_id)
 
+    def clear(self) -> None:
+        for edge in self.get_edges():
+            self.remove_edge(edge)
+        for node in self.get_nodes():
+            self.remove_node(node)
+        assert len(self._edges) == 0
+        assert len(self._edges) == 0
+
     def remove_disconnected_components(self) -> None:
         """
         Traverse graph starting from root.

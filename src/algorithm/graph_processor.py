@@ -256,9 +256,13 @@ class GraphProcessor:
             )  # big distance -> lower probability of pruning
             prune_edge: bool = np.random.choice([True, False], p=[p, 1 - p])
             # if we prune, don't add children to queue
-            if (
-                prune_edge and len(path) > 1
-            ):  # don't prune virtual root by restricting depth to > 1
+            if prune_edge:
+                if len(path) == 0:
+                    # TODO: Are we adding to bucket here? if so, what?
+                    # If this is the root, remove the entire tree from the dataset.
+                    tree.clear()
+                    return tree
+
                 # remove the tree rooted at this edge's dst_id from the graph
                 pruned_tree = tree.prune_tree(src_node_id)
                 # Keep track of the node and its path, so we can attach to it later
