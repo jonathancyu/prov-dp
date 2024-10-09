@@ -5,6 +5,7 @@ from random import shuffle
 import numpy as np
 import math
 
+from src.algorithm.edge_metadata import OPTYPE_LOOKUP
 from src.algorithm.wrappers.edge import Edge
 from src.algorithm.wrappers.graph import Graph
 from src.algorithm.wrappers.node import Node
@@ -71,14 +72,6 @@ class ExtendedTopMFilter:
         # TODO: update algorithm to reflect this happens only after all filters are ran
         # [28-36] Update graph. Keep only component containing original node if result is disconnected
         graph.remove_disconnected_components()
-
-    __optype_lookup: dict[EdgeType, str] = {
-        EdgeType(NodeType.PROCESS_LET, NodeType.PROCESS_LET): "Start_Processlet",
-        EdgeType(NodeType.PROCESS_LET, NodeType.FILE): "Write",
-        EdgeType(NodeType.PROCESS_LET, NodeType.IP_CHANNEL): "Write",
-        EdgeType(NodeType.FILE, NodeType.PROCESS_LET): "Read",
-        EdgeType(NodeType.IP_CHANNEL, NodeType.PROCESS_LET): "Read",
-    }
 
     def __run_filter(
         self,
@@ -147,7 +140,7 @@ class ExtendedTopMFilter:
             if graph.has_edge(src_id, dst_id):
                 continue
             # [25] Add edge
-            op_type = self.__optype_lookup[edge_type]
+            op_type = OPTYPE_LOOKUP[edge_type]
             left = src.min_time or min_time
             right = src.max_time or max_time
             if left == right:
