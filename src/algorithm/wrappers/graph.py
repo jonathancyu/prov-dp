@@ -142,12 +142,17 @@ class Graph:
         return dst_id in self.get_outgoing_edge_ids(src_id)
 
     def clear(self) -> None:
+        root_id = self.get_root_id()  # Need to call before removing edges
+
         for edge in self.get_edges():
             self.remove_edge(edge)
+        assert len(self._edges) == 0
+
         for node in self.get_nodes():
+            if node.get_id() == root_id:
+                continue
             self.remove_node(node)
-        assert len(self._edges) == 0
-        assert len(self._edges) == 0
+        assert len(self._nodes) <= 1
 
     def remove_disconnected_components(self) -> None:
         """

@@ -348,9 +348,6 @@ class Tree(Graph):
 
     # Sanity check for the tree: Verify it is a valid tree
     def assert_valid_tree(self):
-        # A valid tree must have at least one node
-        assert self._nodes is not None and len(self._nodes) > 0
-
         # Find the root: a node with no incoming edges
         root_candidates = [
             node_id
