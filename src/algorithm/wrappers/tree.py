@@ -574,17 +574,19 @@ class Tree(Graph):
         self.add_edge(edge_f)  # Add f back into the graph
         assert edge_f.get_id() in self.get_outgoing_edge_ids(edge_e.get_src_id())
 
-        # If R was a virtual node, -f-> is an invalid edge. Update features to be legal
-        if R.get_type() == NodeType.VIRTUAL:
+        # If R was a virtual node and A isn't, -f-> is an invalid edge. Update features to be legal
+        A: Node = self.get_node(A_id)
+        if R.get_type() == NodeType.VIRTUAL and A.get_type() != NodeType.VIRTUAL:
             self.__update_edge_attributes(edge_f)
 
         self.assert_valid_tree()
 
     def __update_edge_attributes(self, edge: Edge) -> None:
         src = self.get_node(edge.get_src_id())
+        src_type = src.get_type()
         assert (
-            src.get_type() == NodeType.PROCESS_LET
-        ), "Trees should only be reattached to processlet nodes"
+            src_type == NodeType.PROCESS_LET
+        ), f"Trees should only be reattached to processlet nodes, found {src_type}"
         dst = self.get_node(edge.get_dst_id())
         dst_type = dst.get_type()
         edge_type = EdgeType(src_type=NodeType.PROCESS_LET, dst_type=dst_type)
