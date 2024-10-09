@@ -1,5 +1,11 @@
-from src.algorithm.extended_top_m_filter import EdgeType
+from dataclasses import dataclass
 from src.graphson.raw_node import NodeType
+
+
+@dataclass(frozen=True)  # set frozen to create hash method
+class EdgeType:
+    src_type: NodeType
+    dst_type: NodeType
 
 
 OPTYPE_LOOKUP: dict[EdgeType, str] = {

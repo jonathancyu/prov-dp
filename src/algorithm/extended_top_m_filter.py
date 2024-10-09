@@ -1,22 +1,14 @@
-from dataclasses import dataclass
 import itertools
 from random import shuffle
 
 import numpy as np
 import math
 
-from src.algorithm.edge_metadata import OPTYPE_LOOKUP
+from src.algorithm.edge_metadata import OPTYPE_LOOKUP, EdgeType
 from src.algorithm.wrappers.edge import Edge
 from src.algorithm.wrappers.graph import Graph
 from src.algorithm.wrappers.node import Node
 from src.graphson.raw_edge import RawEdge
-from src.graphson.raw_node import NodeType
-
-
-@dataclass(frozen=True)  # set frozen to create hash method
-class EdgeType:
-    src_type: NodeType
-    dst_type: NodeType
 
 
 class ExtendedTopMFilter:
