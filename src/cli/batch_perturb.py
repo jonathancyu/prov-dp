@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 from copy import deepcopy
+from math import gamma
+
+from numpy.random import beta
 
 from .perturb import run_processor, parse_args
 
 
 @dataclass
-class Configuration:
+class Config:
     epsilon: float
     delta: float
     alpha: float
@@ -18,28 +21,38 @@ def batch_run(args):
 
     configurations = [
         # All values fixed (Table 4)
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5, eta=0.5),
+        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
+        #
         # Varying privacy budget (Table 4)
-        Configuration(epsilon=0.1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5, eta=0.5),
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5, eta=0.5),
-        Configuration(epsilon=10, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5, eta=0.5),
+        Config(epsilon=0.1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
+        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
+        Config(epsilon=10, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
+        #
         # Varying hyperparameters (Table 6)
         # Varying delta
-        Configuration(epsilon=1, delta=0.1, alpha=0.5, beta=0.5, gamma=0.5, eta=0.5),
+        Config(epsilon=1, delta=0.1, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
         # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=1, delta=0.9, alpha=0.5, beta=0.5, gamma=0.5, eta=0.5),
+        Config(epsilon=1, delta=0.9, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
+        #
         # Varying alpha
-        Configuration(epsilon=1, delta=0.5, alpha=0.1, beta=0.5, gamma=0.5, eta=0.5),
+        Config(epsilon=1, delta=0.5, alpha=0.1, beta=0.3, gamma=0.3, eta=0.3),
         # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=1, delta=0.5, alpha=0.9, beta=0.5, gamma=0.5, eta=0.5),
+        Config(epsilon=1, delta=0.5, alpha=0.9, beta=0.033, gamma=0.033, eta=0.034),
+        #
         # Varying beta
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.1, gamma=0.5, eta=0.5),
+        Config(epsilon=1, delta=0.5, alpha=0.3, beta=0.1, gamma=0.3, eta=0.3),
         # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.9, gamma=0.5, eta=0.5),
+        Config(epsilon=1, delta=0.5, alpha=0.033, beta=0.9, gamma=0.033, eta=0.034),
+        #
         # Varying gamma
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.1, eta=0.5),
+        Config(epsilon=1, delta=0.5, alpha=0.3, beta=0.3, gamma=0.1, eta=0.3),
         # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.9, eta=0.5),
+        Config(epsilon=1, delta=0.5, alpha=0.033, beta=0.033, gamma=0.9, eta=0.034),
+        #
+        # Varying Eta
+        Config(epsilon=1, delta=0.5, alpha=0.3, beta=0.3, gamma=0.3, eta=0.1),
+        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
+        Config(epsilon=1, delta=0.5, alpha=0.033, beta=0.033, gamma=0.034, eta=0.9),
     ]
 
     for config in configurations:
