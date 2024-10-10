@@ -78,7 +78,8 @@ class GraphProcessor:
         single_threaded: bool = False,
         load_perturbed_graphs: bool = False,
     ):
-        assert alpha + beta + gamma + eta == 1, "Hyperparameters must sum to 1"
+        total = alpha + beta + gamma + eta
+        assert abs(total - 1) < 0.000001, f"Hyperparameters must sum to 1, got {total}"
         # Seed
         random.seed(RANDOM_SEED)
         np.random.seed(RANDOM_SEED)
