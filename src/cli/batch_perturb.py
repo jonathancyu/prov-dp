@@ -12,6 +12,22 @@ class Config:
     beta: float
     gamma: float
     eta: float
+    k: int = 250
+
+
+def run_configurations(args, configurations):
+    for config in configurations:
+        current_args = deepcopy(args)
+        current_args.epsilon = config.epsilon
+        current_args.delta = config.delta
+        current_args.alpha = config.alpha
+        current_args.beta = config.beta
+        current_args.gamma = config.gamma
+        current_args.eta = config.eta
+        current_args.k = config.k
+        run_processor(current_args)
+        print()
+        print()
 
 
 def batch_run(args):
@@ -51,18 +67,15 @@ def batch_run(args):
         # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
         Config(epsilon=1, delta=0.5, alpha=0.033, beta=0.033, gamma=0.034, eta=0.9),
     ]
+    k_configurations = [
+        # Varying k (probably need to add it above XD)
+        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25, k=5),
+        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25, k=250),
+        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25, k=500),
+    ]
 
-    for config in configurations:
-        current_args = deepcopy(args)
-        current_args.epsilon = config.epsilon
-        current_args.delta = config.delta
-        current_args.alpha = config.alpha
-        current_args.beta = config.beta
-        current_args.gamma = config.gamma
-        current_args.eta = config.eta
-        run_processor(current_args)
-        print()
-        print()
+    # run_configurations(args, configurations)
+    run_configurations(args, k_configurations)
 
 
 def main(args):
