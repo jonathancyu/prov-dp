@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .perturb import run_processor, parse_args
 from guppy import hpy
+import cowsay
 
 
 @dataclass
@@ -84,6 +85,7 @@ def batch_run(args):
 def main(args):
     performers = ["fived", "trace", "theia"]
     for performer in performers:
+        cowsay.cow(f"Running {performer}!")
         args.input_dir = Path(f"/mnt/f/data/by_performer/{performer}/benign")
         args.output_dir = Path(f"/mnt/f/data/by_performer_output/{performer}/perturbed")
         batch_run(args)
