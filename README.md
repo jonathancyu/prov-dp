@@ -19,7 +19,7 @@ python -m src.cli.preprocess \
 ```
 
 ## Perturb graphs
-To run the graph perturbation pipeline, run the following. More information on the arguments can be found in the 
+To run the graph perturbation pipeline, run the following. More information on the arguments can be found in the
 `parse_args` function in `source/cli/utility`
 ```shell
 python -m src.cli.perturb \
@@ -31,6 +31,12 @@ python -m src.cli.perturb \
   --beta 0.1 \
   --gamma 0.1
   ```
+To reproduce configurations written in the paper, use `src.cli.batch_perturb`:
+```shell
+python -m src.cli.batch_perturb \
+  -i ../data/benign_graphs/tc3-theia/firefox/nd \
+  -o output/tc3-theia/perturbed/benign -N 2 -s
+```
 
 ## Calculate tree statistics
 This script calculates various statistics for trees inside the specified directory.
