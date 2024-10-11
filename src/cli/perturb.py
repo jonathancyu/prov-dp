@@ -127,6 +127,12 @@ def parse_args():
         default=0.25,
         help="Weight of node degree on pruning probability",
     )
+    arg_parser.add_argument(
+        "--k",
+        type=float,
+        default=0.25,
+        help="Max # of pruning per tree",
+    )
 
 
     # Algorithm configuration

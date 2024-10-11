@@ -49,6 +49,7 @@ class GraphProcessor:
     __beta: float
     __gamma: float
     __eta: float
+    __k: int
 
     # List to aggregate training data (path: str, subtree: Tree) tuples
     __pruned_subtrees: list[Marker]
@@ -62,7 +63,7 @@ class GraphProcessor:
     # Checkpoint flags
     __load_perturbed_graphs: bool
 
-    # Stats
+    # Stats (each stat contains a list of samples)
     stats: dict[str, list[float]]
 
     def __init__(
