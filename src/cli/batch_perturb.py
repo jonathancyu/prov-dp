@@ -1,4 +1,7 @@
 from dataclasses import dataclass
+from dataclasses import asdict
+from argparse import Namespace
+from pathlib import Path
 
 from .perturb import run_processor, parse_args
 from guppy import hpy
@@ -14,9 +17,12 @@ class Config:
     eta: float
     k: int = 250
 
+    def apply(self, args: Namespace) -> Namespace:
+        args_dict = vars(args)
+        args_dict.update(asdict(self))
+        return Namespace(**args_dict)
 
-from dataclasses import asdict
-from argparse import Namespace
+
 
 
 def batch_run(args):
@@ -67,16 +73,20 @@ def batch_run(args):
     h = hpy()
     for config in configurations:
         print("#" * 100)
-        args_dict = vars(args)
-        args_dict.update(asdict(config))
-        current_args = Namespace(**args_dict)
+        current_args = config.apply(args)
         run_processor(current_args)
         print(h.heap())
         print("\n")
+        break
+
 
 
 def main(args):
-    batch_run(args)
+    performers = ["fived", "trace", "theia"]
+    for performer in performers:
+        args.input_dir = Path(f"/mnt/f/data/by_performer/{performer}/benign")
+        args.output_dir = Path(f"/mnt/f/data/by_performer_output/{performer}/perturbed")
+        batch_run(args)
 
 
 if __name__ == "__main__":
