@@ -1,94 +1,77 @@
-from dataclasses import dataclass
-from dataclasses import asdict
 from argparse import Namespace
+import json
 from pathlib import Path
+from typing import Callable, List, Sequence
 
-from .perturb import run_processor, parse_args
+from src.algorithm.extended_top_m_filter import ExtendedTopMFilter
+from src.algorithm.wrappers.graph import Graph
+from src.cli.configs import Config
+
+from .perturb import parse_args
 from guppy import hpy
 import cowsay
 
 
-@dataclass
-class Config:
-    epsilon: float
-    delta: float
-    alpha: float
-    beta: float
-    gamma: float
-    eta: float
-    k: int = 250
-
-    def apply(self, args: Namespace) -> Namespace:
-        args_dict = vars(args)
-        args_dict.update(asdict(self))
-        return Namespace(**args_dict)
-
-
-
-
-def batch_run(args):
-
-    configurations = [
-        # All values fixed (Table 4)
-        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
-        #
-        # Varying privacy budget (Table 4)
-        Config(epsilon=0.1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
-        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
-        Config(epsilon=10, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
-        #
-        # Varying hyperparameters (Table 6)
-        # Varying delta
-        Config(epsilon=1, delta=0.1, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
-        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Config(epsilon=1, delta=0.9, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25),
-        #
-        # Varying alpha
-        Config(epsilon=1, delta=0.5, alpha=0.1, beta=0.3, gamma=0.3, eta=0.3),
-        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Config(epsilon=1, delta=0.5, alpha=0.9, beta=0.033, gamma=0.033, eta=0.034),
-        #
-        # Varying beta
-        Config(epsilon=1, delta=0.5, alpha=0.3, beta=0.1, gamma=0.3, eta=0.3),
-        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Config(epsilon=1, delta=0.5, alpha=0.033, beta=0.9, gamma=0.033, eta=0.034),
-        #
-        # Varying gamma
-        Config(epsilon=1, delta=0.5, alpha=0.3, beta=0.3, gamma=0.1, eta=0.3),
-        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Config(epsilon=1, delta=0.5, alpha=0.033, beta=0.033, gamma=0.9, eta=0.034),
-        #
-        # Varying Eta
-        Config(epsilon=1, delta=0.5, alpha=0.3, beta=0.3, gamma=0.3, eta=0.1),
-        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Config(epsilon=1, delta=0.5, alpha=0.033, beta=0.033, gamma=0.034, eta=0.9),
-    ]
-    k_configurations = [
-        # Varying k (probably need to add it above XD)
-        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25, k=5),
-        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25, k=250),
-        Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25, k=500),
-    ]
-
+def batch_run(
+    fn: Callable[[Namespace], None],
+    base_args: Namespace,
+    configurations: Sequence[Config],
+):
     # Update the arguments for each configuration and run
     h = hpy()
     for config in configurations:
         print("#" * 100)
-        current_args = config.apply(args)
-        run_processor(current_args)
+        current_args = config.merge(base_args)
+        print(current_args)
+        fn(current_args)
         print(h.heap())
-        print("\n")
         break
+        # Clean up for the next run
+        gc.collect()
 
 
+def run_etmf(
+    input_dir: Path,
+    output_dir: Path,
+    epsilon: float,
+    delta: float,
+    single_threaded: bool = False,
+) -> None:
+    benign_graph_paths: list[Path] = list(input_dir.rglob("nd*json"))
+    processor = ExtendedTopMFilter(
+        epsilon=epsilon, delta=delta, single_threaded=single_threaded
+    )
+    for input_path in benign_graph_paths:
+        graph = Graph.load_file(input_path)
+        processor.filter_graph(graph)
+        with open(output_dir / input_path.stem) as f:
+            f.write(json.dumps(graph.to_json()))
 
-def main(args):
+
+def main(base_args):
     performers = ["fived", "trace", "theia"]
     for performer in performers:
         cowsay.cow(f"Running {performer}!")
-        args.input_dir = Path(f"/mnt/f/data/by_performer/{performer}/benign")
-        args.output_dir = Path(f"/mnt/f/data/by_performer_output/{performer}/perturbed")
-        batch_run(args)
+        input_dir = Path(f"/mnt/f/data/by_performer/{performer}/benign")
+        output_dir = Path(f"/mnt/f/data/by_performer_output/{performer}/perturbed")
+
+        base_args.input_dir = input_dir
+        base_args.output_dir = output_dir
+        # Run tree processor
+        # batch_run(
+        #     fn=run_processor, base_args=base_args, configurations=TREE_CONFIGURATIONS
+        # )
+
+    # Run ETMF
+    for performer in performers:
+        for epsilon in [0.1, 1, 10]:
+            cowsay.cow(f"ETmF {performer} epsilon={epsilon}!")
+            input_dir = Path(f"/mnt/f/data/by_performer/{performer}/benign")
+            output_dir = Path(f"/mnt/f/data/by_performer_output/{performer}/perturbed")
+
+            run_etmf(
+                input_dir=input_dir, output_dir=output_dir, epsilon=epsilon, delta=0.5
+            )
 
 
 if __name__ == "__main__":
