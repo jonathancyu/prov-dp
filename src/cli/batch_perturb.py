@@ -1,13 +1,14 @@
 from argparse import Namespace
+import gc
 import json
 from pathlib import Path
-from typing import Callable, List, Sequence
+from typing import Callable, Sequence
 
 from src.algorithm.extended_top_m_filter import ExtendedTopMFilter
 from src.algorithm.wrappers.graph import Graph
-from src.cli.configs import Config
 
-from .perturb import parse_args
+from .configs import TREE_CONFIGURATIONS, Config
+from .perturb import parse_args, run_processor
 from guppy import hpy
 import cowsay
 
@@ -25,7 +26,7 @@ def batch_run(
         print(current_args)
         fn(current_args)
         print(h.heap())
-        break
+
         # Clean up for the next run
         gc.collect()
 
@@ -35,9 +36,10 @@ def run_etmf(
     output_dir: Path,
     epsilon: float,
     delta: float,
+    num_graphs: int,
     single_threaded: bool = False,
 ) -> None:
-    benign_graph_paths: list[Path] = list(input_dir.rglob("nd*json"))
+    benign_graph_paths: list[Path] = list(input_dir.rglob("nd*json"))[:num_graphs]
     processor = ExtendedTopMFilter(
         epsilon=epsilon, delta=delta, single_threaded=single_threaded
     )
@@ -58,19 +60,23 @@ def main(base_args):
         base_args.input_dir = input_dir
         base_args.output_dir = output_dir
         # Run tree processor
-        # batch_run(
-        #     fn=run_processor, base_args=base_args, configurations=TREE_CONFIGURATIONS
-        # )
+        batch_run(
+            fn=run_processor, base_args=base_args, configurations=TREE_CONFIGURATIONS
+        )
 
     # Run ETMF
-    for performer in performers:
+    for performer in []:  # performers:
         for epsilon in [0.1, 1, 10]:
             cowsay.cow(f"ETmF {performer} epsilon={epsilon}!")
             input_dir = Path(f"/mnt/f/data/by_performer/{performer}/benign")
             output_dir = Path(f"/mnt/f/data/by_performer_output/{performer}/perturbed")
 
             run_etmf(
-                input_dir=input_dir, output_dir=output_dir, epsilon=epsilon, delta=0.5
+                input_dir=input_dir,
+                output_dir=output_dir,
+                epsilon=epsilon,
+                delta=0.5,
+                num_graphs=base_args.num_graphs,
             )
 
 
