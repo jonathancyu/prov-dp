@@ -4,6 +4,7 @@ import pickle
 import random
 from collections import deque
 from pathlib import Path
+from re import sub
 from typing import Any, Callable, Generator, Iterable
 
 import numpy as np
@@ -74,6 +75,7 @@ class GraphProcessor:
         beta: float = 0,
         gamma: float = 0,
         eta: float = 0,
+        k = 1,
         output_dir: Path = Path("."),
         single_threaded: bool = False,
         load_perturbed_graphs: bool = False,
@@ -94,6 +96,7 @@ class GraphProcessor:
         self.__beta = beta
         self.__gamma = gamma
         self.__eta = eta
+        self.__k = k
 
         # List to aggregate training data
         self.__pruned_subtrees = []
@@ -221,15 +224,15 @@ class GraphProcessor:
 
         return pruned_trees
 
-    def prune(self, tree: Tree) -> Tree:
-        # Returns tuple (pruned tree, list of training data)
+    def prune(self, tree: Tree, k: int) -> Tree:
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
         root_node_id = tree.get_root_id()
         tree.init_node_stats(root_node_id, 0)
         queue: deque[tuple[int, list[int]]] = deque([(root_node_id, [])])
         visited_node_ids: set[int] = set()
-        while len(queue) > 0:
+        subtrees_pruned = 0
+        while len(queue) > 0 and subtrees_pruned < self.k:
             # Standard BFS operations
             src_node_id, path = queue.popleft()
 
