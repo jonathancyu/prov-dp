@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from copy import deepcopy
 
 from .perturb import run_processor, parse_args
+from guppy import hpy
 
 
 @dataclass
@@ -15,19 +15,8 @@ class Config:
     k: int = 250
 
 
-def run_configurations(args, configurations):
-    for config in configurations:
-        current_args = deepcopy(args)
-        current_args.epsilon = config.epsilon
-        current_args.delta = config.delta
-        current_args.alpha = config.alpha
-        current_args.beta = config.beta
-        current_args.gamma = config.gamma
-        current_args.eta = config.eta
-        current_args.k = config.k
-        run_processor(current_args)
-        print()
-        print()
+from dataclasses import asdict
+from argparse import Namespace
 
 
 def batch_run(args):
@@ -74,8 +63,16 @@ def batch_run(args):
         Config(epsilon=1, delta=0.5, alpha=0.25, beta=0.25, gamma=0.25, eta=0.25, k=500),
     ]
 
-    # run_configurations(args, configurations)
-    run_configurations(args, k_configurations)
+    # Update the arguments for each configuration and run
+    h = hpy()
+    for config in configurations:
+        print("#" * 100)
+        args_dict = vars(args)
+        args_dict.update(asdict(config))
+        current_args = Namespace(**args_dict)
+        run_processor(current_args)
+        print(h.heap())
+        print("\n")
 
 
 def main(args):
