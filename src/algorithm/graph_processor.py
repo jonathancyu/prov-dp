@@ -224,7 +224,7 @@ class GraphProcessor:
 
         return pruned_trees
 
-    def prune(self, tree: Tree, k: int) -> Tree:
+    def prune(self, tree: Tree) -> Tree:
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
         root_node_id = tree.get_root_id()
@@ -232,7 +232,7 @@ class GraphProcessor:
         queue: deque[tuple[int, list[int]]] = deque([(root_node_id, [])])
         visited_node_ids: set[int] = set()
         subtrees_pruned = 0
-        while len(queue) > 0 and subtrees_pruned < self.k:
+        while len(queue) > 0 and subtrees_pruned < self.__k:
             # Standard BFS operations
             src_node_id, path = queue.popleft()
 
