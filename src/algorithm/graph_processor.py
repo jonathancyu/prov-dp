@@ -4,14 +4,12 @@ import pickle
 import random
 from collections import deque
 from pathlib import Path
-from re import sub
 from typing import Any, Callable, Generator, Iterable
 
 import numpy as np
 from tqdm import tqdm
 
 from src.algorithm.wrappers.graph import Graph
-from src.graphson import RawGraph
 from src.algorithm.wrappers.tree import Marker, TreeStats
 
 from .utility import print_stats, logistic_function, smart_map, RANDOM_SEED
@@ -75,7 +73,7 @@ class GraphProcessor:
         beta: float = 0,
         gamma: float = 0,
         eta: float = 0,
-        k = 1,
+        k: int = 1,
         output_dir: Path = Path("."),
         single_threaded: bool = False,
         load_perturbed_graphs: bool = False,
@@ -244,16 +242,18 @@ class GraphProcessor:
             #         can we use this along with the size to get a better result?
             # calculate the probability of pruning a given tree
             node_stats = tree.get_node_stats(src_node_id)
-            subtree_size, height, depth = (
+            subtree_size, height, depth, degree = (
                 node_stats.size,
                 node_stats.height,
                 node_stats.depth,
+                node_stats.degree,
             )
             # assert depth == len(path)
             distance = (
                 (self.__alpha * subtree_size)
                 + (self.__beta * height)
                 + (self.__gamma * depth)
+                + (self.__eta * degree)
             )
             p = logistic_function(
                 self.__epsilon_1 * distance
@@ -309,7 +309,7 @@ class GraphProcessor:
         pruned_graphs = self.load_and_prune_graphs(paths)
         # Read graphs and run pruning step
 
-        gc.collect() # Pray memory usage goes down
+        gc.collect()  # Pray memory usage goes down
         # Run grafting
         self.__re_add_with_bucket(pruned_graphs)
 

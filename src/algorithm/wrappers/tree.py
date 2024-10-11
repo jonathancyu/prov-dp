@@ -62,7 +62,7 @@ class Tree(Graph):
     _node_stats: dict[int, NodeStats]
 
     def __init__(
-        self, input_graph: Graph | None = None, output_dir: Path | None = None
+        self, input_graph: Graph | None = None
     ):
         if input_graph is None:
             graph = Graph()
