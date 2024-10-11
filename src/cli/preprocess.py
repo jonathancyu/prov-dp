@@ -5,7 +5,6 @@ import random
 from tqdm import tqdm
 
 from src.algorithm import GraphProcessor
-from .utility import save_dot
 
 
 def main(args):
@@ -32,7 +31,7 @@ def main(args):
         output_path.parent.mkdir(exist_ok=True, parents=True)
         with open(output_path, "w") as f:
             f.write(tree.to_json())
-        save_dot(tree.to_dot(), output_path)
+        tree.write_dot(output_path)
 
 
 if __name__ == "__main__":

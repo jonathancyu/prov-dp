@@ -2,12 +2,12 @@ import argparse
 import gc
 import inspect
 import json
+from pathlib import Path
 import random
 
 from tqdm import tqdm
 
 from src import GraphProcessor, Tree
-from src.cli.utility import save_dot
 
 
 def run_processor(args):
@@ -33,13 +33,13 @@ def run_processor(args):
 
     # Run graph processor
     graph_processor = GraphProcessor(**to_processor_args(args))
-    perturbed_graphs: list[Tree] = graph_processor.perturb_trees(input_paths)
+    perturbed_graphs: list[Tree] = graph_processor.perturb_graphs(input_paths)
 
     # Save dot files
     for graph in tqdm(perturbed_graphs, desc="Saving graphs"):
         base_file_name = f"nd_{graph.graph_id}_processletevent"
         file_path = args.output_dir / base_file_name / f"{base_file_name}.json"
-        save_dot(graph.to_dot(), file_path)
+        graph.write_dot(file_path)
 
         with open(file_path, "w") as f:
             f.write(graph.to_json())

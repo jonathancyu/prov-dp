@@ -2,19 +2,25 @@ import json
 import shutil
 from pathlib import Path
 from src.algorithm.graph_processor import GraphProcessor
-from src.cli.add_csv import add_csv_to_json
-from src.cli.utility import save_dot
+from src.algorithm.wrappers.graph import Graph
 
 
 class TestRunConfigurations:
     def test_convert_tree_and_back(self):
         data_path = (
-            Path.home() / "workspace" / "SyssecLab" / "differential-privacy" / "data"
+            Path.home()
+            / "workspace"
+            / "SyssecLab"
+            / "differential-privacy"
+            / "data"
+            / "attack_graphs"
+            / "tc3-fiveD"
+            / "3.10"
+            / "nd-180537796-processletevent"
         )
-        graph_pattern = "nd*json"
-        benign_graphs: list[Path] = list(
-            (data_path / "benign_graphs").rglob(graph_pattern)
-        )
+        graph_pattern = "*json"
+        benign_graphs: list[Path] = list((data_path).rglob(graph_pattern))
+        assert len(benign_graphs) > 0, data_path
         graph_path = benign_graphs[0]
         print("PATH: " + str(graph_path))
         output_path = Path("./output") / graph_path.stem
@@ -27,20 +33,21 @@ class TestRunConfigurations:
         # Tree
         with open(output_path / "2_original_tree.json", "w") as f:
             f.write(tree.to_json())
-        save_dot(tree.to_dot(), output_path / "2_original_tree.dot")
+        tree.write_dot(output_path / "2_original_tree.dot")
 
         # Perturbed
         processor = GraphProcessor()
         perturbed_graphs = processor.perturb_graphs([graph_path])
         with open(output_path / "3_modified_tree.json", "w") as f:
             f.write(perturbed_graphs[0].to_json())
-        save_dot(perturbed_graphs[0].to_dot(), output_path / "3_modified_tree.dot")
+        perturbed_graphs[0].write_dot(output_path / "3_modified_tree.dot")
 
         # Graph
         graph: Graph = perturbed_graphs[0].revert_to_graph()
         with open(output_path / "4_reverted_graph.json", "w") as f:
             f.write(graph.to_json())
-        save_dot(graph.to_dot(), output_path / "4_reverted_graph.dot")
+        graph.write_dot(output_path / "4_reverted_graph.dot")
+
     def test_tc3_theia(self):
         data_path = (
             Path.home() / "workspace" / "SyssecLab" / "differential-privacy" / "data"
@@ -65,7 +72,7 @@ class TestRunConfigurations:
             tree.assert_valid_tree()
             base_file_name = f"nd_{tree.graph_id}_processletevent"
             file_path = output_path / base_file_name / f"{base_file_name}.json"
-            save_dot(tree.to_dot(), file_path)
+            tree.write_dot(file_path)
             file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w") as f:
                 f.write(tree.to_json())

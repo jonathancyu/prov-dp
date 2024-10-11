@@ -225,6 +225,14 @@ class Graph:
 
         return dot_graph
 
+    def write_dot(self, file_path: Path, to_pdf = False) -> None:
+        file_path = file_path.with_suffix(".dot")
+        file_path.parent.mkdir(exist_ok=True, parents=True)
+        dot_graph = self.to_dot()
+        dot_graph.save(file_path)
+        if to_pdf:
+            dot_graph.render(file_path, format="pdf")
+
     def to_nx(self) -> nx.DiGraph:
         digraph: nx.DiGraph = nx.DiGraph()
         # NetworkX node IDs must index at 0
