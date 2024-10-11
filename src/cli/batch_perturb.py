@@ -1,8 +1,5 @@
 from dataclasses import dataclass
 from copy import deepcopy
-from math import gamma
-
-from numpy.random import beta
 
 from .perturb import run_processor, parse_args
 

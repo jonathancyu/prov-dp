@@ -304,14 +304,11 @@ class GraphProcessor:
 
     def perturb_graphs(self, paths: list[Path]) -> list[Tree]:
         pruned_graphs = self.load_and_prune_graphs(paths)
+        # Read graphs and run pruning step
 
-        gc.collect()
-
-        model_type = "bucket"  # TODO: self.__reattach_mode
-        if model_type == "bucket":
-            self.__re_add_with_bucket(pruned_graphs)
-        else:
-            raise ValueError(f"Unexpected model type {model_type}")
+        gc.collect() # Pray memory usage goes down
+        # Run grafting
+        self.__re_add_with_bucket(pruned_graphs)
 
         for tree in pruned_graphs:
             tree.assert_valid_tree()
