@@ -11,7 +11,7 @@ RANDOM_SEED = 2024
 def smart_map(
     func: Callable[[Any], Any],
     items: Iterable[Any],
-    single_threaded: bool,
+    single_threaded: bool = False,
     desc: str = "",
     max_workers: int | None = None,
 ):
