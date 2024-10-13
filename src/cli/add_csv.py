@@ -19,6 +19,8 @@ import warnings
 from base64 import b64encode
 from pathlib import Path, PureWindowsPath
 
+from tqdm import tqdm
+
 import numpy as np
 import pandas as pd
 import torch
@@ -212,7 +214,7 @@ def parseNodesFromJSON(jsonObject):
     for node_list in nodes.values():
         count += len(node_list)
 
-    print(f"Parsed {count} nodes from input json")
+    # print(f"Parsed {count} nodes from input json")
 
     return nodes
 
@@ -229,7 +231,7 @@ def toNodeCSV(node_map, outputDir):
             mapped_node_list.append(mapped_node)
             mapped_node_list_extra_attributes.append(extra_attributes)
 
-        print(f"Mapped {len(mapped_node_list)} {node_type} nodes to csv format")
+        # print(f"Mapped {len(mapped_node_list)} {node_type} nodes to csv format")
 
         csv_format = (
             INT_FIELDS_COMMON_VER
@@ -243,17 +245,17 @@ def toNodeCSV(node_map, outputDir):
         output_csv_file_path = os.path.join(outputDir, node_type + ".csv")
         df.to_csv(output_csv_file_path)
 
-        print(f"Saved {df.shape[0]} nodes to {output_csv_file_path}")
-
+        # print(f"Saved {df.shape[0]} nodes to {output_csv_file_path}")
+        #
         # save into pickle
         output_pickle_file_path = os.path.join(outputDir, node_type + ".pickle")
 
         with open(output_pickle_file_path, "wb") as f:
             pickle.dump(mapped_node_list_extra_attributes, f)
 
-        print(
-            f"Saved {len(mapped_node_list_extra_attributes)} nodes to {output_pickle_file_path}"
-        )
+        # print(
+        #     f"Saved {len(mapped_node_list_extra_attributes)} nodes to {output_pickle_file_path}"
+        # )
 
 
 string_embedding_cache = {}
@@ -345,7 +347,8 @@ def mapSingleNodeToCSVFormat(node):
             ).decode()  # decode() used to transfrom from
             # byte string output to string
         except KeyError as e:
-            print(e)
+            pass
+            # print(e)
 
     return return_node, return_node_extra_string_attributes
 
@@ -405,9 +408,9 @@ def toEdgeCSV(jsonObject, node_map, output_dir):
         mapped_edge_list = [mapSingleEdgeToCSVFormat(edge) for edge in edge_list]
         edge_type = edge_list[0]["_label"]
 
-        print(
-            f"Mapped {len(mapped_edge_list)} edges with relation {edge_relation} to csv format"
-        )
+        # print(
+        #     f"Mapped {len(mapped_edge_list)} edges with relation {edge_relation} to csv format"
+        # )
 
         csv_format = (
             ["u", "v"] + INT_FIELDS_COMMON_EDGE + INT_FIELDS_EDGE_SPECIFIC[edge_type]
@@ -419,9 +422,9 @@ def toEdgeCSV(jsonObject, node_map, output_dir):
 
         df.to_csv(output_file_path)
 
-        print(
-            f"Saved {df.shape[0]} edges with relation {edge_relation} to {output_file_path}"
-        )
+        # print(
+        #     f"Saved {df.shape[0]} edges with relation {edge_relation} to {output_file_path}"
+        # )
 
 
 def mapSingleEdgeToCSVFormat(edge):
@@ -482,5 +485,5 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
-    for json_path in list(args.input_dir.rglob("nd*.json")):
+    for json_path in tqdm(list(args.input_dir.rglob("nd*.json"))):
         add_csv_to_json(json_path)
