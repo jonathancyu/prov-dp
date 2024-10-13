@@ -19,10 +19,11 @@ import warnings
 from base64 import b64encode
 from pathlib import Path, PureWindowsPath
 
-from tqdm import tqdm
+from tqdm.gui import tqdm
 
 import numpy as np
 import pandas as pd
+from src.algorithm.utility import smart_map
 import torch
 from transformers import AutoModel, AutoTokenizer
 
@@ -163,6 +164,7 @@ NUMERICAL_MAPPING = {
         "READ",
         "WRITE",
         "PROC_END",
+        "VIRUTAL"
     ],
     "CHANNEL_STATE": ["SOCK_ESTABLISHED"],
     "CHANNEL_TYPE": ["INET_CHANNEL", "6"],
@@ -246,7 +248,7 @@ def toNodeCSV(node_map, outputDir):
         df.to_csv(output_csv_file_path)
 
         # print(f"Saved {df.shape[0]} nodes to {output_csv_file_path}")
-        #
+
         # save into pickle
         output_pickle_file_path = os.path.join(outputDir, node_type + ".pickle")
 
@@ -347,8 +349,7 @@ def mapSingleNodeToCSVFormat(node):
             ).decode()  # decode() used to transfrom from
             # byte string output to string
         except KeyError as e:
-            pass
-            # print(e)
+            print(e)
 
     return return_node, return_node_extra_string_attributes
 
@@ -484,6 +485,6 @@ if __name__ == "__main__":
     )
 
     args = arg_parser.parse_args()
-
-    for json_path in tqdm(list(args.input_dir.rglob("nd*.json"))):
-        add_csv_to_json(json_path)
+    paths = args.input_dir.rglob("nd*.json")
+    for path in tqdm(paths):
+        add_csv_to_json(path)
