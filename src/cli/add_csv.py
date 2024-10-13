@@ -1,9 +1,9 @@
 import argparse
+from collections import deque
 import io
 import json
 import logging
 import os
-import pickle
 
 # Converts .json graph file into a set of .csv files
 # data/
@@ -250,10 +250,10 @@ def toNodeCSV(node_map, outputDir):
         # print(f"Saved {df.shape[0]} nodes to {output_csv_file_path}")
 
         # save into pickle
-        output_pickle_file_path = os.path.join(outputDir, node_type + ".pickle")
+        # output_pickle_file_path = os.path.join(outputDir, node_type + ".pickle")
 
-        with open(output_pickle_file_path, "wb") as f:
-            pickle.dump(mapped_node_list_extra_attributes, f)
+        # with open(output_pickle_file_path, "wb") as f:
+        #     pickle.dump(mapped_node_list_extra_attributes, f)
 
         # print(
         #     f"Saved {len(mapped_node_list_extra_attributes)} nodes to {output_pickle_file_path}"
@@ -486,5 +486,5 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
     paths = args.input_dir.rglob("nd*.json")
-    for path in tqdm(paths):
-        add_csv_to_json(path)
+    generator = smart_map(add_csv_to_json, paths)
+    deque(generator, maxlen=0) # Consume generator
