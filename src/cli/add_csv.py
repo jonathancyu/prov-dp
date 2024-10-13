@@ -485,6 +485,6 @@ if __name__ == "__main__":
     )
 
     args = arg_parser.parse_args()
-    paths = args.input_dir.rglob("nd*.json")
-    generator = smart_map(add_csv_to_json, paths)
+    paths = list(args.input_dir.rglob("nd*.json"))
+    generator = smart_map(add_csv_to_json, paths, single_threaded=True)
     deque(generator, maxlen=0) # Consume generator
