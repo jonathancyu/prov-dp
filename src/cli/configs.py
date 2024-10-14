@@ -20,6 +20,27 @@ class TreeProcessorConfig(Config):
     eta: float
     k: int = 250
 
+    __hyperparameters = ["alpha", "beta", "gamma", "eta"]
+
+    def __init__(self, epsilon: float, delta: float, **kwargs):
+        self.epsilon = epsilon
+        self.delta = delta
+        hyperparameters = set(self.__hyperparameters)
+        remaining = 1
+        for param, value in kwargs.items():
+            if param not in hyperparameters:
+                raise ValueError("Unexpected kwarg: " + param)
+            if not isinstance(value, float):
+                raise ValueError(f"Value should be float, got {type(value)}")
+
+            hyperparameters.remove(param)
+            setattr(self, param, value)
+            remaining -= value
+            assert remaining >= 0
+        num_leftover = len(hyperparameters)
+        for param in hyperparameters:
+            setattr(self, param, remaining / num_leftover)
+
 
 TREE_CONFIGURATIONS = [
     # All values fixed (Table 4)
