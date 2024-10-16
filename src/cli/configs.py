@@ -2,7 +2,7 @@ from argparse import Namespace
 from dataclasses import asdict, dataclass
 
 
-@dataclass()
+@dataclass
 class Config:
     def merge(self, args: Namespace) -> Namespace:
         args_dict = vars(args)
@@ -10,33 +10,36 @@ class Config:
         return Namespace(**args_dict)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class TreeProcessorConfig(Config):
     epsilon: float
     delta: float
+    k: int
+    # hyperparams
     alpha: float
     beta: float
     gamma: float
     eta: float
-    k: int = 250
 
     __hyperparameters = ["alpha", "beta", "gamma", "eta"]
 
-    def __init__(self, epsilon: float, delta: float, **kwargs):
+    def __init__(self, epsilon: float, delta: float, k: int = 250, **kwargs):
         self.epsilon = epsilon
         self.delta = delta
+        self.k = k
+
         hyperparameters = set(self.__hyperparameters)
         remaining = 1
         for param, value in kwargs.items():
             if param not in hyperparameters:
-                raise ValueError("Unexpected kwarg: " + param)
+                raise ValueError(f"Unexpected kwarg: {param}")
             if not isinstance(value, float):
                 raise ValueError(f"Value should be float, got {type(value)}")
 
             hyperparameters.remove(param)
             setattr(self, param, value)
             remaining -= value
-            assert remaining >= 0
+            assert remaining >= -1e-9, f"Expected hyperparams to sum to 1, got {kwargs}"
         num_leftover = len(hyperparameters)
         for param in hyperparameters:
             setattr(self, param, remaining / num_leftover)
