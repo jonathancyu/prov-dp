@@ -307,13 +307,14 @@ class GraphProcessor:
         return tree
 
     def perturb_graphs(self, paths: list[Path]) -> list[Tree]:
-        pruned_graphs = self.load_and_prune_graphs(paths)
+        pruned_graphs: list[Tree] = self.load_and_prune_graphs(paths)
         # Read graphs and run pruning step
 
         gc.collect()  # Pray memory usage goes down
         # Run grafting
         self.__re_add_with_bucket(pruned_graphs)
 
+        # TODO: parallelize
         for tree in pruned_graphs:
             tree.assert_valid_tree()
 
@@ -328,6 +329,11 @@ class GraphProcessor:
         self.__print_stats()
         print("Data2 stats:")
         self.print_tree_stats(pruned_graphs)
+
+        # Revert trees to graphs
+        for tree in pruned_graphs:
+            tree.revert_to_graph()
+
         return pruned_graphs
 
     def __re_add_with_bucket(self, pruned_trees: list[Tree]):
