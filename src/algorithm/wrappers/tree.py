@@ -1,18 +1,18 @@
-import json
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-import graphviz as gv
 import networkx as nx
 
+from src.algorithm.edge_metadata import OPTYPE_LOOKUP
+from src.algorithm.extended_top_m_filter import EdgeType
 from src.algorithm.utility import get_cycle
 from src.algorithm.wrappers.graph import Graph
 
 from .edge import Edge
 from .node import Node
-from ...graphson import RawEdge, RawNode, RawGraph, NodeType
+from ...graphson import RawEdge, RawNode, NodeType
 
 
 @dataclass
@@ -27,9 +27,10 @@ class Marker:
 
 @dataclass
 class NodeStats:
+    degree: int
+    depth: int
     height: int
     size: int
-    depth: int
 
 
 @dataclass
@@ -61,7 +62,7 @@ class Tree(Graph):
     _node_stats: dict[int, NodeStats]
 
     def __init__(
-        self, input_graph: Graph | None = None, output_dir: Path | None = None
+        self, input_graph: Graph | None = None
     ):
         if input_graph is None:
             graph = Graph()
@@ -130,7 +131,9 @@ class Tree(Graph):
         # initialize tree stat lookup
         edges = self.get_outgoing_edge_ids(root_node_id)
         if len(edges) == 0:
-            self._node_stats[root_node_id] = NodeStats(height=0, size=1, depth=depth)
+            self._node_stats[root_node_id] = NodeStats(
+                height=0, size=1, depth=depth, degree=0
+            )
             return
 
         size = 1
@@ -145,10 +148,10 @@ class Tree(Graph):
         height = 1 + max(heights_of_subtrees)
 
         self._node_stats[root_node_id] = NodeStats(
-            height=height, size=size, depth=depth
+            height=height, size=size, depth=depth, degree=len(edges)
         )
 
-    def get_node_stats(self, node_id: int):
+    def get_node_stats(self, node_id: int) -> NodeStats:
         return self._node_stats[node_id]
 
     # Step 1. Original graph
@@ -231,7 +234,7 @@ class Tree(Graph):
     def __add_virtual_root(self) -> None:
         agent_id = self.get_nodes()[0].node.model_extra[
             "AGENT_ID"
-        ]  # AgentID is always the same for DARPA
+        ]  # AgentID is always the same for a given graph in DARPA
         # Create root node
         raw_root_node = RawNode(
             _id=self.get_next_node_id(),
@@ -345,9 +348,6 @@ class Tree(Graph):
 
     # Sanity check for the tree: Verify it is a valid tree
     def assert_valid_tree(self):
-        # A valid tree must have at least one node
-        assert self._nodes is not None and len(self._nodes) > 0
-
         # Find the root: a node with no incoming edges
         root_candidates = [
             node_id
@@ -482,6 +482,10 @@ class Tree(Graph):
             R -f-> T
         e is replaced with f, X with T, and A is ignored. Result:
             A -f-> T
+
+        NOTE: If R is a virtual node, then we update edge -f->
+        features arbitrarily to make it a legal edge
+
         @param node_id_to_replace: node to replace with subtree
         @param graph: subtree to replace with
         """
@@ -513,7 +517,7 @@ class Tree(Graph):
         assert (
             len(orphan_nodes) == 1
         ), f"Expected 1 orphan node, got {len(orphan_nodes)}/{len(graph.get_nodes())}"
-        R = orphan_nodes[0]
+        R: Node = orphan_nodes[0]
 
         # Update edge IDs in the subtree to avoid collision in the current graph, and bring up to date with node IDs
         for old_edge in graph.get_edges():
@@ -567,7 +571,28 @@ class Tree(Graph):
         self.add_edge(edge_f)  # Add f back into the graph
         assert edge_f.get_id() in self.get_outgoing_edge_ids(edge_e.get_src_id())
 
+        # If R was a virtual node and A isn't, -f-> is an invalid edge. Update features to be legal
+        A: Node = self.get_node(A_id)
+        if R.get_type() == NodeType.VIRTUAL and A.get_type() != NodeType.VIRTUAL:
+            self.__update_edge_attributes(edge_f)
+
         self.assert_valid_tree()
+
+    def __update_edge_attributes(self, edge: Edge) -> None:
+        src = self.get_node(edge.get_src_id())
+        src_type = src.get_type()
+        assert (
+            src_type == NodeType.PROCESS_LET
+        ), f"Trees should only be reattached to processlet nodes, found {src_type}"
+        dst = self.get_node(edge.get_dst_id())
+        dst_type = dst.get_type()
+        edge_type = EdgeType(src_type=NodeType.PROCESS_LET, dst_type=dst_type)
+        assert dst_type in [
+            NodeType.PROCESS_LET,
+            NodeType.FILE,
+            NodeType.IP_CHANNEL,
+        ], f"Unexpected dst node type: {dst_type}"
+        edge.edge.optype = OPTYPE_LOOKUP[edge_type]
 
     def size(self) -> int:
         return len(self._nodes)
@@ -576,9 +601,6 @@ class Tree(Graph):
         if stat not in self.stats:
             self.stats[stat] = []
         self.stats[stat].append(value)
-
-    def get_tree_height(self, root_node_id) -> int:
-        return self.__node_stats[root_node_id].height
 
     def get_stats(self) -> "TreeStats":
         self._node_stats = {}  # HACK:  this is not good

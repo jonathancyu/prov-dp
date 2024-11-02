@@ -1,5 +1,4 @@
 import argparse
-import json
 from pathlib import Path
 
 import seaborn as sns
@@ -22,7 +21,7 @@ def graph(data: list, bins: int, stat: str, output_dir: Path):
 
 def calculate_stats(input_path: Path) -> TreeStats:
     tree = Tree.load_file(input_path)
-    stats = tree.get_stats()
+    stats = tree.get_stats() # BUG: broken, but also we don't use this script ...
     del tree
     return stats
 

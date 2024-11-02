@@ -141,6 +141,19 @@ class Graph:
         # TODO: should edge type matter?
         return dst_id in self.get_outgoing_edge_ids(src_id)
 
+    def clear(self) -> None:
+        root_id = self.get_root_id()  # Need to call before removing edges
+
+        for edge in self.get_edges():
+            self.remove_edge(edge)
+        assert len(self._edges) == 0
+
+        for node in self.get_nodes():
+            if node.get_id() == root_id:
+                continue
+            self.remove_node(node)
+        assert len(self._nodes) <= 1
+
     def remove_disconnected_components(self) -> None:
         """
         Traverse graph starting from root.
@@ -211,6 +224,14 @@ class Graph:
                 add_to_graph(node)
 
         return dot_graph
+
+    def write_dot(self, file_path: Path, to_pdf = False) -> None:
+        file_path = file_path.with_suffix(".dot")
+        file_path.parent.mkdir(exist_ok=True, parents=True)
+        dot_graph = self.to_dot()
+        dot_graph.save(file_path)
+        if to_pdf:
+            dot_graph.render(file_path, format="pdf")
 
     def to_nx(self) -> nx.DiGraph:
         digraph: nx.DiGraph = nx.DiGraph()

@@ -1,13 +1,13 @@
+import argparse
 import gc
 import inspect
 import json
-import pickle
+from pathlib import Path
 import random
 
 from tqdm import tqdm
 
 from src import GraphProcessor, Tree
-from src.cli.utility import parse_args, save_dot
 
 
 def run_processor(args):
@@ -20,11 +20,13 @@ def run_processor(args):
         )
     args.output_dir = args.output_dir.with_stem(
         f"{args.output_dir.stem}"
-        f"_e={args.epsilon}"
-        f"_d={args.delta}"
-        f"__a={args.alpha}"
-        f"_b={args.beta}"
-        f"_c={args.gamma}"
+        f"_epsilon={args.epsilon}"
+        f"_delta={args.delta}"
+        f"__alpha={args.alpha}"
+        f"_beta={args.beta}"
+        f"_gamma={args.gamma}"
+        f"_eta={args.eta}"
+        f"_k={args.k}"
     )
     print(
         f"Started run with input {args.input_dir}, and parameters {args.output_dir.name}"
@@ -38,7 +40,7 @@ def run_processor(args):
     for graph in tqdm(perturbed_graphs, desc="Saving graphs"):
         base_file_name = f"nd_{graph.graph_id}_processletevent"
         file_path = args.output_dir / base_file_name / f"{base_file_name}.json"
-        save_dot(graph.to_dot(), file_path)
+        graph.write_dot(file_path)
 
         with open(file_path, "w") as f:
             f.write(graph.to_json())
@@ -64,6 +66,93 @@ def to_processor_args(args):
         processor_args[arg] = value
 
     return processor_args
+
+def parse_args():
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument(
+        "-i", "--input_dir", type=Path, help="Path to input graph directory"
+    )
+
+    # GraphProcessor arguments
+    arg_parser.add_argument(
+        "-N",
+        "--num_graphs",
+        type=int,
+        default=None,
+        help="Limit the number of graphs to process",
+    )
+    arg_parser.add_argument(
+        "-o", "--output_dir", type=Path, help="Path to output graph directory"
+    )
+
+    # Differential privacy parameters
+    arg_parser.add_argument(
+        "-e",
+        "--epsilon",
+        type=float,
+        default=1,
+        help="Differential privacy budget for pruning",
+    )
+    arg_parser.add_argument(
+        "-d",
+        "--delta",
+        type=float,
+        default=0.5,
+        help="Allocation of privacy budget between algorithm 1 and 2",
+    )
+
+    arg_parser.add_argument(
+        "-a",
+        "--alpha",
+        type=float,
+        default=0.25,
+        help="Weight of subtree size on pruning probability",
+    )
+    arg_parser.add_argument(
+        "-b",
+        "--beta",
+        type=float,
+        default=0.25,
+        help="Weight of subtree height on pruning probability",
+    )
+    arg_parser.add_argument(
+        "-c",
+        "--gamma",
+        type=float,
+        default=0.25,
+        help="Weight of subtree depth on pruning probability",
+    )
+    arg_parser.add_argument(
+        "--eta",
+        type=float,
+        default=0.25,
+        help="Weight of node degree on pruning probability",
+    )
+    arg_parser.add_argument(
+        "--k",
+        type=float,
+        default=0.25,
+        help="Max # of pruning per tree",
+    )
+
+
+    # Algorithm configuration
+    arg_parser.add_argument(
+        "-s",
+        "--single_threaded",
+        action="store_true",
+        help="Disable multiprocessing (for debugging)",
+    )
+
+    # Checkpoint flags
+    arg_parser.add_argument(
+        "-p",
+        "--load_perturbed_graphs",
+        action="store_true",
+        help="Load perturbed graphs from output directory",
+    )
+    return arg_parser.parse_args()
+
 
 
 if __name__ == "__main__":

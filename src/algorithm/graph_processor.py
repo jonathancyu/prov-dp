@@ -10,7 +10,6 @@ import numpy as np
 from tqdm import tqdm
 
 from src.algorithm.wrappers.graph import Graph
-from src.graphson import RawGraph
 from src.algorithm.wrappers.tree import Marker, TreeStats
 
 from .utility import print_stats, logistic_function, smart_map, RANDOM_SEED
@@ -49,6 +48,8 @@ class GraphProcessor:
     __alpha: float
     __beta: float
     __gamma: float
+    __eta: float
+    __k: int
 
     # List to aggregate training data (path: str, subtree: Tree) tuples
     __pruned_subtrees: list[Marker]
@@ -62,7 +63,7 @@ class GraphProcessor:
     # Checkpoint flags
     __load_perturbed_graphs: bool
 
-    # Stats
+    # Stats (each stat contains a list of samples)
     stats: dict[str, list[float]]
 
     def __init__(
@@ -72,10 +73,14 @@ class GraphProcessor:
         alpha: float = 0.5,
         beta: float = 0,
         gamma: float = 0,
+        eta: float = 0,
+        k: int = 1,
         output_dir: Path = Path("."),
         single_threaded: bool = False,
         load_perturbed_graphs: bool = False,
     ):
+        total = alpha + beta + gamma + eta
+        assert abs(total - 1) < 0.000001, f"Hyperparameters must sum to 1, got {total}"
         # Seed
         random.seed(RANDOM_SEED)
         np.random.seed(RANDOM_SEED)
@@ -89,6 +94,8 @@ class GraphProcessor:
         self.__alpha = alpha
         self.__beta = beta
         self.__gamma = gamma
+        self.__eta = eta
+        self.__k = k
 
         # List to aggregate training data
         self.__pruned_subtrees = []
@@ -217,14 +224,14 @@ class GraphProcessor:
         return pruned_trees
 
     def prune(self, tree: Tree) -> Tree:
-        # Returns tuple (pruned tree, list of training data)
         # Breadth first search through the graph, keeping track of the path to the current node
         # (node_id, list[edge_id_path]) tuples
         root_node_id = tree.get_root_id()
         tree.init_node_stats(root_node_id, 0)
         queue: deque[tuple[int, list[int]]] = deque([(root_node_id, [])])
         visited_node_ids: set[int] = set()
-        while len(queue) > 0:
+        subtrees_pruned = 0
+        while len(queue) > 0 and subtrees_pruned < self.__k:
             # Standard BFS operations
             src_node_id, path = queue.popleft()
 
@@ -236,25 +243,32 @@ class GraphProcessor:
             #         can we use this along with the size to get a better result?
             # calculate the probability of pruning a given tree
             node_stats = tree.get_node_stats(src_node_id)
-            subtree_size, height, depth = (
+            subtree_size, height, depth, degree = (
                 node_stats.size,
                 node_stats.height,
                 node_stats.depth,
+                node_stats.degree,
             )
             # assert depth == len(path)
             distance = (
                 (self.__alpha * subtree_size)
                 + (self.__beta * height)
                 + (self.__gamma * depth)
+                + (self.__eta * degree)
             )
             p = logistic_function(
                 self.__epsilon_1 * distance
             )  # big distance -> lower probability of pruning
             prune_edge: bool = np.random.choice([True, False], p=[p, 1 - p])
             # if we prune, don't add children to queue
-            if (
-                prune_edge and len(path) > 1
-            ):  # don't prune virtual root by restricting depth to > 1
+            if prune_edge:
+                if len(path) == 0:
+                    # TODO: Are we adding to bucket here? if so, what?
+                    # If this is the root, remove the entire tree from the dataset.
+                    # TODO: add pruned flag so we can fully remove the tree
+                    tree.clear()
+                    return tree
+
                 # remove the tree rooted at this edge's dst_id from the graph
                 pruned_tree = tree.prune_tree(src_node_id)
                 # Keep track of the node and its path, so we can attach to it later
@@ -294,14 +308,11 @@ class GraphProcessor:
 
     def perturb_graphs(self, paths: list[Path]) -> list[Tree]:
         pruned_graphs = self.load_and_prune_graphs(paths)
+        # Read graphs and run pruning step
 
-        gc.collect()
-
-        model_type = "bucket"  # TODO: self.__reattach_mode
-        if model_type == "bucket":
-            self.__re_add_with_bucket(pruned_graphs)
-        else:
-            raise ValueError(f"Unexpected model type {model_type}")
+        gc.collect()  # Pray memory usage goes down
+        # Run grafting
+        self.__re_add_with_bucket(pruned_graphs)
 
         for tree in pruned_graphs:
             tree.assert_valid_tree()

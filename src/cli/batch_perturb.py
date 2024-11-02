@@ -1,60 +1,83 @@
-from dataclasses import dataclass
-from copy import deepcopy
+from argparse import Namespace
+import gc
+import json
+from pathlib import Path
+from typing import Callable, Sequence
 
-from .perturb import run_processor, parse_args
+from src.algorithm.extended_top_m_filter import ExtendedTopMFilter
+from src.algorithm.wrappers.graph import Graph
+
+from .configs import TREE_CONFIGURATIONS, Config
+from .perturb import parse_args, run_processor
+from guppy import hpy
+import cowsay
 
 
-@dataclass
-class Configuration:
-    epsilon: float
-    delta: float
-    alpha: float
-    beta: float
-    gamma: float
-
-
-def batch_run(args):
-
-    configurations = [
-        # All values fixed (Table 4)
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        # Varying privacy budget (Table 4)
-        Configuration(epsilon=0.1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=10, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        # Varying hyperparameters (Table 6)
-        # Varying delta
-        Configuration(epsilon=1, delta=0.1, alpha=0.5, beta=0.5, gamma=0.5),
-        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=1, delta=0.9, alpha=0.5, beta=0.5, gamma=0.5),
-        # Varying alpha
-        Configuration(epsilon=1, delta=0.5, alpha=0.1, beta=0.5, gamma=0.5),
-        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=1, delta=0.5, alpha=0.9, beta=0.5, gamma=0.5),
-        # Varying beta
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.1, gamma=0.5),
-        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.9, gamma=0.5),
-        # Varying gamma
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.1),
-        # Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.5),
-        Configuration(epsilon=1, delta=0.5, alpha=0.5, beta=0.5, gamma=0.9),
-    ]
-
+def batch_run(
+    fn: Callable[[Namespace], None],
+    base_args: Namespace,
+    configurations: Sequence[Config],
+):
+    # Update the arguments for each configuration and run
+    h = hpy()
     for config in configurations:
-        current_args = deepcopy(args)
-        current_args.epsilon = config.epsilon
-        current_args.delta = config.delta
-        current_args.alpha = config.alpha
-        current_args.beta = config.beta
-        current_args.gamma = config.gamma
-        run_processor(current_args)
-        print()
-        print()
+        print("#" * 100)
+        current_args = config.merge(base_args)
+        print(current_args)
+        fn(current_args)
+        print(h.heap())
+
+        # Clean up for the next run
+        gc.collect()
 
 
-def main(args):
-    batch_run(args)
+def run_etmf(
+    input_dir: Path,
+    output_dir: Path,
+    epsilon: float,
+    delta: float,
+    num_graphs: int,
+    single_threaded: bool = False,
+) -> None:
+    benign_graph_paths: list[Path] = list(input_dir.rglob("nd*json"))[:num_graphs]
+    processor = ExtendedTopMFilter(
+        epsilon=epsilon, delta=delta, single_threaded=single_threaded
+    )
+    for input_path in benign_graph_paths:
+        graph = Graph.load_file(input_path)
+        processor.filter_graph(graph)
+        with open(output_dir / input_path.stem) as f:
+            f.write(json.dumps(graph.to_json()))
+
+
+def main(base_args):
+    performers = ["fived", "trace", "theia"]
+    for performer in performers:
+        cowsay.cow(f"Running {performer}!")
+        input_dir = Path(f"/mnt/f/data/by_performer/{performer}/benign")
+        output_dir = Path(f"/mnt/f/data/by_performer_output/{performer}/perturbed")
+
+        base_args.input_dir = input_dir
+        base_args.output_dir = output_dir
+        # Run tree processor
+        batch_run(
+            fn=run_processor, base_args=base_args, configurations=TREE_CONFIGURATIONS
+        )
+
+    # Run ETMF
+    for performer in []:  # performers:
+        for epsilon in [0.1, 1, 10]:
+            cowsay.cow(f"ETmF {performer} epsilon={epsilon}!")
+            input_dir = Path(f"/mnt/f/data/by_performer/{performer}/benign")
+            output_dir = Path(f"/mnt/f/data/by_performer_output/{performer}/perturbed")
+
+            run_etmf(
+                input_dir=input_dir,
+                output_dir=output_dir,
+                epsilon=epsilon,
+                delta=0.5,
+                num_graphs=base_args.num_graphs,
+            )
 
 
 if __name__ == "__main__":
